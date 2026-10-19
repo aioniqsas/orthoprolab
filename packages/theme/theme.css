@@ -1,0 +1,14 @@
+/* Shared design tokens (Tailwind v4). Fonts must be loaded per app with next/font,
+   exposing the --font-outfit and --font-poppins variables. */
+@theme {
+  --color-surface: #171717;
+  --color-surface-alt: #b6bebf;
+  --color-body: #f5f5f5;
+  --color-title: #56898f;
+  --color-highlight: #48fbc1;
+}
+
+@theme inline {
+  --font-heading: var(--font-outfit);
+  --font-sans: var(--font-poppins);
+}
