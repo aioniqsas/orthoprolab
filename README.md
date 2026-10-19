@@ -10,6 +10,7 @@ Turborepo with Bun workspaces. Requires Node >= 24 and Bun 1.4.2.
 |---|---|
 | `apps/web` | Public marketing site (Next.js, Tailwind v4, shadcn/ui). Pages: landing, nosotros, catálogo (one route per service), pagos. |
 | `apps/admin` | Admin app (Next.js, Tailwind v4). Starter only for now. |
+| `apps/api` | NestJS backend API (port 3003). |
 | `apps/clientes` | Client portal (Next.js, Tailwind v4). Starter only for now. |
 | `packages/theme` | `@repo/theme`: shared Tailwind v4 tokens and the shadcn semantic variables (`theme.css`). |
 | `packages/ui` | `@repo/ui`: shadcn/ui components shared across apps (`@repo/ui/components/*`, `@repo/ui/lib/utils`). |
@@ -22,6 +23,8 @@ bun install
 bun run dev                      # every app
 bunx turbo run dev --filter=web  # only the website
 ```
+
+Default ports: `web` 3000, `clientes` 3001, `admin` 3002, `api` 3003 (`PORT` overrides the API port).
 
 Other commands, all from the repo root:
 
