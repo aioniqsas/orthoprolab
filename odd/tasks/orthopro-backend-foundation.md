@@ -7,7 +7,7 @@ Lay the backend foundation in `apps/api` (NestJS 12, ESM, Bun workspace): Postgr
 
 ## Constraints / decisions
 - Podman 6.1.4 rootless; `podman compose` delegates to docker-compose provider. A `compose.yaml` at the repo root, usable with `podman compose`.
-- Other local containers already use 5432 (chatgraph-db), 5433 (objetivolegal), 3000 (chatgraph-listener): this stack uses host ports **5434** (Postgres) and **6380** (Redis), env-overridable. Bind to 127.0.0.1 only.
+- Host ports: Postgres **5432** (user decision; nothing listens on 5432/5433 now, the older chatgraph/objetivolegal containers that map them are stopped, so they must not be started together with this stack) and Redis **6380**, both env-overridable. Bind to 127.0.0.1 only. Note: `objetivolegalapp-db-test-1` (stopped) maps 5434.
 - Images: `postgres:17-alpine`, `redis:7-alpine`, named volumes, healthchecks.
 - Ports of the apps: web 3000, clientes 3001, admin 3002, api 3003.
 - ESM: relative imports in `apps/api` need the `.js` extension. Tests: Vitest (not Jest). Lint: oxlint.
@@ -18,8 +18,8 @@ Lay the backend foundation in `apps/api` (NestJS 12, ESM, Bun workspace): Postgr
 - Remote operations: none beyond pulling public container images and npm packages.
 
 ## Tasks
-- [ ] B1 Infra: root `compose.yaml` (postgres + redis, healthchecks, volumes, env-driven host ports), root scripts `infra:up|down|logs`, `apps/api/.env.example` + local `.env`
-- [ ] B2 Config + TypeORM: `@nestjs/config` with validated env, `TypeOrmModule.forRootAsync`, `data-source.ts`, migration scripts, `/health` (terminus: database)
+- [x] B1 Infra: root `compose.yaml` (postgres + redis, healthchecks, volumes, env-driven host ports 5432/6380), root scripts `infra:up|down|logs`, `apps/api/.env.example` + local `.env`
+- [x] B2 Config + TypeORM: `@nestjs/config` with validated env, `TypeOrmModule.forRootAsync`, `data-source.ts`, migration scripts, `/health` (terminus: database)
 - [ ] B3 BullMQ: `BullModule.forRootAsync` from config, a generic `QueuesModule` with one `system` queue + processor proving the wiring, Redis check in `/health`
 - [ ] B4 Docs + verification: README/CLAUDE.md updates, build/lint/check-types/test, end-to-end proof against the live containers
 
@@ -32,5 +32,8 @@ Unit tests with Vitest where deterministic (env validation, module wiring with m
 ## Progress / evidence
 (none yet)
 
+B1+B2 (delegated writer W1, route: delegated): `compose.yaml` (postgres:17-alpine on 127.0.0.1:5432, redis:7-alpine with AOF on 127.0.0.1:6380, healthchecks, named volumes, `orthopro-*` containers), root scripts `infra:up|down|logs|ps`, `.env.example` (root) + `apps/api/.env.example`; `@nestjs/config` with `validateEnv` (RED observed: "Cannot find module './env.validation.js'", then GREEN 5/5), `DatabaseModule` (TypeORM forRootAsync, synchronize false, autoLoadEntities), `data-source.ts` + `migration:*` scripts (`bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:<x>`), `/health` (terminus database check, extension point for Redis), `enableShutdownHooks`, `turbo.json` `test` task. Rootless podman needs `systemctl --user start podman.socket` once.
+Observed by writer against live containers: pg_isready OK, redis PONG, `migration:run` "No migrations are pending", `/health` status ok with database up, `/` Hello World. Parent re-run: `turbo run build lint check-types test --filter=api` 4/4 successful (lint 1 warning, 0 errors; 7/7 tests). Not tested: TypeORM retry with the DB down. Parent cleaned a leftover `turbo run dev` (pids 806066 tree) from an earlier port test; ports 3000-3003/5432/6380 free. `.env` files are ignored (verified).
+
 ## Next step
-B1
+B3
