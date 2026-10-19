@@ -28,6 +28,7 @@ Sections: Landing (Inicio), Sobre nosotros (Misión, Visión), Catálogo (one su
 - [x] R2 Landing redesign: full-width hero image with vertical gray→black mask (hero stats removed; CAD card with fake figures removed), hero stack ≤4 text elements, no neon glows, no "FASE 0X" labels, varied layout families, quotes ≤3 lines, copy self-audit, `Reveal` motion primitive (`motion/react`, reduced-motion aware)
 - [x] R3 Redesign Nosotros, Catálogo (index + subroutes), Pagos, header/footer with the same rules and the Stitch images
 - [x] R4 SEO + local presence (after R2/R3, to avoid editing the same files concurrently): "laboratorio odontológico en Medellín" in `<title>`, meta description, the landing `<h1>` and naturally in a few landing sections; per-page metadata (title templates, descriptions, canonical, Open Graph/Twitter), `lang=es-CO`, `sitemap.ts`, `robots.ts`, JSON-LD (`DentalLaboratory`/`LocalBusiness` + `Organization`, `BreadcrumbList` on catalog subroutes), semantic headings, alt text; Google Maps embed section on the landing with the lab location (address provided by the user: "Cl. 53 #43 - 43, oficina 204, Medellín, Antioquia, Colombia"; embed via `https://www.google.com/maps?q=<encoded address>&output=embed` since no API key exists; coordinates/phone/hours still unknown, omit them from JSON-LD rather than invent)
+- [ ] C1 Copywriting pass over ALL pages (Landing, Nosotros, Catálogo + subroutes, Pagos, header/footer, metadata) using the `copywriting` skill from coreyhaines31/marketingskills (user request): diagnosis A (generic Stitch/agent copy), only supportable claims (no invented specs, materials, turnaround times, numbers, testimonials, perks), no AI tells, keep SEO keyword "laboratorio odontológico en Medellín" in title/description/h1, keep routes/nav labels; unsupported claims go to `odd/copy-needs.md` with the evidence that would unlock them (never as visible `[NEED]` on the site)
 - [x] T7 Final verification: lint, check-types for web, build, admin/clientes builds, `@repo/ui` lint fix (pre-existing `@babel/preset-typescript` failure), skill Pre-Flight check
 
 ## Route declaration
@@ -53,4 +54,4 @@ T7 (parent, observed): `turbo run build lint check-types` → 11/11 successful (
 Still unverified (needs a browser/real deploy): hero contrast and 375px layout, map rendering, nav one-line, reduced-motion. Known gaps: unknown catalog slug returns HTTP 200 with 404 fallback + noindex; placeholders to replace (bank accounts, real catalog PDF, testimonials, perks, service descriptions); `lab-cleanroom.jpg` has a cut-off sign artifact; phone/hours/coordinates unknown.
 
 ## Next step
-User review in browser; replace placeholders; deploy (Vercel) and set NEXT_PUBLIC_SITE_URL.
+C1
