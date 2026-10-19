@@ -20,9 +20,9 @@ export const LAB_FULL_ADDRESS = `${LAB_STREET}, ${LAB_LOCALITY}, ${LAB_REGION}, 
 // Planned production domain (not purchased or deployed yet); override per environment with NEXT_PUBLIC_SITE_URL.
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://orthoprolab.com";
 
-export const SITE_TITLE = "Laboratorio odontológico en Medellín";
+export const SITE_TITLE = "Laboratorio dental en Medellín";
 export const SITE_DESCRIPTION =
-  "Laboratorio odontológico en Medellín: ortodoncia fija y removible, alineadores y retenedores para tu consultorio.";
+  "Laboratorio dental en Medellín: ortodoncia fija y removible, alineadores y retenedores para tu consultorio.";
 
 export const OG_IMAGE = {
   url: "/images/hero.jpg",
