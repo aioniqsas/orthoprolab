@@ -139,7 +139,7 @@ export default function Home() {
           <div className="flex max-w-4xl flex-col gap-7">
             <Reveal>
               <h1 className="text-5xl font-bold leading-[1.05] tracking-tighter text-body md:text-6xl lg:text-7xl">
-                Laboratorio odontológico en <span className="text-highlight">Medellín</span>
+                Laboratorio dental en <span className="text-highlight">Medellín</span>
               </h1>
             </Reveal>
             <Reveal delay={0.1}>
@@ -250,7 +250,7 @@ export default function Home() {
             <div className={cn("relative aspect-[4/3] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
                 src="/images/tecnico-laboratorio-dental-ajustando-protesis.webp"
-                alt="Técnico del laboratorio odontológico de Medellín ajustando una prótesis dental en el articulador"
+                alt="Técnico del laboratorio dental de Medellín ajustando una prótesis dental en el articulador"
                 fill
                 sizes="(min-width: 1024px) 50vw, 100vw"
                 className="object-cover"

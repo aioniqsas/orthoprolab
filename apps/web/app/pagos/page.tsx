@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { FileCheckIcon, LandmarkIcon, SendIcon, ShieldAlertIcon, WalletIcon, type LucideIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
+import { AccountQr } from "@/components/account-qr";
 import { CopyButton } from "@/components/copy-button";
 import { Reveal } from "@/components/reveal";
 import { BANK_ACCOUNTS } from "@/lib/payments";
@@ -53,34 +55,54 @@ export default function PaymentsPage() {
                   <article
                     className={cn("bg-card p-6 ring-1 ring-border lg:p-8", RADIUS, TINTED_SHADOW)}
                   >
-                    <div className="flex items-center gap-3">
-                      <LandmarkIcon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
-                      <div>
-                        <h2 className="font-heading text-xl font-semibold text-body">{account.bank}</h2>
-                        <p className="text-sm text-muted-foreground">{account.accountType}</p>
-                      </div>
-                    </div>
-                    <dl className="mt-6 space-y-5">
-                      <div>
-                        <dt className="text-sm text-muted-foreground">Número de cuenta</dt>
-                        <dd className="mt-1 flex flex-wrap items-center gap-3">
-                          <span className="font-mono text-2xl tracking-tight text-body">{account.accountNumber}</span>
-                          <CopyButton value={account.accountNumber} label={`número de cuenta ${account.bank}`} />
-                        </dd>
-                      </div>
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <div>
-                          <dt className="text-sm text-muted-foreground">Titular</dt>
-                          <dd className="mt-1 text-body">{account.holder}</dd>
-                        </div>
-                        {account.taxId ? (
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between md:gap-10">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                          <LandmarkIcon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
                           <div>
-                            <dt className="text-sm text-muted-foreground">NIT</dt>
-                            <dd className="mt-1 font-mono text-body">{account.taxId}</dd>
+                            <h2 className="font-heading text-xl font-semibold text-body">{account.bank}</h2>
+                            <p className="text-sm text-muted-foreground">{account.accountType}</p>
                           </div>
-                        ) : null}
+                        </div>
+                        <dl className="mt-6 space-y-5">
+                          <div>
+                            <dt className="text-sm text-muted-foreground">Número de cuenta</dt>
+                            <dd className="mt-1 flex flex-wrap items-center gap-3">
+                              <span className="font-mono text-2xl tracking-tight text-body">{account.accountNumber}</span>
+                              <CopyButton value={account.accountNumber} label={`número de cuenta ${account.bank}`} />
+                              <AccountQr account={account} className="md:hidden" />
+                            </dd>
+                          </div>
+                          <div className={cn("grid gap-5", account.taxId && "sm:grid-cols-2")}>
+                            <div>
+                              <dt className="text-sm text-muted-foreground">Titular</dt>
+                              <dd className="mt-1 text-body">{account.holder}</dd>
+                            </div>
+                            {account.taxId ? (
+                              <div>
+                                <dt className="text-sm text-muted-foreground">NIT</dt>
+                                <dd className="mt-1 font-mono text-body">{account.taxId}</dd>
+                              </div>
+                            ) : null}
+                          </div>
+                        </dl>
                       </div>
-                    </dl>
+                      {/* The card's right half is empty on wide screens; the QR fills it. Only on
+                          phones (below md) does the icon next to the account number open it in a
+                          dialog, because the card there is far too narrow for the code. */}
+                      <figure className="hidden min-w-0 flex-col items-center gap-3 md:flex md:max-w-[220px] lg:max-w-[160px] xl:max-w-[220px]">
+                        <Image
+                          src="/images/qr-cuenta.webp"
+                          alt={`Código QR de la ${account.accountType.toLowerCase()} de ${account.bank} de ${BRAND_NAME}`}
+                          width={220}
+                          height={229}
+                          className="h-auto w-full rounded-lg bg-white"
+                        />
+                        <figcaption className="text-center text-xs text-muted-foreground">
+                          Escanea el QR desde tu app bancaria.
+                        </figcaption>
+                      </figure>
+                    </div>
                   </article>
                 </Reveal>
               </li>
