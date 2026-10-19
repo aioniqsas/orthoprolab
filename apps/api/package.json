@@ -28,6 +28,7 @@
     "migration:revert": "bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:revert",
     "migration:show": "bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:show",
     "keys:generate": "bun scripts/generate-keys.ts",
+    "db:schema": "podman exec orthopro-postgres pg_dump -U orthopro -d orthopro --schema-only --no-owner --no-privileges | rg -v '^\\\\(un)?restrict' > docs/schema.sql.tmp && (printf -- '-- GENERATED FILE. Do not edit by hand.\\n-- Regenerate with: bun run db:schema (needs infra:up and migrations applied).\\n\\n'; cat docs/schema.sql.tmp) > docs/schema.sql; rm -f docs/schema.sql.tmp",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {

@@ -60,6 +60,7 @@ Both `.env` files are git-ignored; keep the same database password in each.
 - Queues use BullMQ with the `orthopro` prefix. The `system` queue and its `ping` processor exist to prove the wiring; add real queues as modules under `src/queues`.
 - `GET /health` returns 503 when the database or Redis is unreachable.
 - Relative imports need the `.js` extension (ESM).
+- Database model: ERD, data dictionary, integrity rules and data-protection notes in [`apps/api/docs/database-model.md`](apps/api/docs/database-model.md); generated DDL in `apps/api/docs/schema.sql` (`bun run db:schema` from `apps/api`, needs `infra:up`).
 
 ## Website (`apps/web`)
 
