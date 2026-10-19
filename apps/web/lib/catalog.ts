@@ -12,7 +12,7 @@ export type CatalogItem = {
 export type ServiceType = {
   slug: string;
   name: string;
-  icon: "wrench" | "smile" | "layers" | "shield" | "gem";
+  icon: "wrench" | "smile" | "layers" | "shield";
   description: string;
   tagline: string;
   items: CatalogItem[];
@@ -70,19 +70,6 @@ export const SERVICES: ServiceType[] = [
       { code: "RF-FIX-03", name: "Retenedor fijo", summary: "Alambre que se adhiere por la cara interna de los dientes.", indication: "Retención permanente de los dientes anteriores." },
     ],
   },
-  {
-    slug: "protesis-cad-cam",
-    name: "Prótesis y CAD/CAM",
-    icon: "gem",
-    description:
-      "Coronas, carillas y prótesis sobre implantes, diseñadas en computador y fabricadas con tecnología CAD/CAM.",
-    tagline: "Coronas, carillas y prótesis sobre implantes",
-    items: [
-      { code: "CAD-ZIR-01", name: "Coronas y puentes", summary: "Restauraciones fijas que reemplazan o cubren uno o varios dientes.", indication: "Dientes dañados o ausentes que necesitan una restauración fija." },
-      { code: "CAD-EMX-02", name: "Carillas e incrustaciones", summary: "Restauraciones delgadas que cubren una cara del diente o rellenan una cavidad.", indication: "Restauraciones estéticas con poco desgaste del diente." },
-      { code: "CAD-IMP-03", name: "Corona sobre implante", summary: "Corona que se fija al implante con un tornillo.", indication: "Reemplazo de un diente con implante." },
-    ],
-  },
 ];
 
 export function getService(slug: string): ServiceType | undefined {
@@ -95,5 +82,4 @@ export const SERVICE_IMAGES: Record<string, string> = {
   "ortodoncia-removible": "/images/placas-removibles-ortodoncia-con-tornillo.webp",
   "alineadores-invisibles": "/images/alineadores-transparentes-sobre-modelos-dentales.webp",
   "retenedores-y-ferulas": "/images/placa-acrilico-removible-sobre-modelo.webp",
-  "protesis-cad-cam": "/images/protesis-total-superior-ortopro-lab-medellin.webp",
 };

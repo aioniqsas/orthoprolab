@@ -1,5 +1,4 @@
 import {
-  GemIcon,
   LayersIcon,
   ShieldCheckIcon,
   SmileIcon,
@@ -13,7 +12,6 @@ const ICONS: Record<ServiceType["icon"], LucideIcon> = {
   smile: SmileIcon,
   layers: LayersIcon,
   shield: ShieldCheckIcon,
-  gem: GemIcon,
 };
 
 export function ServiceIcon({ icon, className }: { icon: ServiceType["icon"]; className?: string }) {

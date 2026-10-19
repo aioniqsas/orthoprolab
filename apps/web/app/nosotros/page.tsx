@@ -15,12 +15,11 @@ import {
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
-import { SERVICE_IMAGES } from "@/lib/catalog";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const ABOUT_TITLE = "Sobre nosotros: laboratorio dental en Medellín";
 const ABOUT_DESCRIPTION =
-  "Conoce la misión y la visión de OrthoPro Lab, laboratorio dental en Medellín para ortodoncia y prótesis CAD/CAM.";
+  "Conoce la misión y la visión de OrthoPro Lab, laboratorio dental en Medellín para ortodoncia.";
 
 export const metadata: Metadata = {
   title: ABOUT_TITLE,
@@ -36,7 +35,7 @@ type Point = { title: string; text: string; icon: LucideIcon };
 
 const MISSION_POINTS: Point[] = [
   { icon: CheckCircle2Icon, title: "Parte del caso", text: "Fabricamos a partir del escaneo o las impresiones que recibimos." },
-  { icon: CheckCircle2Icon, title: "Cinco líneas de trabajo", text: "Ortodoncia fija y removible, alineadores, retenedores y prótesis CAD/CAM." },
+  { icon: CheckCircle2Icon, title: "Cuatro líneas de trabajo", text: "Ortodoncia fija y removible, alineadores y retenedores." },
   { icon: CheckCircle2Icon, title: "Vuelve a tu consultorio", text: "El trabajo terminado regresa al odontólogo que lo pidió." },
 ];
 
@@ -47,7 +46,7 @@ const VISION_POINTS: Point[] = [
 
 const VALUES: Point[] = [
   { icon: RulerIcon, title: "Precisión", text: "Trabajamos para que cada aparato corresponda al caso que nos enviaste." },
-  { icon: ReceiptTextIcon, title: "Claridad", text: "Los precios están en el catálogo y los pagos van a las cuentas oficiales de la página de pagos." },
+  { icon: ReceiptTextIcon, title: "Claridad", text: "Los precios están en el catálogo y los pagos van a la cuenta oficial de la página de pagos." },
   { icon: CalendarCheckIcon, title: "Respeto por la agenda", text: "Detrás de cada caso hay un paciente con una cita." },
   { icon: UsersIcon, title: "Trabajo con profesionales", text: "Nuestros clientes son odontólogos, ortodoncistas y clínicas." },
 ];
@@ -149,7 +148,7 @@ export default function AboutPage() {
           <Reveal className="lg:col-span-5">
             <div className={cn("relative aspect-[4/5] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
-                src={SERVICE_IMAGES["protesis-cad-cam"]!}
+                src="/images/protesis-total-superior-ortopro-lab-medellin.webp"
                 alt="Prótesis dental terminada en el laboratorio de Medellín"
                 fill
                 sizes="(min-width: 1024px) 40vw, 100vw"

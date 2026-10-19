@@ -108,7 +108,7 @@ const BEFORE_FIRST_CASE: { title: string; text: string; icon: LucideIcon }[] = [
   },
   {
     title: "Pago por transferencia",
-    text: "Pagas en las cuentas bancarias oficiales y luego confirmas el pago.",
+    text: "Pagas en la cuenta bancaria oficial y luego confirmas el pago.",
     icon: LandmarkIcon,
   },
 ];
@@ -168,12 +168,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Services: bento, one featured tile plus four, all linking to their route */}
+      {/* Services: bento, one featured tile plus three, all linking to their route */}
       <section id="servicios" className="scroll-mt-16 py-20 lg:py-28">
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Cinco líneas de trabajo para ortodoncia y prótesis
+              Cuatro líneas de trabajo para ortodoncia
             </h2>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
@@ -181,7 +181,7 @@ export default function Home() {
               <Reveal
                 key={s.slug}
                 delay={i * 0.06}
-                className={cn("h-full", i === 0 && "md:col-span-2 lg:row-span-2")}
+                className={cn("h-full", i === 0 && "md:col-span-2 lg:row-span-2", i === 3 && "md:col-span-2")}
               >
                 <Link
                   href={`/catalogo/${s.slug}`}

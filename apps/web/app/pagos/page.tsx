@@ -8,7 +8,7 @@ import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const PAYMENTS_TITLE = "Pagos y cuentas bancarias";
 const PAYMENTS_DESCRIPTION =
-  "Cuentas bancarias oficiales de OrthoPro Lab para pagar por transferencia o consignación y confirmar tu pago.";
+  "Cuenta bancaria oficial de OrthoPro Lab para pagar por transferencia o consignación y confirmar tu pago.";
 
 export const metadata: Metadata = {
   title: PAYMENTS_TITLE,
@@ -20,7 +20,7 @@ const RADIUS = "rounded-xl";
 const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 
 const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
-  { icon: WalletIcon, title: "Deposita el valor", text: "Transfiere o consigna en una de las cuentas de esta página." },
+  { icon: WalletIcon, title: "Deposita el valor", text: "Transfiere o consigna en la cuenta de esta página." },
   { icon: FileCheckIcon, title: "Guarda el comprobante", text: "Un PDF o una captura donde se lean la fecha, el valor y la aprobación." },
   { icon: SendIcon, title: "Confirma el pago", text: "Indica el nombre del odontólogo y el caso al que corresponde el pago." },
 ];
@@ -35,17 +35,17 @@ export default function PaymentsPage() {
               Paga por <span className="text-highlight">transferencia</span>
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">
-              Recibimos pagos solo en las cuentas bancarias de esta página.
+              Recibimos pagos solo en la cuenta bancaria de esta página.
             </p>
             <div className="flex gap-3 border-l-2 border-highlight/60 pl-4">
               <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-highlight" aria-hidden />
               <p className="text-sm text-body/80">
-                <strong className="font-semibold text-body">Aviso de seguridad:</strong> paga únicamente en las cuentas de esta página.
+                <strong className="font-semibold text-body">Aviso de seguridad:</strong> paga únicamente en la cuenta de esta página.
               </p>
             </div>
           </Reveal>
 
-          {/* PLACEHOLDER bank data lives in lib/payments.ts */}
+          {/* Official account lives in lib/payments.ts */}
           <ul className="flex flex-col gap-5 lg:col-span-7">
             {BANK_ACCOUNTS.map((account, i) => (
               <li key={account.id}>
@@ -73,10 +73,12 @@ export default function PaymentsPage() {
                           <dt className="text-sm text-muted-foreground">Titular</dt>
                           <dd className="mt-1 text-body">{account.holder}</dd>
                         </div>
-                        <div>
-                          <dt className="text-sm text-muted-foreground">NIT</dt>
-                          <dd className="mt-1 font-mono text-body">{account.taxId}</dd>
-                        </div>
+                        {account.taxId ? (
+                          <div>
+                            <dt className="text-sm text-muted-foreground">NIT</dt>
+                            <dd className="mt-1 font-mono text-body">{account.taxId}</dd>
+                          </div>
+                        ) : null}
                       </div>
                     </dl>
                   </article>

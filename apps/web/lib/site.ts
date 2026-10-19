@@ -22,7 +22,7 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://orthoprolab
 
 export const SITE_TITLE = "Laboratorio odontológico en Medellín";
 export const SITE_DESCRIPTION =
-  "Laboratorio odontológico en Medellín: ortodoncia fija y removible, alineadores, retenedores y prótesis CAD/CAM para tu consultorio.";
+  "Laboratorio odontológico en Medellín: ortodoncia fija y removible, alineadores y retenedores para tu consultorio.";
 
 export const OG_IMAGE = {
   url: "/images/hero.jpg",

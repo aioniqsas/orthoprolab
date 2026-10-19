@@ -10,7 +10,7 @@ import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const CATALOG_TITLE = "Catálogo de ortodoncia y prótesis dental en Medellín";
 const CATALOG_DESCRIPTION =
-  "Ortodoncia fija y removible, alineadores, retenedores, férulas y prótesis CAD/CAM de OrthoPro Lab. Descarga el catálogo con precios en PDF.";
+  "Ortodoncia fija y removible, alineadores, retenedores y férulas de OrthoPro Lab. Descarga el catálogo con precios en PDF.";
 
 export const metadata: Metadata = {
   title: CATALOG_TITLE,
@@ -21,13 +21,12 @@ export const metadata: Metadata = {
 const RADIUS = "rounded-xl";
 const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 
-// Column spans on a 12-col grid: one wide feature, then two asymmetric pairs.
+// Column spans on a 12-col grid: one wide feature, then three equal tiles.
 const SPANS = [
   "lg:col-span-12",
-  "lg:col-span-7",
-  "lg:col-span-5",
-  "lg:col-span-5",
-  "lg:col-span-7",
+  "lg:col-span-4",
+  "lg:col-span-4",
+  "lg:col-span-4",
 ];
 
 export default function CatalogPage() {
@@ -39,7 +38,7 @@ export default function CatalogPage() {
             Catálogo de <span className="text-highlight">servicios</span>
           </h1>
           <p className="max-w-[60ch] text-lg text-body/80">
-            Cinco líneas de ortodoncia y prótesis dental. Los precios están en el catálogo en PDF.
+            Cuatro líneas de ortodoncia. Los precios están en el catálogo en PDF.
           </p>
           <PriceDownloadButton />
         </Reveal>
@@ -64,7 +63,7 @@ export default function CatalogPage() {
                     src={SERVICE_IMAGES[service.slug]!}
                     alt=""
                     fill
-                    sizes={i === 0 ? "100vw" : "(min-width: 1024px) 58vw, 100vw"}
+                    sizes={i === 0 ? "100vw" : "(min-width: 1024px) 33vw, 100vw"}
                     className="-z-20 object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div
