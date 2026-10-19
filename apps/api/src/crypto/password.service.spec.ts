@@ -25,15 +25,33 @@ describe('PasswordService', () => {
     expect(await svc.verify('x', '$2b$10$short')).toBe(false);
   });
 
-  it('returns false for a password above 72 bytes instead of truncating', async () => {
-    const hash = await svc.hash('a'.repeat(72));
-    expect(await svc.verify('a'.repeat(73), hash)).toBe(false);
+  it('supports passwords up to 200 characters without truncation', async () => {
+    const long = 'a'.repeat(200);
+    const hash = await svc.hash(long);
+    expect(await svc.verify(long, hash)).toBe(true);
   });
 
-  it('rejects hashing passwords longer than 72 bytes', async () => {
-    await expect(svc.hash('a'.repeat(73))).rejects.toThrow(/72 bytes/);
-    // multibyte: 37 x 2 bytes = 74 bytes
-    await expect(svc.hash('é'.repeat(37))).rejects.toThrow(/72 bytes/);
+  it('does not treat passwords that differ only after byte 72 as equal', async () => {
+    const hash = await svc.hash('a'.repeat(72) + 'X');
+    expect(await svc.verify('a'.repeat(72) + 'Y', hash)).toBe(false);
+    expect(await svc.verify('a'.repeat(72), hash)).toBe(false);
+    expect(await svc.verify('a'.repeat(72) + 'X', hash)).toBe(true);
+  });
+
+  it('handles multibyte characters beyond 72 bytes', async () => {
+    const pw = 'é'.repeat(100); // 200 bytes
+    const hash = await svc.hash(pw);
+    expect(await svc.verify(pw, hash)).toBe(true);
+    expect(await svc.verify('é'.repeat(99) + 'e', hash)).toBe(false);
+  });
+
+  it('rejects hashing passwords over 200 characters', async () => {
+    await expect(svc.hash('a'.repeat(201))).rejects.toThrow(/200 characters/);
+  });
+
+  it('returns false when verifying a password over 200 characters', async () => {
+    const hash = await svc.hash('a'.repeat(200));
+    expect(await svc.verify('a'.repeat(201), hash)).toBe(false);
   });
 
   it('rejects an empty password', async () => {

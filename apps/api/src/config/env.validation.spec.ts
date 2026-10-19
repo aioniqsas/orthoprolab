@@ -19,6 +19,99 @@ describe('validateEnv', () => {
       ENCRYPTION_KEY,
       BLIND_INDEX_KEY,
       BCRYPT_COST: 12,
+      NODE_ENV: 'development',
+      CORS_ORIGINS: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+      ],
+      COOKIE_SAMESITE: 'strict',
+      TRUST_PROXY: false,
+      THROTTLE_DEFAULT_LIMIT: 60,
+      THROTTLE_TTL_MS: 60000,
+    });
+  });
+
+  describe('security settings', () => {
+    it('parses a CORS_ORIGINS list, trimming and dropping empties', () => {
+      const env = validateEnv({
+        ...base,
+        CORS_ORIGINS: ' https://app.example.com , http://localhost:3000,,',
+      });
+      expect(env.CORS_ORIGINS).toEqual([
+        'https://app.example.com',
+        'http://localhost:3000',
+      ]);
+    });
+
+    it.each(['*', 'app.example.com', 'https://a.com/path', 'ftp://a.com'])(
+      'rejects invalid CORS origin %s',
+      (bad) => {
+        expect(() => validateEnv({ ...base, CORS_ORIGINS: bad })).toThrow(
+          /CORS_ORIGINS/,
+        );
+      },
+    );
+
+    it('accepts NODE_ENV values and rejects unknown ones', () => {
+      expect(validateEnv({ ...base, NODE_ENV: 'production' }).NODE_ENV).toBe(
+        'production',
+      );
+      expect(() => validateEnv({ ...base, NODE_ENV: 'staging' })).toThrow(
+        /NODE_ENV/,
+      );
+    });
+
+    it('accepts strict|lax for COOKIE_SAMESITE only', () => {
+      expect(
+        validateEnv({ ...base, COOKIE_SAMESITE: 'lax' }).COOKIE_SAMESITE,
+      ).toBe('lax');
+      expect(() => validateEnv({ ...base, COOKIE_SAMESITE: 'none' })).toThrow(
+        /COOKIE_SAMESITE/,
+      );
+    });
+
+    it('parses TRUST_PROXY as boolean or hop count', () => {
+      expect(validateEnv({ ...base, TRUST_PROXY: 'true' }).TRUST_PROXY).toBe(
+        true,
+      );
+      expect(validateEnv({ ...base, TRUST_PROXY: 'false' }).TRUST_PROXY).toBe(
+        false,
+      );
+      expect(validateEnv({ ...base, TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+      expect(() => validateEnv({ ...base, TRUST_PROXY: 'maybe' })).toThrow(
+        /TRUST_PROXY/,
+      );
+      expect(() => validateEnv({ ...base, TRUST_PROXY: '-1' })).toThrow(
+        /TRUST_PROXY/,
+      );
+    });
+
+    it('validates THROTTLE_* as bounded integers', () => {
+      const env = validateEnv({
+        ...base,
+        THROTTLE_DEFAULT_LIMIT: '5',
+        THROTTLE_TTL_MS: '2000',
+      });
+      expect(env.THROTTLE_DEFAULT_LIMIT).toBe(5);
+      expect(env.THROTTLE_TTL_MS).toBe(2000);
+      expect(() =>
+        validateEnv({ ...base, THROTTLE_DEFAULT_LIMIT: '0' }),
+      ).toThrow(/THROTTLE_DEFAULT_LIMIT/);
+      expect(() => validateEnv({ ...base, THROTTLE_TTL_MS: 'x' })).toThrow(
+        /THROTTLE_TTL_MS/,
+      );
+    });
+
+    it('never echoes secret values in errors', () => {
+      expect(() =>
+        validateEnv({ ...base, ENCRYPTION_KEY: 'topsecretvalue' }),
+      ).toThrow(/ENCRYPTION_KEY/);
+      try {
+        validateEnv({ ...base, ENCRYPTION_KEY: 'topsecretvalue' });
+      } catch (e) {
+        expect((e as Error).message).not.toContain('topsecretvalue');
+      }
     });
   });
 
