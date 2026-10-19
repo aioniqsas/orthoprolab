@@ -4,6 +4,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { validateEnv } from './config/env.validation.js';
 import { DatabaseModule } from './database/database.module.js';
+import { QueuesModule } from './queues/queues.module.js';
 import { HealthModule } from './health/health.module.js';
 
 @Module({
@@ -14,6 +15,7 @@ import { HealthModule } from './health/health.module.js';
       envFilePath: '.env',
     }),
     DatabaseModule,
+    QueuesModule,
     HealthModule,
   ],
   controllers: [AppController],

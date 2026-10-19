@@ -30,6 +30,15 @@ describe('validateEnv', () => {
     expect(env.DATABASE_HOST).toBe('db');
   });
 
+  it('keeps an optional REDIS_PASSWORD only when set', () => {
+    expect(validateEnv({ ...base, REDIS_PASSWORD: 'r' }).REDIS_PASSWORD).toBe(
+      'r',
+    );
+    expect(validateEnv({ ...base, REDIS_PASSWORD: '' })).not.toHaveProperty(
+      'REDIS_PASSWORD',
+    );
+  });
+
   it('throws listing a missing DATABASE_PASSWORD', () => {
     expect(() => validateEnv({})).toThrow(/DATABASE_PASSWORD/);
   });
@@ -37,7 +46,9 @@ describe('validateEnv', () => {
   it('throws listing every invalid variable', () => {
     expect(() =>
       validateEnv({ DATABASE_PORT: 'abc', REDIS_PORT: '70000', PORT: '0' }),
-    ).toThrow(/DATABASE_PASSWORD[\s\S]*PORT[\s\S]*DATABASE_PORT[\s\S]*REDIS_PORT/);
+    ).toThrow(
+      /DATABASE_PASSWORD[\s\S]*PORT[\s\S]*DATABASE_PORT[\s\S]*REDIS_PORT/,
+    );
   });
 
   it('treats empty strings as missing', () => {
