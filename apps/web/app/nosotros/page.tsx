@@ -2,15 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
-  AlarmClockCheckIcon,
   ArrowRightIcon,
-  BrainIcon,
+  CalendarCheckIcon,
   CheckCircle2Icon,
   CloudCheckIcon,
-  HandshakeIcon,
-  HeadsetIcon,
-  MicroscopeIcon,
+  ReceiptTextIcon,
   RulerIcon,
+  TrendingUpIcon,
+  UsersIcon,
   type LucideIcon,
 } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
@@ -18,9 +17,9 @@ import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
-const ABOUT_TITLE = "Nosotros: laboratorio dental digital en Medellín";
+const ABOUT_TITLE = "Sobre nosotros: laboratorio dental en Medellín";
 const ABOUT_DESCRIPTION =
-  "Misión, visión y valores de OrthoPro Lab, laboratorio dental digital en Medellín de ortodoncia y prótesis CAD/CAM.";
+  "Conoce la misión y la visión de OrthoPro Lab, laboratorio dental en Medellín para ortodoncia y prótesis CAD/CAM.";
 
 export const metadata: Metadata = {
   title: ABOUT_TITLE,
@@ -35,22 +34,21 @@ const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold whitespace-no
 type Point = { title: string; text: string; icon: LucideIcon };
 
 const MISSION_POINTS: Point[] = [
-  { icon: CheckCircle2Icon, title: "Ajuste preciso", text: "Cada aparato se revisa contra el modelo digital antes de salir del laboratorio." },
-  { icon: CheckCircle2Icon, title: "Materiales de uso odontológico", text: "Resinas, acrílicos y aleaciones pensados para permanecer en boca." },
-  { icon: CheckCircle2Icon, title: "Entregas a tiempo", text: "Planificamos la fabricación según la fecha de cita de tu paciente." },
+  { icon: CheckCircle2Icon, title: "Parte del caso", text: "Fabricamos a partir del escaneo o las impresiones que recibimos." },
+  { icon: CheckCircle2Icon, title: "Cinco líneas de trabajo", text: "Ortodoncia fija y removible, alineadores, retenedores y prótesis CAD/CAM." },
+  { icon: CheckCircle2Icon, title: "Vuelve a tu consultorio", text: "El trabajo terminado regresa al odontólogo que lo pidió." },
 ];
 
 const VISION_POINTS: Point[] = [
-  { icon: CloudCheckIcon, title: "Flujo 100 % digital", text: "Escaneo, diseño y fabricación sin yesos ni alginatos." },
-  { icon: BrainIcon, title: "Mejora continua", text: "Sumamos herramientas de modelado y fabricación a medida que maduran." },
-  { icon: HeadsetIcon, title: "Soporte cercano", text: "Un técnico dental asignado a tu consultorio." },
+  { icon: CloudCheckIcon, title: "Más trabajo digital", text: "Recibir y diseñar los casos en digital cuando el consultorio ya trabaja así." },
+  { icon: TrendingUpIcon, title: "Mejora del servicio", text: "Ajustar nuestro proceso con lo que los clientes nos cuentan." },
 ];
 
 const VALUES: Point[] = [
-  { icon: RulerIcon, title: "Precisión", text: "Un ajuste pasivo protege los tejidos y reduce las citas de corrección." },
-  { icon: MicroscopeIcon, title: "Rigor técnico", text: "Cada caso pasa por revisión de diseño y control de calidad antes de fabricarse." },
-  { icon: AlarmClockCheckIcon, title: "Puntualidad", text: "Respetamos la agenda clínica: la entrega sigue la fecha de tu cita." },
-  { icon: HandshakeIcon, title: "Alianza clínica", text: "Participamos en la planificación contigo, no solo fabricamos." },
+  { icon: RulerIcon, title: "Precisión", text: "Trabajamos para que cada aparato corresponda al caso que nos enviaste." },
+  { icon: ReceiptTextIcon, title: "Claridad", text: "Los precios están en el catálogo y los pagos van a las cuentas oficiales de la página de pagos." },
+  { icon: CalendarCheckIcon, title: "Respeto por la agenda", text: "Detrás de cada caso hay un paciente con una cita." },
+  { icon: UsersIcon, title: "Trabajo con profesionales", text: "Nuestros clientes son odontólogos, ortodoncistas y clínicas." },
 ];
 
 function PointList({ points }: { points: Point[] }) {
@@ -93,12 +91,12 @@ export default function AboutPage() {
           <div className="flex max-w-3xl flex-col gap-6">
             <Reveal>
               <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
-                Un laboratorio digital pensado <span className="text-highlight">para el odontólogo</span>
+                Un laboratorio para <span className="text-highlight">odontólogos y ortodoncistas</span>
               </h1>
             </Reveal>
             <Reveal delay={0.1}>
               <p className="max-w-[60ch] text-lg text-body/80">
-                Unimos diagnóstico digital y fabricación de precisión para que cada aparato llegue listo a tu consultorio.
+                OrthoPro Lab fabrica aparatos de ortodoncia y prótesis dentales en Medellín a partir de los casos de cada consultorio.
               </p>
             </Reveal>
           </div>
@@ -125,7 +123,7 @@ export default function AboutPage() {
                 Nuestra <span className="text-highlight">misión</span>
               </h2>
               <p className="max-w-[60ch] text-body/80">
-                Dar a odontólogos y ortodoncistas aparatología de precisión, combinando tecnología 3D y oficio técnico para lograr resultados predecibles y cómodos para cada paciente.
+                Fabricar aparatos de ortodoncia y prótesis dentales a partir de lo que cada odontólogo planifica para su paciente.
               </p>
             </Reveal>
             <PointList points={MISSION_POINTS} />
@@ -142,7 +140,7 @@ export default function AboutPage() {
                 Nuestra <span className="text-highlight">visión</span>
               </h2>
               <p className="max-w-[60ch] text-body/80">
-                Ser el laboratorio de referencia en odontología digital para ortodoncistas y odontólogos de Colombia, con un flujo sin impresiones analógicas y mejora constante.
+                Ser un laboratorio al que odontólogos y ortodoncistas de Colombia recurran para sus casos de ortodoncia y prótesis.
               </p>
             </Reveal>
             <PointList points={VISION_POINTS} />
@@ -166,7 +164,7 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
             <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Cuatro principios en cada caso
+              Cuatro principios para trabajar contigo
             </h2>
           </Reveal>
           <ul className="grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:col-span-8">
@@ -189,10 +187,10 @@ export default function AboutPage() {
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
           <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-            Conoce lo que fabricamos para tu clínica
+            Revisa lo que fabricamos
           </h2>
           <p className="max-w-[60ch] text-body/80">
-            Revisa cada servicio con sus materiales, requisitos y tiempos.
+            Cada línea de trabajo tiene su página en el catálogo.
           </p>
           <Link href="/catalogo" className={cn(buttonVariants(), CTA_BASE)}>
             Ver catálogo

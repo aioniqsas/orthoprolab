@@ -8,7 +8,7 @@ import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const PAYMENTS_TITLE = "Pagos y cuentas bancarias";
 const PAYMENTS_DESCRIPTION =
-  "Cuentas bancarias oficiales de OrthoPro Lab, laboratorio odontológico en Medellín, para tus pagos por transferencia o consignación.";
+  "Cuentas bancarias oficiales de OrthoPro Lab para pagar por transferencia o consignación y confirmar tu pago.";
 
 export const metadata: Metadata = {
   title: PAYMENTS_TITLE,
@@ -20,9 +20,9 @@ const RADIUS = "rounded-xl";
 const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 
 const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
-  { icon: WalletIcon, title: "Transfiere el valor", text: "Usa el monto indicado en tu cotización u orden de trabajo." },
-  { icon: FileCheckIcon, title: "Guarda el comprobante", text: "Un PDF o una captura nítida donde se lean fecha, aprobación y valor." },
-  { icon: SendIcon, title: "Envíanoslo", text: "Indica el nombre del odontólogo y el código del caso para facturar y despachar." },
+  { icon: WalletIcon, title: "Deposita el valor", text: "Transfiere o consigna en una de las cuentas de esta página." },
+  { icon: FileCheckIcon, title: "Guarda el comprobante", text: "Un PDF o una captura donde se lean la fecha, el valor y la aprobación." },
+  { icon: SendIcon, title: "Confirma el pago", text: "Indica el nombre del odontólogo y el caso al que corresponde el pago." },
 ];
 
 export default function PaymentsPage() {
@@ -35,12 +35,12 @@ export default function PaymentsPage() {
               Paga por <span className="text-highlight">transferencia</span>
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">
-              Recibimos pagos solo en las cuentas corporativas de esta página.
+              Recibimos pagos solo en las cuentas bancarias de esta página.
             </p>
             <div className="flex gap-3 border-l-2 border-highlight/60 pl-4">
               <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-highlight" aria-hidden />
               <p className="text-sm text-body/80">
-                <strong className="font-semibold text-body">Aviso de seguridad:</strong> no pedimos transferencias a cuentas de personas naturales ni a billeteras virtuales.
+                <strong className="font-semibold text-body">Aviso de seguridad:</strong> paga únicamente en las cuentas de esta página.
               </p>
             </div>
           </Reveal>
@@ -91,7 +91,7 @@ export default function PaymentsPage() {
         <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Confirma tu pago en tres pasos
+              Cómo pagar y confirmar en tres pasos
             </h2>
           </Reveal>
           <ol className="grid gap-10 md:grid-cols-3 md:gap-6">

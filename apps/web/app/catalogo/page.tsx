@@ -1,16 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRightIcon, ClockIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { SERVICES, SERVICE_IMAGES } from "@/lib/catalog";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
-const CATALOG_TITLE = "Catálogo de servicios del laboratorio dental";
+const CATALOG_TITLE = "Catálogo de ortodoncia y prótesis dental en Medellín";
 const CATALOG_DESCRIPTION =
-  "Catálogo de OrthoPro Lab en Medellín: ortodoncia fija y removible, alineadores, retenedores, férulas y prótesis CAD/CAM.";
+  "Ortodoncia fija y removible, alineadores, retenedores, férulas y prótesis CAD/CAM de OrthoPro Lab. Descarga el catálogo con precios en PDF.";
 
 export const metadata: Metadata = {
   title: CATALOG_TITLE,
@@ -39,7 +39,7 @@ export default function CatalogPage() {
             Catálogo de <span className="text-highlight">servicios</span>
           </h1>
           <p className="max-w-[60ch] text-lg text-body/80">
-            Aparatología ortodóntica y prótesis de precisión. Los precios están en el catálogo en PDF.
+            Cinco líneas de ortodoncia y prótesis dental. Los precios están en el catálogo en PDF.
           </p>
           <PriceDownloadButton />
         </Reveal>
@@ -77,10 +77,6 @@ export default function CatalogPage() {
                     {service.description}
                   </p>
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                    <span className="inline-flex items-center gap-2 text-xs text-body/75">
-                      <ClockIcon className="size-3.5" aria-hidden />
-                      {service.turnaround}
-                    </span>
                     <span className="inline-flex items-center gap-2 text-sm font-semibold whitespace-nowrap text-highlight">
                       Ver servicio
                       <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />

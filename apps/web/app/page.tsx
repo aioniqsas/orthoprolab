@@ -3,13 +3,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   ArrowRightIcon,
-  CloudIcon,
   CpuIcon,
-  HeadsetIcon,
+  FileDownIcon,
+  LandmarkIcon,
+  PackageCheckIcon,
   PencilRulerIcon,
-  RefreshCwIcon,
   ScanLineIcon,
-  TruckIcon,
   type LucideIcon,
 } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
@@ -83,59 +82,42 @@ const SERVICE_IMAGES: Record<string, string> = {
 
 const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
   {
-    title: "Enviar el escaneo",
-    text: "Recibimos archivos STL o PLY de tu escáner, o retiramos los modelos físicos.",
+    title: "Envías el caso",
+    text: "Recibimos el escaneo digital o las impresiones físicas de tu paciente.",
     icon: ScanLineIcon,
   },
   {
-    title: "Planificar en 3D",
-    text: "Diseñamos el caso en CAD y lo validas en un enlace web antes de fabricar.",
+    title: "Diseñamos",
+    text: "Planificamos el aparato o la prótesis a partir de lo que enviaste.",
     icon: PencilRulerIcon,
   },
   {
-    title: "Fabricar el aparato",
-    text: "Impresión 3D y fresado CNC en un entorno de temperatura controlada.",
+    title: "Fabricamos",
+    text: "Elaboramos el trabajo en el laboratorio, línea por línea.",
     icon: CpuIcon,
   },
   {
-    title: "Entregar en consultorio",
-    text: "Empaque individual con código QR para trazar el lote de materiales.",
-    icon: TruckIcon,
+    title: "Entregamos",
+    text: "El trabajo terminado vuelve a tu consultorio.",
+    icon: PackageCheckIcon,
   },
 ];
 
-const PERKS: { title: string; text: string; icon: LucideIcon }[] = [
+const BEFORE_FIRST_CASE: { title: string; text: string; icon: LucideIcon }[] = [
   {
-    title: "Contacto directo",
-    text: "Chat con el técnico dental a cargo de tu caso.",
-    icon: HeadsetIcon,
+    title: "Escaneo o impresiones",
+    text: "Puedes enviar el caso en digital o en impresiones físicas.",
+    icon: ScanLineIcon,
   },
   {
-    title: "Respaldo en la nube",
-    text: "Tus archivos STL quedan guardados de forma segura.",
-    icon: CloudIcon,
+    title: "Precios en el catálogo",
+    text: "Descarga el catálogo en PDF para ver el precio de cada línea.",
+    icon: FileDownIcon,
   },
   {
-    title: "Reposición",
-    text: "Repetimos el aparato si presenta un desajuste.",
-    icon: RefreshCwIcon,
-  },
-];
-
-// PLACEHOLDER: mock testimonials from the Stitch design. Replace with real
-// quotes (and permission to publish them) before launch.
-const TESTIMONIALS = [
-  {
-    quote:
-      "El ajuste de los disyuntores soldados con láser es impecable. Redujimos las citas de reacomodamiento.",
-    name: "Dr. Roberto Santoro",
-    role: "Especialista en Ortodoncia y Ortopedia Maxilar",
-  },
-  {
-    quote:
-      "Enviar los STL desde nuestro escáner simplificó la logística de alineadores.",
-    name: "Dra. Mariana López",
-    role: "Directora clínica, Dental Design & Aligners",
+    title: "Pago por transferencia",
+    text: "Pagas en las cuentas bancarias oficiales y luego confirmas el pago.",
+    icon: LandmarkIcon,
   },
 ];
 
@@ -170,12 +152,12 @@ export default function Home() {
             </Reveal>
             <Reveal delay={0.1}>
               <p className="max-w-[60ch] text-lg text-body/90 md:text-xl">
-                Aparatología ortodóntica y prótesis de precisión para odontólogos y especialistas, con flujo digital de principio a fin.
+                Fabricamos aparatos de ortodoncia y prótesis a partir del escaneo o las impresiones de tu caso.
               </p>
             </Reveal>
             <Reveal delay={0.2} className="flex flex-wrap items-center gap-4 pt-2">
               <Link href="#servicios" className={cn(buttonVariants(), CTA_BASE)}>
-                Explorar servicios
+                Ver servicios
                 <ArrowRightIcon className="size-4" aria-hidden />
               </Link>
               <Link
@@ -198,7 +180,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Cinco áreas de trabajo en nuestro laboratorio de Medellín
+              Cinco líneas de trabajo para ortodoncia y prótesis
             </h2>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
@@ -250,7 +232,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Del escaneo a tu consultorio en Medellín, en cuatro pasos
+              Del caso que envías al trabajo que recibes
             </h2>
           </Reveal>
           <ol className="grid gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
@@ -267,7 +249,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Perks: split with image */}
+      {/* Before the first case: split with image */}
       <section className="py-20 lg:py-28">
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-6">
@@ -284,11 +266,11 @@ export default function Home() {
           <div className="flex flex-col gap-8 lg:col-span-6">
             <Reveal>
               <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-                Un técnico a cargo de cada caso
+                Antes de enviar tu primer caso
               </h2>
             </Reveal>
             <ul className="divide-y divide-border">
-              {PERKS.map(({ icon: Icon, ...p }, i) => (
+              {BEFORE_FIRST_CASE.map(({ icon: Icon, ...p }, i) => (
                 <li key={p.title}>
                   <Reveal delay={i * 0.08} className="flex items-start gap-4 py-5">
                     <Icon className="mt-0.5 size-6 shrink-0 text-highlight" strokeWidth={1.5} aria-hidden />
@@ -301,30 +283,6 @@ export default function Home() {
               ))}
             </ul>
           </div>
-        </div>
-      </section>
-
-      {/* Testimonials: one dominant quote, one secondary (asymmetric, no card grid) */}
-      <section className="bg-surface-raised/40 py-20 lg:py-28">
-        <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
-          {TESTIMONIALS.map((t, i) => (
-            <Reveal key={t.name} delay={i * 0.1} className={i === 0 ? "lg:col-span-7" : "lg:col-span-5 lg:pt-16"}>
-              <figure className="flex flex-col gap-5">
-                <blockquote
-                  className={cn(
-                    "font-heading tracking-tight text-body",
-                    i === 0 ? "text-2xl leading-snug lg:text-3xl" : "text-lg leading-snug text-body/80 lg:text-xl",
-                  )}
-                >
-                  &ldquo;{t.quote}&rdquo;
-                </blockquote>
-                <figcaption className="text-sm">
-                  <span className="font-semibold text-body">{t.name}</span>
-                  <span className="text-muted-foreground">, {t.role}</span>
-                </figcaption>
-              </figure>
-            </Reveal>
-          ))}
         </div>
       </section>
 
@@ -342,10 +300,10 @@ export default function Home() {
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
           <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-            Revisa servicios, materiales y tiempos
+            Consulta el catálogo completo
           </h2>
           <p className="max-w-[60ch] text-body/80">
-            Consulta el catálogo por área y descarga la lista de precios en PDF.
+            Cada línea de trabajo tiene su página, y el catálogo en PDF trae los precios.
           </p>
           <Link href="/catalogo" className={cn(buttonVariants(), CTA_BASE)}>
             Ver catálogo

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, ArrowRightIcon, ClockIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
@@ -37,9 +37,8 @@ export default async function ServicePage({ params }: Props) {
   if (!service) notFound();
 
   const details = [
-    { label: "Indicación", key: "indication" },
-    { label: "Material", key: "material" },
-    { label: "Requisito clínico", key: "requirement" },
+    { label: "Qué es", key: "summary" },
+    { label: "Cuándo se indica", key: "indication" },
   ] as const;
   const related = SERVICES.filter((s) => s.slug !== service.slug);
 
@@ -97,12 +96,6 @@ export default async function ServicePage({ params }: Props) {
               {service.name}
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">{service.description}</p>
-            <p className="flex items-center gap-2 text-sm text-body/80">
-              <ClockIcon className="size-4 text-highlight" aria-hidden />
-              {service.turnaround}
-              <span aria-hidden>·</span>
-              {service.materialTag}
-            </p>
             <div>
               <PriceDownloadButton />
             </div>
@@ -125,10 +118,6 @@ export default async function ServicePage({ params }: Props) {
                   <div className="flex flex-col gap-3 lg:col-span-4">
                     <span className="font-mono text-xs text-highlight">{item.code}</span>
                     <h3 className="font-heading text-xl font-semibold text-body">{item.name}</h3>
-                    <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                      <ClockIcon className="size-4" aria-hidden />
-                      {item.turnaround}
-                    </p>
                   </div>
                   <dl className="grid gap-5 lg:col-span-8">
                     {details.map(({ label, key }) => (
@@ -171,7 +160,7 @@ export default async function ServicePage({ params }: Props) {
                   </span>
                   <span className="flex-1">
                     <span className="block font-heading font-semibold text-body">{s.name}</span>
-                    <span className="block text-sm text-muted-foreground">{s.turnaround}</span>
+                    <span className="block text-sm text-muted-foreground">{s.tagline}</span>
                   </span>
                   <ArrowRightIcon
                     className="size-5 shrink-0 text-highlight transition-transform group-hover:translate-x-1"
