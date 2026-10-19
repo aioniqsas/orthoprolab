@@ -11,6 +11,7 @@ import { CatalogoModule } from './catalogo/catalogo.module.js';
 import { PedidosModule } from './pedidos/pedidos.module.js';
 import { QueuesModule } from './queues/queues.module.js';
 import { HealthModule } from './health/health.module.js';
+import { SecurityModule } from './security/security.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { HealthModule } from './health/health.module.js';
       envFilePath: '.env',
     }),
     CryptoModule,
+    SecurityModule,
     DatabaseModule,
     UsuariosModule,
     PacientesModule,

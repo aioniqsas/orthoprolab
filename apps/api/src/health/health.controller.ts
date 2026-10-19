@@ -4,8 +4,11 @@ import {
   HealthCheckService,
   TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
+import { Throttle } from '@nestjs/throttler';
 import { RedisHealthIndicator } from './redis.health.js';
 
+/** Generous override (monitors poll often) but still rate limited. */
+@Throttle({ default: { limit: 120 } })
 @Controller('health')
 export class HealthController {
   constructor(
