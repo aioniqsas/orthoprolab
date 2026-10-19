@@ -35,6 +35,7 @@ Implement the relational model of OrthoPro Lab in `apps/api` with TypeORM on Pos
 ## Tasks
 - [x] D1 Entities (one per table) + `DomainModule`/feature modules registering them + schema migration (generated, then reviewed/hand-fixed so composite FK, partial/functional unique indexes, checks and identity columns are exact)
 - [x] D2 Seed migration for `rol` and `estado_orden` (idempotent) + integration tests against the live DB (constraint behavior, rollback per test)
+- [ ] D5 Data protection (Ley 1581 de 2012; user decision: **bcrypt** for passwords and **symmetric encryption** for personal data): `CryptoService` (AES-256-GCM, versioned `v1:` payload, key from env), blind index (HMAC-SHA256, separate key) for `cedula` lookups/uniqueness, TypeORM transformer, `PasswordService` (bcrypt), encrypted columns `paciente.nombre`, `paciente.cedula`, `usuario.cedula`, `detalle_orden.observaciones`, `historial_estado_orden.observaciones`; migration (`cedula_hash` + moved unique indexes, guard against existing rows), env validation + `.env.example` + key generator script that never prints keys, tests (RED first)
 - [ ] D3 Reference doc `apps/api/docs/database-model.md`: Mermaid ERD, final DDL (as produced by the migration), design notes, open questions for the client; README/CLAUDE.md pointers
 - [ ] D4 Verification: build, lint, check-types, unit, e2e/integration, migration run/revert/run cycle
 
@@ -51,4 +52,4 @@ D1+D2 (delegated writer W1): 12 entities under `src/{usuarios,pacientes,catalogo
 Open design input from user (2026-10-19): Colombian legal compliance (Ley 1581 de 2012): which columns to hash/encrypt. Research summary: the law requires "medidas tecnicas, humanas y administrativas necesarias" (art. 4 g, art. 17 d, art. 18 b) and defines sensitive data (art. 5, includes health); it never names "cifrado"/"encriptacion" or specific columns; passwords must be hashed (argon2id), identifiers/free-text clinical notes should be encrypted at application level with blind indexes for lookups. Pending user confirmation before schema change (new migration).
 
 ## Next step
-D3/D4 after the encryption decision (affects DDL).
+D5 then D3/D4
