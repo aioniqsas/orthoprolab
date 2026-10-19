@@ -1,15 +1,16 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, ClockIcon, FlaskConicalIcon, StethoscopeIcon, UploadIcon } from "lucide-react";
-import { Badge } from "@repo/ui/components/badge";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Accent, SectionHeading } from "@/components/section-heading";
+import { ArrowLeftIcon, ArrowRightIcon, ClockIcon } from "lucide-react";
+import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
-import { ServiceIcon } from "@/components/service-icon";
-import { SERVICES, getService } from "@/lib/catalog";
+import { Reveal } from "@/components/reveal";
+import { SERVICES, SERVICE_IMAGES, getService } from "@/lib/catalog";
 
 type Props = { params: Promise<{ servicio: string }> };
+
+const RADIUS = "rounded-xl";
 
 export function generateStaticParams() {
   return SERVICES.map((s) => ({ servicio: s.slug }));
@@ -31,65 +32,127 @@ export default async function ServicePage({ params }: Props) {
   if (!service) notFound();
 
   const details = [
-    { icon: StethoscopeIcon, label: "Indicación", key: "indication" },
-    { icon: FlaskConicalIcon, label: "Material", key: "material" },
-    { icon: UploadIcon, label: "Requisito clínico", key: "requirement" },
+    { label: "Indicación", key: "indication" },
+    { label: "Material", key: "material" },
+    { label: "Requisito clínico", key: "requirement" },
   ] as const;
+  const related = SERVICES.filter((s) => s.slug !== service.slug);
 
   return (
-    <section className="py-16 lg:py-24">
-      <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
-        <Link
-          href="/catalogo"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-body"
-        >
-          <ArrowLeftIcon className="size-4" aria-hidden />
-          Volver al catálogo
-        </Link>
-
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-4">
-            <ServiceIcon icon={service.icon} className="size-9 text-highlight" />
-            <SectionHeading
-              as="h1"
-              eyebrow={service.materialTag}
-              title={<Accent>{service.name}</Accent>}
-              description={service.description}
-            />
-          </div>
-          <PriceDownloadButton />
+    <>
+      {/* Hero: service image under a vertical gray-to-black mask */}
+      <section className="relative isolate flex min-h-[calc(78dvh-4rem)] items-end overflow-hidden pt-16 pb-14 lg:pb-20">
+        <Image
+          src={SERVICE_IMAGES[service.slug]!}
+          alt={`${service.name} fabricado en OrthoPro Lab`}
+          fill
+          priority
+          sizes="100vw"
+          className="-z-20 object-cover"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-gradient-to-b from-surface-alt/50 via-background/85 to-background"
+        />
+        <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
+          <Link
+            href="/catalogo"
+            className="mb-8 inline-flex items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
+          >
+            <ArrowLeftIcon className="size-4" aria-hidden />
+            Volver al catálogo
+          </Link>
+          <Reveal className="flex max-w-3xl flex-col gap-6">
+            <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
+              {service.name}
+            </h1>
+            <p className="max-w-[60ch] text-lg text-body/80">{service.description}</p>
+            <p className="flex items-center gap-2 text-sm text-body/80">
+              <ClockIcon className="size-4 text-highlight" aria-hidden />
+              {service.turnaround}
+              <span aria-hidden>·</span>
+              {service.materialTag}
+            </p>
+            <div>
+              <PriceDownloadButton />
+            </div>
+          </Reveal>
         </div>
+      </section>
 
-        <ul className="grid gap-6 lg:grid-cols-2">
-          {service.items.map((item) => (
-            <li key={item.code}>
-              <Card className="h-full">
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <Badge variant="secondary">{item.code}</Badge>
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <ClockIcon className="size-3.5" aria-hidden />
+      {/* Items: divided rows, name left and spec list right */}
+      <section className="py-20 lg:py-28">
+        <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
+          <Reveal>
+            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+              Productos de esta línea
+            </h2>
+          </Reveal>
+          <ul className="divide-y divide-border border-y border-border">
+            {service.items.map((item) => (
+              <li key={item.code}>
+                <Reveal className="grid gap-6 py-10 lg:grid-cols-12 lg:gap-12">
+                  <div className="flex flex-col gap-3 lg:col-span-4">
+                    <span className="font-mono text-xs text-highlight">{item.code}</span>
+                    <h3 className="font-heading text-xl font-semibold text-body">{item.name}</h3>
+                    <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                      <ClockIcon className="size-4" aria-hidden />
                       {item.turnaround}
-                    </span>
+                    </p>
                   </div>
-                  <h2 className="font-heading text-lg font-semibold text-body">{item.name}</h2>
-                  <dl className="space-y-3">
-                    {details.map(({ icon: Icon, label, key }) => (
-                      <div key={key} className="flex gap-3">
-                        <Icon className="mt-0.5 size-4 shrink-0 text-highlight" aria-hidden />
-                        <div>
-                          <dt className="text-xs font-semibold uppercase tracking-wider text-title">{label}</dt>
-                          <dd className="text-sm text-muted-foreground">{item[key]}</dd>
-                        </div>
+                  <dl className="grid gap-5 lg:col-span-8">
+                    {details.map(({ label, key }) => (
+                      <div key={key} className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:gap-6">
+                        <dt className="text-sm font-semibold text-body">{label}</dt>
+                        <dd className="text-sm leading-relaxed text-muted-foreground">{item[key]}</dd>
                       </div>
                     ))}
                   </dl>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+                </Reveal>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Related services: compact rows with thumbnail */}
+      <section className="bg-surface-raised/40 py-20 lg:py-28">
+        <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
+          <Reveal className="lg:col-span-4">
+            <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+              Otras líneas del laboratorio
+            </h2>
+          </Reveal>
+          <ul className="divide-y divide-border lg:col-span-8">
+            {related.map((s) => (
+              <li key={s.slug}>
+                <Link
+                  href={`/catalogo/${s.slug}`}
+                  className="group flex items-center gap-5 py-4 transition-transform active:scale-[0.99]"
+                >
+                  <span className={cn("relative h-16 w-24 shrink-0 overflow-hidden ring-1 ring-border", RADIUS)}>
+                    <Image
+                      src={SERVICE_IMAGES[s.slug]!}
+                      alt=""
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block font-heading font-semibold text-body">{s.name}</span>
+                    <span className="block text-sm text-muted-foreground">{s.turnaround}</span>
+                  </span>
+                  <ArrowRightIcon
+                    className="size-5 shrink-0 text-highlight transition-transform group-hover:translate-x-1"
+                    aria-hidden
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    </>
   );
 }

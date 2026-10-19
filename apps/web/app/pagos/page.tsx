@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { LandmarkIcon, ReceiptIcon, ShieldAlertIcon } from "lucide-react";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Accent, SectionHeading } from "@/components/section-heading";
+import { FileCheckIcon, LandmarkIcon, SendIcon, ShieldAlertIcon, WalletIcon, type LucideIcon } from "lucide-react";
+import { cn } from "@repo/ui/lib/utils";
 import { CopyButton } from "@/components/copy-button";
+import { Reveal } from "@/components/reveal";
 import { BANK_ACCOUNTS } from "@/lib/payments";
 
 export const metadata: Metadata = {
@@ -11,86 +11,97 @@ export const metadata: Metadata = {
     "Cuentas bancarias oficiales de OrthoPro Lab para realizar tus pagos por transferencia o consignación.",
 };
 
-const STEPS = [
-  { title: "Efectuar la transferencia exacta", text: "Transfiere el valor estipulado en tu cotización u orden de trabajo." },
-  { title: "Generar el comprobante", text: "Descarga el comprobante bancario en PDF o una captura nítida donde se lean la fecha, el número de aprobación y el valor." },
-  { title: "Notificar el comprobante", text: "Envíalo indicando el nombre del odontólogo y el código del caso para emitir la factura y programar el despacho." },
+const RADIUS = "rounded-xl";
+const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
+
+const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
+  { icon: WalletIcon, title: "Transfiere el valor", text: "Usa el monto indicado en tu cotización u orden de trabajo." },
+  { icon: FileCheckIcon, title: "Guarda el comprobante", text: "Un PDF o una captura nítida donde se lean fecha, aprobación y valor." },
+  { icon: SendIcon, title: "Envíanoslo", text: "Indica el nombre del odontólogo y el código del caso para facturar y despachar." },
 ];
 
 export default function PaymentsPage() {
   return (
-    <section className="py-16 lg:py-24">
-      <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
-        <SectionHeading
-          as="h1"
-          eyebrow="Pagos y Cuentas"
-          title={<>Cuentas Oficiales y <Accent>Métodos de Pago</Accent></>}
-          description="Gestionamos los pedidos mediante transferencias a nuestras cuentas corporativas verificadas."
-        />
-
-        <Card>
-          <CardContent className="flex gap-3">
-            <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-highlight" aria-hidden />
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-body">Aviso de seguridad:</strong> OrthoPro Lab únicamente recibe pagos en las cuentas bancarias oficiales indicadas en esta página. No solicitamos transferencias a cuentas de personas naturales ni a billeteras virtuales no autorizadas.
+    <>
+      <section className="py-16 lg:py-24">
+        <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
+          <Reveal className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-span-5 lg:self-start">
+            <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">
+              Paga por <span className="text-highlight">transferencia</span>
+            </h1>
+            <p className="max-w-[60ch] text-lg text-body/80">
+              Recibimos pagos solo en las cuentas corporativas de esta página.
             </p>
-          </CardContent>
-        </Card>
+            <div className="flex gap-3 border-l-2 border-highlight/60 pl-4">
+              <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-highlight" aria-hidden />
+              <p className="text-sm text-body/80">
+                <strong className="font-semibold text-body">Aviso de seguridad:</strong> no pedimos transferencias a cuentas de personas naturales ni a billeteras virtuales.
+              </p>
+            </div>
+          </Reveal>
 
-        <div className="space-y-6">
-          <h2 className="font-heading text-2xl font-semibold text-body">Cuentas bancarias habilitadas</h2>
-          <ul className="grid gap-6 md:grid-cols-2">
-            {BANK_ACCOUNTS.map((account) => (
+          {/* PLACEHOLDER bank data lives in lib/payments.ts */}
+          <ul className="flex flex-col gap-5 lg:col-span-7">
+            {BANK_ACCOUNTS.map((account, i) => (
               <li key={account.id}>
-                <Card className="h-full">
-                  <CardContent className="space-y-4">
+                <Reveal delay={i * 0.08}>
+                  <article
+                    className={cn("bg-card p-6 ring-1 ring-border lg:p-8", RADIUS, TINTED_SHADOW)}
+                  >
                     <div className="flex items-center gap-3">
-                      <LandmarkIcon className="size-6 text-highlight" aria-hidden />
+                      <LandmarkIcon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
                       <div>
-                        <h3 className="font-heading text-lg font-semibold text-body">{account.bank}</h3>
+                        <h2 className="font-heading text-xl font-semibold text-body">{account.bank}</h2>
                         <p className="text-sm text-muted-foreground">{account.accountType}</p>
                       </div>
                     </div>
-                    <dl className="space-y-3 text-sm">
+                    <dl className="mt-6 space-y-5">
                       <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wider text-title">Número de cuenta</dt>
+                        <dt className="text-sm text-muted-foreground">Número de cuenta</dt>
                         <dd className="mt-1 flex flex-wrap items-center gap-3">
-                          <span className="font-mono text-lg text-body">{account.accountNumber}</span>
+                          <span className="font-mono text-2xl tracking-tight text-body">{account.accountNumber}</span>
                           <CopyButton value={account.accountNumber} label={`número de cuenta ${account.bank}`} />
                         </dd>
                       </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wider text-title">Titular</dt>
-                        <dd className="text-muted-foreground">{account.holder}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wider text-title">NIT</dt>
-                        <dd className="text-muted-foreground">{account.taxId}</dd>
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-sm text-muted-foreground">Titular</dt>
+                          <dd className="mt-1 text-body">{account.holder}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-sm text-muted-foreground">NIT</dt>
+                          <dd className="mt-1 font-mono text-body">{account.taxId}</dd>
+                        </div>
                       </div>
                     </dl>
-                  </CardContent>
-                </Card>
+                  </article>
+                </Reveal>
               </li>
             ))}
           </ul>
         </div>
+      </section>
 
-        <div className="space-y-6">
-          <h2 className="flex items-center gap-3 font-heading text-2xl font-semibold text-body">
-            <ReceiptIcon className="size-6 text-highlight" aria-hidden />
-            Confirmación del pago
-          </h2>
-          <ol className="grid gap-6 md:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <li key={step.title} className="rounded-xl bg-card p-6">
-                <span className="font-heading text-3xl font-bold text-highlight">{i + 1}</span>
-                <p className="mt-2 font-medium text-body">{step.title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{step.text}</p>
+      <section className="bg-surface-raised/40 py-20 lg:py-28">
+        <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
+          <Reveal>
+            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+              Confirma tu pago en tres pasos
+            </h2>
+          </Reveal>
+          <ol className="grid gap-10 md:grid-cols-3 md:gap-6">
+            {STEPS.map(({ icon: Icon, ...s }, i) => (
+              <li key={s.title}>
+                <Reveal delay={i * 0.08} className="flex flex-col gap-4 border-t border-border pt-6 md:border-highlight/40">
+                  <Icon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
+                  <h3 className="font-heading text-lg font-semibold text-body">{s.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{s.text}</p>
+                </Reveal>
               </li>
             ))}
           </ol>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
