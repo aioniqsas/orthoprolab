@@ -4,12 +4,14 @@ import {
   HealthCheckService,
   TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
+import { RedisHealthIndicator } from './redis.health.js';
 
 @Controller('health')
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
     private readonly db: TypeOrmHealthIndicator,
+    private readonly redis: RedisHealthIndicator,
   ) {}
 
   @Get()
@@ -17,7 +19,7 @@ export class HealthController {
   check() {
     return this.health.check([
       () => this.db.pingCheck('database'),
-      // EXTENSION POINT (B3): add the Redis/BullMQ indicator here.
+      () => this.redis.isHealthy('redis'),
     ]);
   }
 }
