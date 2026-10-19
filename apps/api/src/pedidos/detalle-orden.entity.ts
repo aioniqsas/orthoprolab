@@ -7,6 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { encryptedColumn } from '../crypto/encrypted-column.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
 import { Orden } from './orden.entity.js';
 
@@ -48,6 +49,7 @@ export class DetalleOrden {
   })
   precioUnitario: string;
 
-  @Column({ type: 'text', nullable: true })
+  // Free-text clinical notes: encrypted at rest (AES-256-GCM).
+  @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
   observaciones: string | null;
 }

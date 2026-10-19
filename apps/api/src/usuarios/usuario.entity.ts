@@ -1,4 +1,6 @@
 import {
+  BeforeInsert,
+  BeforeUpdate,
   Column,
   CreateDateColumn,
   Entity,
@@ -8,6 +10,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { cedulaHash } from '../crypto/cedula.js';
+import { encryptedColumn } from '../crypto/encrypted-column.js';
 import { Rol } from './rol.entity.js';
 
 // The case-insensitive unique index on lower(correo) cannot be expressed with
@@ -20,8 +24,16 @@ export class Usuario {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
+  // Encrypted at rest (AES-256-GCM); the entity holds the plaintext. Never
+  // query this column: look up by cedulaHash (see crypto/cedula.ts).
+  @Column({ type: 'text', transformer: encryptedColumn() })
   cedula: string;
+
+  // Blind index (HMAC-SHA256 hex) of the normalized cedula; carries the
+  // uniqueness guarantee. Maintained by the hooks below.
+  @Index('uq_usuario_cedula_hash', { unique: true })
+  @Column({ name: 'cedula_hash', type: 'char', length: 64 })
+  cedulaHash: string;
 
   @Column({ type: 'varchar' })
   nombres: string;
@@ -51,4 +63,13 @@ export class Usuario {
 
   @UpdateDateColumn({ name: 'fecha_actualizacion', type: 'timestamptz' })
   fechaActualizacion: Date;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  syncCedulaHash(): void {
+    // Partial updates may not carry the cedula: keep the stored hash then.
+    if (this.cedula !== undefined && this.cedula !== null) {
+      this.cedulaHash = cedulaHash(this.cedula);
+    }
+  }
 }

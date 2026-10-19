@@ -7,6 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { encryptedColumn } from '../crypto/encrypted-column.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import { Orden } from './orden.entity.js';
@@ -52,6 +53,7 @@ export class HistorialEstadoOrden {
   @CreateDateColumn({ name: 'fecha_cambio', type: 'timestamptz' })
   fechaCambio: Date;
 
-  @Column({ type: 'text', nullable: true })
+  // Free-text clinical notes: encrypted at rest (AES-256-GCM).
+  @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
   observaciones: string | null;
 }

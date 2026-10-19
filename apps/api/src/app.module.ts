@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { validateEnv } from './config/env.validation.js';
+import { CryptoModule } from './crypto/crypto.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
 import { PacientesModule } from './pacientes/pacientes.module.js';
@@ -18,6 +19,7 @@ import { HealthModule } from './health/health.module.js';
       validate: validateEnv,
       envFilePath: '.env',
     }),
+    CryptoModule,
     DatabaseModule,
     UsuariosModule,
     PacientesModule,

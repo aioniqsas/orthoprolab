@@ -6,6 +6,7 @@
  */
 import { DataSource, QueryRunner } from 'typeorm';
 import { validateEnv } from './../src/config/env.validation.js';
+import { CryptoService } from './../src/crypto/crypto.service.js';
 
 type Row = Record<string, string>;
 
@@ -26,10 +27,15 @@ const migrations = Object.values(migrationModules).flatMap((m) =>
 describe('Database model (integration)', () => {
   let ds: DataSource;
   let qr: QueryRunner;
+  let crypto: CryptoService;
 
   beforeAll(async () => {
     process.loadEnvFile('.env');
     const env = validateEnv(process.env);
+    crypto = new CryptoService({
+      encryptionKey: env.ENCRYPTION_KEY,
+      blindIndexKey: env.BLIND_INDEX_KEY,
+    });
     ds = new DataSource({
       type: 'postgres',
       host: env.DATABASE_HOST,
@@ -90,13 +96,22 @@ describe('Database model (integration)', () => {
     ]);
   }
 
+  // Personal data is protected by the app: the DB only receives ciphertext
+  // plus the blind index (cedula_hash), which carries uniqueness.
+  const usuarioSql = `INSERT INTO usuario (cedula, cedula_hash, nombres, apellidos, correo, password_hash, rol_id)
+       VALUES ($1, $2, 'N', 'A', $3, 'hash', $4)`;
+  const cedulaCols = (cedula: string) => [
+    crypto.encrypt(cedula),
+    crypto.blindIndex(cedula),
+  ];
+
   async function usuario(correo = `u${uniq()}@x.co`, cedula = `c${uniq()}`) {
     const r = await rol();
-    return one(
-      `INSERT INTO usuario (cedula, nombres, apellidos, correo, password_hash, rol_id)
-       VALUES ($1, 'N', 'A', $2, 'hash', $3) RETURNING id`,
-      [cedula, correo, r.id],
-    );
+    return one(`${usuarioSql} RETURNING id`, [
+      ...cedulaCols(cedula),
+      correo,
+      r.id,
+    ]);
   }
 
   async function doctor() {
@@ -107,8 +122,12 @@ describe('Database model (integration)', () => {
 
   async function paciente(cedula: string | null = null) {
     return one(
-      `INSERT INTO paciente (nombre, cedula) VALUES ('P', $1) RETURNING id`,
-      [cedula],
+      `INSERT INTO paciente (nombre, cedula, cedula_hash) VALUES ($1, $2, $3) RETURNING id`,
+      [
+        crypto.encrypt('P'),
+        cedula === null ? null : crypto.encrypt(cedula),
+        cedula === null ? null : crypto.blindIndex(cedula),
+      ],
     );
   }
 
@@ -153,26 +172,27 @@ describe('Database model (integration)', () => {
 
   // --- tests ---------------------------------------------------------------
   describe('usuario', () => {
-    it('rejects a duplicate cedula', async () => {
+    it('rejects a duplicate cedula (via blind index)', async () => {
       const u = await usuario(undefined, 'dup-1');
       expect(u.id).toBeDefined();
       const r = await rol();
-      const code = await failCode(
-        `INSERT INTO usuario (cedula, nombres, apellidos, correo, password_hash, rol_id)
-         VALUES ('dup-1', 'N', 'A', $1, 'h', $2)`,
-        [`o${uniq()}@x.co`, r.id],
-      );
+      // Same id with different formatting maps to the same blind index.
+      const code = await failCode(usuarioSql, [
+        ...cedulaCols('DUP.1'),
+        `o${uniq()}@x.co`,
+        r.id,
+      ]);
       expect(code).toBe(UNIQUE);
     });
 
     it('rejects a duplicate correo regardless of case', async () => {
       await usuario('Ana@Example.com');
       const r = await rol();
-      const code = await failCode(
-        `INSERT INTO usuario (cedula, nombres, apellidos, correo, password_hash, rol_id)
-         VALUES ($1, 'N', 'A', 'ana@example.COM', 'h', $2)`,
-        [`c${uniq()}`, r.id],
-      );
+      const code = await failCode(usuarioSql, [
+        ...cedulaCols(`c${uniq()}`),
+        'ana@example.COM',
+        r.id,
+      ]);
       expect(code).toBe(UNIQUE);
     });
   });
@@ -216,7 +236,12 @@ describe('Database model (integration)', () => {
       await paciente('p-1');
       expect(
         await failCode(
-          `INSERT INTO paciente (nombre, cedula) VALUES ('X', 'p-1')`,
+          `INSERT INTO paciente (nombre, cedula, cedula_hash) VALUES ($1, $2, $3)`,
+          [
+            crypto.encrypt('X'),
+            crypto.encrypt('P 1'),
+            crypto.blindIndex('p-1'),
+          ],
         ),
       ).toBe(UNIQUE);
       await paciente(null);

@@ -1,4 +1,6 @@
 import {
+  BeforeInsert,
+  BeforeUpdate,
   Column,
   CreateDateColumn,
   Entity,
@@ -7,10 +9,14 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-// cedula is optional (e.g. minors) but unique when present.
-@Index('uq_paciente_cedula', ['cedula'], {
+import { cedulaHashOrNull } from '../crypto/cedula.js';
+import { encryptedColumn } from '../crypto/encrypted-column.js';
+
+// cedula is optional (e.g. minors) but unique when present. Uniqueness lives on
+// the blind index because the encrypted cedula is non-deterministic.
+@Index('uq_paciente_cedula_hash', ['cedulaHash'], {
   unique: true,
-  where: '"cedula" IS NOT NULL',
+  where: '"cedula_hash" IS NOT NULL',
 })
 @Entity('paciente')
 export class Paciente {
@@ -20,15 +26,29 @@ export class Paciente {
   })
   id: string;
 
-  @Column({ type: 'varchar' })
+  // Encrypted at rest (AES-256-GCM); the entity holds the plaintext.
+  @Column({ type: 'text', transformer: encryptedColumn() })
   nombre: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  // Encrypted at rest; look up by cedulaHash, never by this column.
+  @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
   cedula: string | null;
+
+  @Column({ name: 'cedula_hash', type: 'char', length: 64, nullable: true })
+  cedulaHash: string | null;
 
   @CreateDateColumn({ name: 'fecha_creacion', type: 'timestamptz' })
   fechaCreacion: Date;
 
   @UpdateDateColumn({ name: 'fecha_actualizacion', type: 'timestamptz' })
   fechaActualizacion: Date;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  syncCedulaHash(): void {
+    // Partial updates may not carry the cedula: keep the stored hash then.
+    if (this.cedula !== undefined) {
+      this.cedulaHash = cedulaHashOrNull(this.cedula);
+    }
+  }
 }
