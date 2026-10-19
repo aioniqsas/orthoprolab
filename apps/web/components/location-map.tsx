@@ -36,7 +36,7 @@ export function LocationMap() {
             <span className="sr-only"> al laboratorio en Google Maps (se abre en una pestaña nueva)</span>
           </a>
         </Reveal>
-        <Reveal className="lg:col-span-8">
+        <Reveal className="min-w-0 lg:col-span-8">
           <div className="aspect-[4/3] min-h-80 w-full overflow-hidden rounded-xl bg-card ring-1 ring-body/20 lg:aspect-auto lg:h-full lg:min-h-[28rem]">
             <iframe
               src={EMBED_SRC}
