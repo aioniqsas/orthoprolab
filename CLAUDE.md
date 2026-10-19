@@ -21,10 +21,9 @@ There is no test runner configured.
 
 Next.js apps plus shared packages:
 
-- `apps/admin`, `apps/clientes`, `apps/web` — standalone `create-next-app` projects using Tailwind v4 (`@tailwindcss/turbopack`). They share the theme via `@repo/theme`, have no `check-types` script (Turbo's `check-types` skips them).
-- `apps/docs` (port 3001) — leftover `create-turbo` starter without Tailwind. It consumes `@repo/ui`, lints with `--max-warnings 0`, and uses `next typegen && tsc --noEmit` for `check-types`.
+- `apps/admin`, `apps/clientes`, `apps/web` — standalone `create-next-app` projects using Tailwind v4 (`@tailwindcss/turbopack`). They share the theme via `@repo/theme`, have no `check-types` script (Turbo's `check-types` skips them). `apps/web` is the public website and also consumes `@repo/ui`.
 - `packages/theme` (`@repo/theme`) — shared Tailwind v4 tokens in `theme.css`: colors `surface`, `surface-alt`, `body`, `title`, `highlight`, and fonts `font-heading` (Outfit) / `font-sans` (Poppins). Apps import it with `@import "@repo/theme/theme.css";` after `@import "tailwindcss";`. The CSS only references the `--font-outfit` / `--font-poppins` variables, so each app's `layout.tsx` must load both fonts with `next/font/google` using those variable names.
-- `packages/ui` (`@repo/ui`) — stub React component library (`button`, `card`, `code` in `src/`), used only by `docs`.
+- `packages/ui` (`@repo/ui`) — stub React component library (`button`, `card`, `code` in `src/`); the root `src/*.tsx` stubs (`button`, `card`, `code`) are leftovers from the starter and unused.
 - `packages/eslint-config`, `packages/typescript-config` — shared lint/TS configs.
 
 `turbo.json`: `build` depends on `^build` and outputs `.next/**`; `dev` is persistent and uncached.
