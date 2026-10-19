@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
+    "./lib/*": "./src/lib/*.ts",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./styles/*": "./src/styles/*",
     "./*": "./src/*.tsx"
   },
   "scripts": {
@@ -20,7 +23,12 @@
     "typescript": "7.0.2"
   },
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.59.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "tailwind-merge": "^3.7.0"
   }
 }
