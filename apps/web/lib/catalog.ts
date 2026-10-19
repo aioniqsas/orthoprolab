@@ -96,3 +96,12 @@ export const SERVICES: ServiceType[] = [
 export function getService(slug: string): ServiceType | undefined {
   return SERVICES.find((s) => s.slug === slug);
 }
+
+// Stitch imagery per service, shared by the catalog index and subroutes.
+export const SERVICE_IMAGES: Record<string, string> = {
+  "ortodoncia-fija": "/images/service-ortodoncia-fija.jpg",
+  "ortodoncia-removible": "/images/service-ortodoncia-removible.jpg",
+  "alineadores-invisibles": "/images/service-alineadores-invisibles.jpg",
+  "retenedores-y-ferulas": "/images/service-retenedores-y-ferulas.jpg",
+  "protesis-cad-cam": "/images/service-protesis-cad-cam.jpg",
+};

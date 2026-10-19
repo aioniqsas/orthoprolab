@@ -24,7 +24,7 @@ export function SiteNav() {
 
   return (
     <>
-      <nav aria-label="Principal" className="hidden items-center gap-1 md:flex">
+      <nav aria-label="Principal" className="hidden flex-nowrap items-center gap-1 md:flex">
         {NAV_LINKS.map(({ href, label }) => {
           const active = isActive(pathname, href);
           return (
@@ -33,7 +33,7 @@ export function SiteNav() {
               href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors",
                 active
                   ? "bg-card text-highlight"
                   : "text-muted-foreground hover:text-body",
@@ -48,7 +48,7 @@ export function SiteNav() {
       <Sheet>
         <SheetTrigger
           aria-label="Abrir menú"
-          className="inline-flex size-10 items-center justify-center rounded-lg text-body hover:bg-card md:hidden"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-body transition-transform hover:bg-card active:scale-[0.98] md:hidden"
         >
           <MenuIcon className="size-5" />
         </SheetTrigger>
@@ -72,7 +72,7 @@ export function SiteNav() {
                     />
                   }
                   className={cn(
-                    "rounded-lg px-3 py-3 text-base font-medium transition-colors",
+                    "rounded-xl px-3 py-3 text-base font-medium transition-colors",
                     active
                       ? "bg-card text-highlight"
                       : "text-muted-foreground hover:text-body",

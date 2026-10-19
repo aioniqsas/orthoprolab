@@ -9,7 +9,11 @@ export function PriceDownloadButton({ className }: { className?: string }) {
     <a
       href={CATALOG_PDF_HREF}
       download
-      className={cn(buttonVariants({ size: "lg" }), className)}
+      className={cn(
+        buttonVariants({ size: "lg" }),
+        "h-auto gap-2 rounded-xl px-6 py-3.5 font-semibold whitespace-nowrap transition-transform active:scale-[0.98]",
+        className,
+      )}
     >
       <DownloadIcon aria-hidden />
       Ver precios
