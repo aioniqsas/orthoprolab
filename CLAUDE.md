@@ -15,13 +15,14 @@ Run from the repo root (Turbo fans out to every workspace):
 - `bun run format` — Prettier over `**/*.{ts,tsx,md}`
 - Single workspace: `bunx turbo run dev --filter=web` (or `cd apps/<name> && bun run dev`)
 
-There is no test runner configured.
+Infrastructure: `bun run infra:up|down|logs|ps` runs PostgreSQL (5432) and Redis (6380) with `podman compose -f compose.yaml` (rootless Podman needs `systemctl --user start podman.socket` once). Real `.env` files are git-ignored; only `.env.example` is tracked. Only `apps/api` has tests (`bunx turbo run test --filter=api`); the Next apps have none.
 
 ## Architecture
 
 Next.js apps plus shared packages:
 
 - `apps/admin`, `apps/clientes`, `apps/web` — standalone `create-next-app` projects using Tailwind v4 (`@tailwindcss/turbopack`). They share the theme via `@repo/theme`, have no `check-types` script (Turbo's `check-types` skips them). `apps/web` is the public website and also consumes `@repo/ui`.
+- `apps/api` (port 3003) — NestJS 12 ESM API: `ConfigModule` with `validateEnv` (`src/config`), `DatabaseModule` (TypeORM + PostgreSQL, `synchronize: false`, migrations via `bun run migration:*`), `QueuesModule` (BullMQ, `system` queue), `HealthModule` (`GET /health`), `SecurityModule` (helmet, CORS + Origin check, Redis throttler), `AuthModule` (`src/auth`: JWT from the `auth_token` httpOnly cookie, rotating `refresh_token` stored hashed in `sesion_refresco`, Redis login lockout; the JWT guard and `RolesGuard` are global, so routes opt out with `@Public()` and restrict roles with `@Roles()`; new env vars `JWT_SECRET` (required), `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS`, `SESSION_MAX_LIFETIME_DAYS`, `LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_SECONDS`, `REFRESH_REUSE_GRACE_SECONDS`, `COOKIE_SAMESITE`, `CORS_ORIGINS`, `TRUST_PROXY`, `THROTTLE_*`; details in `apps/api/docs/auth.md`). First administrator: `bun run admin:create` in `apps/api` (hidden password prompt or `--password-stdin`, never HTTP). Never read or edit `.env` files or run `keys:generate` unprompted. Schema reference: `apps/api/docs/database-model.md` (ERD, rules) and generated `apps/api/docs/schema.sql` (`bun run db:schema`). Relative imports need `.js`. Tests are Vitest (`bun run test`, `test:e2e` needs the containers). It has its own `typescript`/`oxlint` setup, not the shared eslint config.
 - `packages/theme` (`@repo/theme`) — shared Tailwind v4 tokens in `theme.css`: colors `surface`, `surface-alt`, `body`, `title`, `highlight`, and fonts `font-heading` (Outfit) / `font-sans` (Poppins). Apps import it with `@import "@repo/theme/theme.css";` after `@import "tailwindcss";`. The CSS only references the `--font-outfit` / `--font-poppins` variables, so each app's `layout.tsx` must load both fonts with `next/font/google` using those variable names.
 - `packages/ui` (`@repo/ui`) — stub React component library (`button`, `card`, `code` in `src/`); the root `src/*.tsx` stubs (`button`, `card`, `code`) are leftovers from the starter and unused.
 - `packages/eslint-config`, `packages/typescript-config` — shared lint/TS configs.

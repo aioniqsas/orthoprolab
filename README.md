@@ -10,6 +10,7 @@ Turborepo with Bun workspaces. Requires Node >= 24 and Bun 1.4.2.
 |---|---|
 | `apps/web` | Public marketing site (Next.js, Tailwind v4, shadcn/ui). Pages: landing, nosotros, catálogo (one route per service), pagos. |
 | `apps/admin` | Admin app (Next.js, Tailwind v4). Starter only for now. |
+| `apps/api` | NestJS backend API (port 3003). |
 | `apps/clientes` | Client portal (Next.js, Tailwind v4). Starter only for now. |
 | `packages/theme` | `@repo/theme`: shared Tailwind v4 tokens and the shadcn semantic variables (`theme.css`). |
 | `packages/ui` | `@repo/ui`: shadcn/ui components shared across apps (`@repo/ui/components/*`, `@repo/ui/lib/utils`). |
@@ -23,6 +24,8 @@ bun run dev                      # every app
 bunx turbo run dev --filter=web  # only the website
 ```
 
+Default ports: `web` 3000, `clientes` 3001, `admin` 3002, `api` 3003 (`PORT` overrides the API port), PostgreSQL 5432, Redis 6380.
+
 Other commands, all from the repo root:
 
 ```sh
@@ -31,6 +34,35 @@ bun run lint
 bun run check-types
 bun run format
 ```
+
+## Backend (`apps/api`)
+
+NestJS 12 (ESM) with TypeORM (PostgreSQL) and BullMQ (Redis). PostgreSQL 17 and Redis 7 run in containers with Podman.
+
+```sh
+systemctl --user start podman.socket   # once per session, needed by `podman compose`
+cp .env.example .env                   # compose variables (root)
+cp apps/api/.env.example apps/api/.env # app variables; set DATABASE_PASSWORD
+bun run infra:up                       # also: infra:down, infra:logs, infra:ps
+bun run dev --filter=api               # or: bunx turbo run dev --filter=api
+curl localhost:3003/health             # database and redis checks
+```
+
+Both `.env` files are git-ignored; keep the same database password in each.
+
+| Task | Command (from `apps/api`) |
+|---|---|
+| Unit tests | `bun run test` |
+| Integration tests (needs `infra:up`) | `bun run test:e2e` |
+| First administrator | `bun run admin:create -- --correo <email> --cedula <digits> --nombres <text> --apellidos <text>` (hidden password prompt) |
+| Migrations | `bun run migration:generate -- src/database/migrations/<Name>`, `migration:run`, `migration:revert`, `migration:show` |
+
+- TypeORM never synchronizes the schema (`synchronize: false`); every change goes through a migration. `src/database/data-source.ts` feeds the TypeORM CLI.
+- Queues use BullMQ with the `orthopro` prefix. The `system` queue and its `ping` processor exist to prove the wiring; add real queues as modules under `src/queues`.
+- `GET /health` returns 503 when the database or Redis is unreachable.
+- Relative imports need the `.js` extension (ESM).
+- Auth: JWT in httpOnly cookies (`auth_token` 15 min, `refresh_token` 7 days with rotation and reuse detection), every route protected unless `@Public()`, per-email lockout (3 failures, 5 minutes), per-endpoint rate limits, helmet, CORS allow-list and Origin check. Requires `JWT_SECRET` in `apps/api/.env`. The first administrator is created with `bun run admin:create` (never over HTTP): the password is prompted twice with hidden input, or piped as one line with `--password-stdin` for automation. Full reference (flows, cookies, env variables, threat notes, follow-ups): [`apps/api/docs/auth.md`](apps/api/docs/auth.md).
+- Database model: ERD, data dictionary, integrity rules and data-protection notes in [`apps/api/docs/database-model.md`](apps/api/docs/database-model.md); generated DDL in `apps/api/docs/schema.sql` (`bun run db:schema` from `apps/api`, needs `infra:up`).
 
 ## Website (`apps/web`)
 
