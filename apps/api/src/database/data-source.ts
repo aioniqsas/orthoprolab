@@ -14,4 +14,7 @@ export default new DataSource({
   entities: ['src/**/*.entity.ts'],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,
+  // Core gen_random_uuid() for uuid defaults; no extension installation needed.
+  uuidExtension: 'pgcrypto' as const,
+  installExtensions: false,
 });

@@ -16,6 +16,9 @@ import type { EnvConfig } from '../config/env.validation.js';
         database: config.get('DATABASE_NAME', { infer: true }),
         autoLoadEntities: true,
         synchronize: false,
+        // Core gen_random_uuid() for uuid defaults; no extension installation needed.
+        uuidExtension: 'pgcrypto' as const,
+        installExtensions: false,
         migrationsRun: false,
         retryAttempts: 5,
         retryDelay: 3000,
