@@ -26,7 +26,7 @@ Login and registration for `apps/api` (NestJS 12 ESM) done securely: JWT via Pas
 - **Hard rule for writers**: NEVER read, print, edit or regenerate any `.env` file or run `keys:generate`; the user manages them. New required variables (`JWT_SECRET`) must be documented in `.env.example` and tests must provide test-only values in-process. Report variable NAMES only.
 
 ## Tasks
-- [ ] A1 Security baseline: deps (`helmet`, `cookie-parser`, `class-validator`, `class-transformer`, `@nestjs/throttler` + Redis storage), `main.ts` bootstrap hardening, global validation pipe, throttler guard with Redis storage, CORS + Origin guard, env validation additions, `PasswordService` SHA-256 pre-hash (spec updated), unit/e2e tests (RED first)
+- [x] A1 Security baseline: deps (`helmet`, `cookie-parser`, `class-validator`, `class-transformer`, `@nestjs/throttler` + Redis storage), `main.ts` bootstrap hardening, global validation pipe, throttler guard with Redis storage, CORS + Origin guard, env validation additions, `PasswordService` SHA-256 pre-hash (spec updated), unit/e2e tests (RED first)
 - [ ] A2 Sessions + auth module: migration/entity `sesion_refresco`; `passport`, `@nestjs/passport`, `@nestjs/jwt`, `passport-jwt` (cookie extractor); `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh` (rotation + reuse detection), `POST /auth/logout`, `GET /auth/me`; `RolesGuard` + `@Roles()`; lockout service on Redis (3 failures -> 5 min); e2e tests (RED first)
 - [ ] A2b `admin:create` CLI (interactive hidden password prompt, never HTTP) creating the first administrator; session cleanup is a follow-up
 - [ ] A3 Docs + verification: `apps/api/docs/auth.md` (flows, cookie/JWT settings, lockout, rate limits, env vars, threat notes, follow-ups), README/CLAUDE.md pointers, full verification
@@ -43,5 +43,7 @@ Cleanup job for expired refresh sessions (BullMQ), email verification/password r
 ## Progress / evidence
 (none yet)
 
+A1 (delegated writer W1): `src/app.setup.ts` (`configureApp`, `APP_CREATE_OPTIONS`, shared by main.ts and e2e), `src/security/` (helmet strict API CSP, CORS delegate with allow-list and credentials, Origin check middleware for unsafe methods, body limit 10kb with urlencoded disabled, `createValidationPipe` with generic 400 and no value echo, `NoStoreInterceptor`, own `RedisThrottlerStorage` on ioredis with atomic Lua because `@nest-lab/throttler-storage-redis` peers only cover Nest 7-11; `@nestjs/throttler` 6.7.1; defaults: 60/min per IP, `login` 10/min block 5 min, `register` 5/h block 1 h, `/health` 120/min via `StrictThrottle`/`THROTTLER_*` helpers), env additions (`NODE_ENV`, `CORS_ORIGINS`, `COOKIE_SAMESITE`, `TRUST_PROXY`, `THROTTLE_DEFAULT_LIMIT`, `THROTTLE_TTL_MS`, all with defaults), `PasswordService` SHA-256 pre-hash (200 chars OK, `MAX_PASSWORD_LENGTH`). Evidence: unit RED `15 failed | 50 passed` -> GREEN 75/75; e2e 43/43 (RED NOT observed for e2e: written after the implementation, acknowledged gap); parent re-run turbo build/lint/check-types/test 4/4 (75 unit, lint 0 warnings); manual: helmet headers, bad Origin POST -> 403, 125 /health requests -> 118x200 + 7x429 with Retry-After. No `.env` touched or tracked.
+
 ## Next step
-A1
+A2 (sessions table + auth endpoints), requires the user to add JWT_SECRET to apps/api/.env
