@@ -193,7 +193,7 @@ export default function AboutPage() {
           <p className="max-w-[60ch] text-body/80">
             Cada línea de trabajo tiene su página en el catálogo.
           </p>
-          <Link href="/catalogo" className={cn(buttonVariants(), CTA_BASE)}>
+          <Link href="/catalogo" prefetch className={cn(buttonVariants(), CTA_BASE)}>
             Ver catálogo
             <ArrowRightIcon className="size-4" aria-hidden />
           </Link>

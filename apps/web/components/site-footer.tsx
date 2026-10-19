@@ -25,7 +25,7 @@ export function SiteFooter() {
           <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
             {NAV_LINKS.map(({ href, label }) => (
               <li key={href}>
-                <Link href={href} className="transition-colors hover:text-body">
+                <Link href={href} prefetch className="transition-colors hover:text-body">
                   {label}
                 </Link>
               </li>

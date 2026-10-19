@@ -86,6 +86,7 @@ export default async function ServicePage({ params }: Props) {
         <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
           <Link
             href="/catalogo"
+            prefetch
             className="mb-8 inline-flex items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
           >
             <ArrowLeftIcon className="size-4" aria-hidden />
@@ -147,6 +148,7 @@ export default async function ServicePage({ params }: Props) {
               <li key={s.slug}>
                 <Link
                   href={`/catalogo/${s.slug}`}
+                  prefetch
                   className="group flex items-center gap-5 py-4 transition-transform active:scale-[0.99]"
                 >
                   <span className={cn("relative h-16 w-24 shrink-0 overflow-hidden ring-1 ring-border", RADIUS)}>

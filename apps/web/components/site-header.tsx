@@ -8,6 +8,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-6 lg:px-12">
         <Link
           href="/"
+          prefetch
           aria-label="OrthoPro Lab, inicio"
           className="shrink-0 rounded-lg text-xl whitespace-nowrap"
         >

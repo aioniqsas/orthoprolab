@@ -154,6 +154,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/catalogo"
+                prefetch
                 className={cn(
                   buttonVariants({ variant: "outline" }),
                   CTA_BASE,
@@ -184,6 +185,7 @@ export default function Home() {
               >
                 <Link
                   href={`/catalogo/${s.slug}`}
+                  prefetch
                   className={cn(
                     "group relative isolate flex h-full min-h-64 flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.99]",
                     RADIUS,
@@ -297,7 +299,7 @@ export default function Home() {
           <p className="max-w-[60ch] text-body/80">
             Cada línea de trabajo tiene su página, y el catálogo en PDF trae los precios.
           </p>
-          <Link href="/catalogo" className={cn(buttonVariants(), CTA_BASE)}>
+          <Link href="/catalogo" prefetch className={cn(buttonVariants(), CTA_BASE)}>
             Ver catálogo
             <ArrowRightIcon className="size-4" aria-hidden />
           </Link>

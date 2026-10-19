@@ -52,6 +52,7 @@ export default function CatalogPage() {
               <Reveal delay={(i % 2) * 0.08} className="h-full">
                 <Link
                   href={`/catalogo/${service.slug}`}
+                  prefetch
                   className={cn(
                     "group relative isolate flex h-full flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.99]",
                     i === 0 ? "min-h-80 lg:min-h-[26rem] lg:p-10" : "min-h-72 lg:min-h-80",

@@ -31,6 +31,7 @@ export function SiteNav() {
             <Link
               key={href}
               href={href}
+              prefetch
               aria-current={active ? "page" : undefined}
               className={cn(
                 "rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors",
@@ -68,6 +69,7 @@ export function SiteNav() {
                   render={
                     <Link
                       href={href}
+                      prefetch
                       aria-current={active ? "page" : undefined}
                     />
                   }
