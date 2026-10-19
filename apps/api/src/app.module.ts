@@ -12,6 +12,7 @@ import { PedidosModule } from './pedidos/pedidos.module.js';
 import { QueuesModule } from './queues/queues.module.js';
 import { HealthModule } from './health/health.module.js';
 import { SecurityModule } from './security/security.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SecurityModule } from './security/security.module.js';
     CryptoModule,
     SecurityModule,
     DatabaseModule,
+    AuthModule,
     UsuariosModule,
     PacientesModule,
     CatalogoModule,

@@ -12,6 +12,7 @@ import { IsInt, IsString, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { Request } from 'express';
 import request from 'supertest';
+import { Public } from './../src/auth/public.decorator.js';
 import { AppModule } from './../src/app.module.js';
 import { APP_CREATE_OPTIONS, configureApp } from './../src/app.setup.js';
 import { RedisThrottlerStorage } from './../src/security/redis-throttler.storage.js';
@@ -38,6 +39,7 @@ class SampleDto {
   age!: number;
 }
 
+@Public()
 @Controller('_t')
 class TestController {
   @Post('echo')

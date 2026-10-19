@@ -4,7 +4,7 @@ import {
   type ExecutionContext,
   type NestInterceptor,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import type { Observable } from 'rxjs';
 
 /**
@@ -19,4 +19,19 @@ export class NoStoreInterceptor implements NestInterceptor {
     res.setHeader('Pragma', 'no-cache');
     return next.handle();
   }
+}
+
+/**
+ * Same headers as NoStoreInterceptor but as middleware, so responses produced
+ * before any interceptor runs (guard 401s, throttler 429s) are not cacheable
+ * either. Mounted on `/auth` by configureApp.
+ */
+export function noStoreMiddleware(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  next();
 }

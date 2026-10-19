@@ -1,5 +1,8 @@
 export { AppThrottlerGuard } from './app-throttler.guard.js';
-export { NoStoreInterceptor } from './no-store.interceptor.js';
+export {
+  NoStoreInterceptor,
+  noStoreMiddleware,
+} from './no-store.interceptor.js';
 export { createOriginCheck } from './origin.middleware.js';
 export { SecurityModule } from './security.module.js';
 export {

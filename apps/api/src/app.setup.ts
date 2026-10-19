@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import type { EnvConfig } from './config/env.validation.js';
+import { noStoreMiddleware } from './security/no-store.interceptor.js';
 import { createOriginCheck } from './security/origin.middleware.js';
 import { createValidationPipe } from './security/validation.js';
 
@@ -53,8 +54,8 @@ export function configureApp(
         : false,
     }),
   );
-  // Cache-Control: no-store for auth routes is applied per controller with
-  // NoStoreInterceptor (see security/no-store.interceptor.ts).
+  // Credentials/session data must never be cached, errors included.
+  app.use('/auth', noStoreMiddleware);
 
   // Disallowed origins get no CORS headers at all (not even credentials).
   app.enableCors((req: Request, callback) => {
