@@ -24,7 +24,7 @@ bun run dev                      # every app
 bunx turbo run dev --filter=web  # only the website
 ```
 
-Default ports: `web` 3000, `clientes` 3001, `admin` 3002, `api` 3003 (`PORT` overrides the API port).
+Default ports: `web` 3000, `clientes` 3001, `admin` 3002, `api` 3003 (`PORT` overrides the API port), PostgreSQL 5432, Redis 6380.
 
 Other commands, all from the repo root:
 
@@ -34,6 +34,32 @@ bun run lint
 bun run check-types
 bun run format
 ```
+
+## Backend (`apps/api`)
+
+NestJS 12 (ESM) with TypeORM (PostgreSQL) and BullMQ (Redis). PostgreSQL 17 and Redis 7 run in containers with Podman.
+
+```sh
+systemctl --user start podman.socket   # once per session, needed by `podman compose`
+cp .env.example .env                   # compose variables (root)
+cp apps/api/.env.example apps/api/.env # app variables; set DATABASE_PASSWORD
+bun run infra:up                       # also: infra:down, infra:logs, infra:ps
+bun run dev --filter=api               # or: bunx turbo run dev --filter=api
+curl localhost:3003/health             # database and redis checks
+```
+
+Both `.env` files are git-ignored; keep the same database password in each.
+
+| Task | Command (from `apps/api`) |
+|---|---|
+| Unit tests | `bun run test` |
+| Integration tests (needs `infra:up`) | `bun run test:e2e` |
+| Migrations | `bun run migration:generate -- src/database/migrations/<Name>`, `migration:run`, `migration:revert`, `migration:show` |
+
+- TypeORM never synchronizes the schema (`synchronize: false`); every change goes through a migration. `src/database/data-source.ts` feeds the TypeORM CLI.
+- Queues use BullMQ with the `orthopro` prefix. The `system` queue and its `ping` processor exist to prove the wiring; add real queues as modules under `src/queues`.
+- `GET /health` returns 503 when the database or Redis is unreachable.
+- Relative imports need the `.js` extension (ESM).
 
 ## Website (`apps/web`)
 

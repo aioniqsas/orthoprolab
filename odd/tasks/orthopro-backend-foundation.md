@@ -20,8 +20,8 @@ Lay the backend foundation in `apps/api` (NestJS 12, ESM, Bun workspace): Postgr
 ## Tasks
 - [x] B1 Infra: root `compose.yaml` (postgres + redis, healthchecks, volumes, env-driven host ports 5432/6380), root scripts `infra:up|down|logs`, `apps/api/.env.example` + local `.env`
 - [x] B2 Config + TypeORM: `@nestjs/config` with validated env, `TypeOrmModule.forRootAsync`, `data-source.ts`, migration scripts, `/health` (terminus: database)
-- [ ] B3 BullMQ: `BullModule.forRootAsync` from config, a generic `QueuesModule` with one `system` queue + processor proving the wiring, Redis check in `/health`
-- [ ] B4 Docs + verification: README/CLAUDE.md updates, build/lint/check-types/test, end-to-end proof against the live containers
+- [x] B3 BullMQ: `BullModule.forRootAsync` from config, a generic `QueuesModule` with one `system` queue + processor proving the wiring, Redis check in `/health`
+- [x] B4 Docs + verification: README/CLAUDE.md updates, build/lint/check-types/test, end-to-end proof against the live containers
 
 ## Route declaration
 Delegated writers: W1 = B1+B2, W2 = B3 (sequential; both touch `app.module.ts`). Parent runs verification and commits. Evidence: ≥2 non-trivial files per task; new dependency APIs unfamiliar (Nest 12 / TypeORM 1.x).
@@ -35,5 +35,7 @@ Unit tests with Vitest where deterministic (env validation, module wiring with m
 B1+B2 (delegated writer W1, route: delegated): `compose.yaml` (postgres:17-alpine on 127.0.0.1:5432, redis:7-alpine with AOF on 127.0.0.1:6380, healthchecks, named volumes, `orthopro-*` containers), root scripts `infra:up|down|logs|ps`, `.env.example` (root) + `apps/api/.env.example`; `@nestjs/config` with `validateEnv` (RED observed: "Cannot find module './env.validation.js'", then GREEN 5/5), `DatabaseModule` (TypeORM forRootAsync, synchronize false, autoLoadEntities), `data-source.ts` + `migration:*` scripts (`bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:<x>`), `/health` (terminus database check, extension point for Redis), `enableShutdownHooks`, `turbo.json` `test` task. Rootless podman needs `systemctl --user start podman.socket` once.
 Observed by writer against live containers: pg_isready OK, redis PONG, `migration:run` "No migrations are pending", `/health` status ok with database up, `/` Hello World. Parent re-run: `turbo run build lint check-types test --filter=api` 4/4 successful (lint 1 warning, 0 errors; 7/7 tests). Not tested: TypeORM retry with the DB down. Parent cleaned a leftover `turbo run dev` (pids 806066 tree) from an earlier port test; ports 3000-3003/5432/6380 free. `.env` files are ignored (verified).
 
+B3 (delegated writer W2): `@nestjs/bullmq` 12.0.0 + `bullmq` 6.3.17 + `ioredis` (optional peer, required at runtime); `src/queues/` (module with `forRootAsync`, prefix `orthopro`, attempts 3 + exponential backoff, removeOnComplete/Fail limits; `system` queue; `SystemProcessor` ping, unknown jobs throw; `QueuesService.enqueuePing`); `RedisHealthIndicator` (terminus 12 `HealthIndicatorService`, 2s timeout, via `queue.getBackend().client`); optional `REDIS_PASSWORD`. RED observed (`3 failed | 1 passed`), GREEN; unit suite 15/15; `test:e2e` 2/2 against live stack; resilience: redis stopped -> `/health` 503 (redis down, db up, API alive), recovered after start. Parent re-run `turbo run build lint check-types test --filter=api` 4/4 successful; parent fixed 2 oxlint `no-base-to-string` warnings and an empty "(got )" in the invalid-port message in `env.validation.ts` (spec 6/6 still green). B4: README backend section + CLAUDE.md updated. Not tested: `REDIS_PASSWORD` against an authenticated Redis; TypeORM retry with DB down.
+
 ## Next step
-B3
+Domain modeling from the quotation (cotizacion/COTIZACION_ORTHOPROLAB.pdf): entities, auth, first real queues.
