@@ -1,159 +1,61 @@
-# Turborepo starter
+# OrthoPro Lab
 
-This Turborepo starter is maintained by the Turborepo core team.
+Monorepo for OrthoPro Lab, a dental (orthodontic and prosthetic) laboratory in Medellín, Colombia. The public website lives in `apps/web`.
 
-## Using this example
+Turborepo with Bun workspaces. Requires Node >= 24 and Bun 1.4.2.
 
-Run the following command:
+## Apps and packages
 
-```sh
-npx create-turbo@latest
-```
+| Path | What it is |
+|---|---|
+| `apps/web` | Public marketing site (Next.js, Tailwind v4, shadcn/ui). Pages: landing, nosotros, catálogo (one route per service), pagos. |
+| `apps/admin` | Admin app (Next.js, Tailwind v4). Starter only for now. |
+| `apps/clientes` | Client portal (Next.js, Tailwind v4). Starter only for now. |
+| `packages/theme` | `@repo/theme`: shared Tailwind v4 tokens and the shadcn semantic variables (`theme.css`). |
+| `packages/ui` | `@repo/ui`: shadcn/ui components shared across apps (`@repo/ui/components/*`, `@repo/ui/lib/utils`). |
+| `packages/eslint-config`, `packages/typescript-config` | Shared lint and TypeScript configs. |
 
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Getting started
 
 ```sh
-cd my-turborepo
-turbo build
+bun install
+bun run dev                      # every app
+bunx turbo run dev --filter=web  # only the website
 ```
 
-Without global `turbo`, use your package manager:
+Other commands, all from the repo root:
 
 ```sh
-cd my-turborepo
-npx turbo build
-bun exec turbo build
-bun exec turbo build
+bun run build
+bun run lint
+bun run check-types
+bun run format
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Website (`apps/web`)
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+- **Environment:** `NEXT_PUBLIC_SITE_URL` sets the base URL for canonical links, Open Graph, `sitemap.xml`, `robots.txt` and JSON-LD. It defaults to `https://orthoprolab.com`, the planned domain. See `apps/web/.env.example`.
+- **Cache Components** are enabled (`cacheComponents: true`). Avoid `new Date()` or random values during prerender, and do not export `dynamicParams`. The footer year uses `"use cache"` (`components/current-year.tsx`).
+- **Theme:** colors and fonts come from `@repo/theme`. Each app loads Outfit (headings) and Poppins (body) with `next/font` in its `layout.tsx`, using the `--font-outfit` and `--font-poppins` variables.
+- **Catalog:** services are defined in `apps/web/lib/catalog.ts`. Prices are never shown on the site; "Ver precios" downloads `public/catalogo-orthopro-lab.pdf`, currently a placeholder.
+- **Payments:** there is no payment gateway. `apps/web/lib/payments.ts` holds the bank accounts shown on `/pagos`, currently placeholders.
+- **Images:** local files in `apps/web/public/images`. The hero and page headers are preloaded, the rest load lazily.
+
+## Pending content
+
+Content that still needs real data (bank accounts, catalog PDF, mission and vision, turnaround policy, testimonials, contact channels) is tracked in `odd/copy-needs.md`. Feature progress is in `odd/tasks/orthopro-web.md`.
+
+## Adding shadcn components
+
+Run the CLI from `apps/web`; files land in `packages/ui/src/components`:
 
 ```sh
-turbo build --filter=docs
+cd apps/web
+bunx --bun shadcn@latest add <component>
 ```
 
-Without global `turbo`:
+If the CLI writes `from "cn"` imports, change them to `@repo/ui/lib/utils`. The shadcn style here is `base-nova`, so triggers use the Base UI `render` prop instead of `asChild`.
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
-```
+## Agent guidance
 
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+`CLAUDE.md` and the per-app `AGENTS.md` files describe the repo for coding agents. The Next.js and Turborepo versions used here differ from older docs, so read the guides bundled in `node_modules` before changing configuration.
