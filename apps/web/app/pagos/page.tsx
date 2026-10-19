@@ -4,11 +4,16 @@ import { cn } from "@repo/ui/lib/utils";
 import { CopyButton } from "@/components/copy-button";
 import { Reveal } from "@/components/reveal";
 import { BANK_ACCOUNTS } from "@/lib/payments";
+import { BRAND_NAME, pageSocial } from "@/lib/site";
+
+const PAYMENTS_TITLE = "Pagos y cuentas bancarias";
+const PAYMENTS_DESCRIPTION =
+  "Cuentas bancarias oficiales de OrthoPro Lab, laboratorio odontológico en Medellín, para tus pagos por transferencia o consignación.";
 
 export const metadata: Metadata = {
-  title: "Pagos y Cuentas | Orthopro Lab",
-  description:
-    "Cuentas bancarias oficiales de OrthoPro Lab para realizar tus pagos por transferencia o consignación.",
+  title: PAYMENTS_TITLE,
+  description: PAYMENTS_DESCRIPTION,
+  ...pageSocial(`${PAYMENTS_TITLE} | ${BRAND_NAME}`, PAYMENTS_DESCRIPTION, "/pagos"),
 };
 
 const RADIUS = "rounded-xl";

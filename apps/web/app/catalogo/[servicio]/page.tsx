@@ -6,7 +6,9 @@ import { ArrowLeftIcon, ArrowRightIcon, ClockIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
+import { JsonLd } from "@/components/json-ld";
 import { SERVICES, SERVICE_IMAGES, getService } from "@/lib/catalog";
+import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial } from "@/lib/site";
 
 type Props = { params: Promise<{ servicio: string }> };
 
@@ -20,9 +22,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { servicio } = await params;
   const service = getService(servicio);
   if (!service) return {};
+  const title = `${service.name} en Medellín | Catálogo`;
+  const description = `${service.name} en Medellín: ${service.description}`;
   return {
-    title: `${service.name} | Catálogo | Orthopro Lab`,
-    description: service.description,
+    title,
+    description,
+    ...pageSocial(`${title} | ${BRAND_NAME}`, description, `/catalogo/${service.slug}`),
   };
 }
 
@@ -38,8 +43,32 @@ export default async function ServicePage({ params }: Props) {
   ] as const;
   const related = SERVICES.filter((s) => s.slug !== service.slug);
 
+  const url = `${SITE_URL}/catalogo/${service.slug}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Inicio", item: SITE_URL },
+          { "@type": "ListItem", position: 2, name: "Catálogo", item: `${SITE_URL}/catalogo` },
+          { "@type": "ListItem", position: 3, name: service.name, item: url },
+        ],
+      },
+      {
+        "@type": "Service",
+        name: service.name,
+        description: service.description,
+        url,
+        provider: { "@type": "LocalBusiness", "@id": `${SITE_URL}/#localbusiness`, name: BRAND_NAME },
+        areaServed: { "@type": "City", name: LAB_LOCALITY },
+      },
+    ],
+  };
+
   return (
     <>
+      <JsonLd data={jsonLd} />
       {/* Hero: service image under a vertical gray-to-black mask */}
       <section className="relative isolate flex min-h-[calc(78dvh-4rem)] items-end overflow-hidden pt-16 pb-14 lg:pb-20">
         <Image

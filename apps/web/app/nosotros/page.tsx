@@ -16,11 +16,16 @@ import {
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
+import { BRAND_NAME, pageSocial } from "@/lib/site";
+
+const ABOUT_TITLE = "Nosotros: laboratorio dental digital en Medellín";
+const ABOUT_DESCRIPTION =
+  "Misión, visión y valores de OrthoPro Lab, laboratorio dental digital en Medellín de ortodoncia y prótesis CAD/CAM.";
 
 export const metadata: Metadata = {
-  title: "Nosotros | Orthopro Lab",
-  description:
-    "Misión, visión y valores de OrthoPro Lab, laboratorio dental digital de ortodoncia y prótesis CAD/CAM.",
+  title: ABOUT_TITLE,
+  description: ABOUT_DESCRIPTION,
+  ...pageSocial(`${ABOUT_TITLE} | ${BRAND_NAME}`, ABOUT_DESCRIPTION, "/nosotros"),
 };
 
 const RADIUS = "rounded-xl";

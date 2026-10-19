@@ -6,11 +6,16 @@ import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { SERVICES, SERVICE_IMAGES } from "@/lib/catalog";
+import { BRAND_NAME, pageSocial } from "@/lib/site";
+
+const CATALOG_TITLE = "Catálogo de servicios del laboratorio dental";
+const CATALOG_DESCRIPTION =
+  "Catálogo de OrthoPro Lab en Medellín: ortodoncia fija y removible, alineadores, retenedores, férulas y prótesis CAD/CAM.";
 
 export const metadata: Metadata = {
-  title: "Catálogo de Servicios | Orthopro Lab",
-  description:
-    "Servicios de OrthoPro Lab: ortodoncia fija y removible, alineadores, retenedores, férulas y prótesis CAD/CAM.",
+  title: CATALOG_TITLE,
+  description: CATALOG_DESCRIPTION,
+  ...pageSocial(`${CATALOG_TITLE} | ${BRAND_NAME}`, CATALOG_DESCRIPTION, "/catalogo"),
 };
 
 const RADIUS = "rounded-xl";
