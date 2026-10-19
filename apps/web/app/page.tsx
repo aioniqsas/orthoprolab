@@ -16,7 +16,7 @@ import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { LocationMap } from "@/components/location-map";
-import { SERVICES } from "@/lib/catalog";
+import { SERVICES, SERVICE_IMAGES } from "@/lib/catalog";
 import {
   BRAND_NAME,
   LAB_COUNTRY,
@@ -71,14 +71,6 @@ const BUSINESS_JSON_LD = {
 const RADIUS = "rounded-xl";
 const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold transition-transform active:scale-[0.98]`;
-
-const SERVICE_IMAGES: Record<string, string> = {
-  "ortodoncia-fija": "/images/service-ortodoncia-fija.jpg",
-  "ortodoncia-removible": "/images/service-ortodoncia-removible.jpg",
-  "alineadores-invisibles": "/images/service-alineadores-invisibles.jpg",
-  "retenedores-y-ferulas": "/images/service-retenedores-y-ferulas.jpg",
-  "protesis-cad-cam": "/images/service-protesis-cad-cam.jpg",
-};
 
 const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
   {
@@ -255,8 +247,8 @@ export default function Home() {
           <Reveal className="lg:col-span-6">
             <div className={cn("relative aspect-[4/3] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
-                src="/images/team-technician.jpg"
-                alt="Técnica del laboratorio odontológico en Medellín revisando un alineador con microscopio"
+                src="/images/tecnico-laboratorio-dental-ajustando-protesis.webp"
+                alt="Técnico del laboratorio odontológico de Medellín ajustando una prótesis dental en el articulador"
                 fill
                 sizes="(min-width: 1024px) 50vw, 100vw"
                 className="object-cover"
@@ -291,7 +283,7 @@ export default function Home() {
       {/* Closing CTA: full-width band over the milling image */}
       <section className="relative isolate overflow-hidden py-20 lg:py-28">
         <Image
-          src="/images/lab-milling.jpg"
+          src="/images/protesis-dental-completa-laboratorio-medellin.webp"
           alt=""
           fill
           sizes="100vw"

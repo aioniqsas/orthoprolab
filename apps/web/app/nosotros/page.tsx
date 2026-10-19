@@ -15,6 +15,7 @@ import {
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
+import { SERVICE_IMAGES } from "@/lib/catalog";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const ABOUT_TITLE = "Sobre nosotros: laboratorio dental en Medellín";
@@ -72,11 +73,11 @@ function PointList({ points }: { points: Point[] }) {
 export default function AboutPage() {
   return (
     <>
-      {/* Hero: cleanroom image under a vertical gray-to-black mask; copy sits in the dark lower part */}
+      {/* Hero: lab photo under a vertical gray-to-black mask; copy sits in the dark lower part */}
       <section className="relative isolate flex min-h-[calc(100dvh-4rem)] items-end overflow-hidden pt-24 pb-16 lg:pb-24">
         <Image
-          src="/images/lab-cleanroom.jpg"
-          alt="Técnicos trabajando con fresadoras y escáner en el laboratorio"
+          src="/images/tecnicos-laboratorio-dental-trabajando-medellin.webp"
+          alt="Técnicos del laboratorio dental fabricando prótesis dentales en Medellín"
           fill
           preload
           fetchPriority="high"
@@ -109,8 +110,8 @@ export default function AboutPage() {
           <Reveal className="lg:col-span-5">
             <div className={cn("relative aspect-[4/5] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
-                src="/images/team-technician.jpg"
-                alt="Técnica del laboratorio revisando un alineador con microscopio"
+                src="/images/tecnico-laboratorio-dental-ajustando-protesis.webp"
+                alt="Técnico del laboratorio dental ajustando una prótesis sobre el articulador"
                 fill
                 sizes="(min-width: 1024px) 40vw, 100vw"
                 className="object-cover"
@@ -148,8 +149,8 @@ export default function AboutPage() {
           <Reveal className="lg:col-span-5">
             <div className={cn("relative aspect-[4/5] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
-                src="/images/service-protesis-cad-cam.jpg"
-                alt="Estructura protésica fresada con tecnología CAD/CAM"
+                src={SERVICE_IMAGES["protesis-cad-cam"]!}
+                alt="Prótesis dental terminada en el laboratorio de Medellín"
                 fill
                 sizes="(min-width: 1024px) 40vw, 100vw"
                 className="object-cover"
@@ -183,7 +184,7 @@ export default function AboutPage() {
 
       {/* Closing CTA */}
       <section className="relative isolate overflow-hidden py-20 lg:py-28">
-        <Image src="/images/lab-milling.jpg" alt="" fill sizes="100vw" className="-z-20 object-cover" />
+        <Image src="/images/protesis-dental-completa-laboratorio-medellin.webp" alt="" fill sizes="100vw" className="-z-20 object-cover" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
           <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
