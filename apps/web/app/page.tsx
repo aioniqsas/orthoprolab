@@ -99,7 +99,7 @@ export default function Home() {
     <>
       {/* Hero: full-width image under a vertical gray-to-black mask. Copy sits
           in the lower, darker part of the mask so body text keeps AA contrast. */}
-      <section className="relative isolate flex min-h-[calc(100dvh-4rem)] items-end overflow-hidden pt-24 pb-16 lg:pb-24">
+      <section className="relative isolate flex min-h-[calc(100dvh-4rem)] items-end overflow-hidden pt-24 pb-20 lg:min-h-[calc(115dvh-4rem)] lg:pb-32">
         <Image
           src="/images/hero.jpg"
           alt="Alineador transparente sobre una base de obsidiana en el laboratorio"
@@ -110,17 +110,17 @@ export default function Home() {
         />
         <div
           aria-hidden
-          className="absolute inset-0 -z-10 bg-gradient-to-b from-surface-alt/60 via-background/80 to-background"
+          className="absolute inset-0 -z-10 bg-gradient-to-b from-surface-alt/50 via-background/40 to-background"
         />
         <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
-          <div className="flex max-w-3xl flex-col gap-6">
+          <div className="flex max-w-4xl flex-col gap-7">
             <Reveal>
-              <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
+              <h1 className="text-5xl font-bold leading-[1.05] tracking-tighter text-body md:text-6xl lg:text-7xl">
                 Aparatología ortodóntica <span className="text-highlight">de precisión</span> para tu clínica
               </h1>
             </Reveal>
             <Reveal delay={0.1}>
-              <p className="max-w-[60ch] text-lg text-body/80">
+              <p className="max-w-[60ch] text-lg text-body/90 md:text-xl">
                 Laboratorio digital de ortodoncia fija, removible, alineadores y prótesis para odontólogos y especialistas.
               </p>
             </Reveal>
