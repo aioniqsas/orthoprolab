@@ -3,12 +3,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   ArrowRightIcon,
+  BoxIcon,
   CpuIcon,
   FileDownIcon,
   LandmarkIcon,
   PackageCheckIcon,
   PencilRulerIcon,
-  ScanLineIcon,
   type LucideIcon,
 } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
@@ -75,8 +75,8 @@ const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold transition-tr
 const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
   {
     title: "Envías el caso",
-    text: "Recibimos el escaneo digital o las impresiones físicas de tu paciente.",
-    icon: ScanLineIcon,
+    text: "Recibimos las impresiones físicas de tu paciente.",
+    icon: BoxIcon,
   },
   {
     title: "Diseñamos",
@@ -97,9 +97,9 @@ const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
 
 const BEFORE_FIRST_CASE: { title: string; text: string; icon: LucideIcon }[] = [
   {
-    title: "Escaneo o impresiones",
-    text: "Puedes enviar el caso en digital o en impresiones físicas.",
-    icon: ScanLineIcon,
+    title: "Impresiones físicas",
+    text: "Recibimos las impresiones del caso para trabajar sobre ellas.",
+    icon: BoxIcon,
   },
   {
     title: "Precios en el catálogo",
@@ -144,7 +144,7 @@ export default function Home() {
             </Reveal>
             <Reveal delay={0.1}>
               <p className="max-w-[60ch] text-lg text-body/90 md:text-xl">
-                Fabricamos aparatos de ortodoncia y prótesis a partir del escaneo o las impresiones de tu caso.
+                Fabricamos aparatos de ortodoncia y prótesis a partir de las impresiones de tu caso.
               </p>
             </Reveal>
             <Reveal delay={0.2} className="flex flex-wrap items-center gap-4 pt-2">

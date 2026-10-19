@@ -34,7 +34,7 @@ const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold whitespace-no
 type Point = { title: string; text: string; icon: LucideIcon };
 
 const MISSION_POINTS: Point[] = [
-  { icon: CheckCircle2Icon, title: "Parte del caso", text: "Fabricamos a partir del escaneo o las impresiones que recibimos." },
+  { icon: CheckCircle2Icon, title: "Parte del caso", text: "Fabricamos a partir de las impresiones que recibimos." },
   { icon: CheckCircle2Icon, title: "Cuatro líneas de trabajo", text: "Ortodoncia fija y removible, alineadores y retenedores." },
   { icon: CheckCircle2Icon, title: "Vuelve a tu consultorio", text: "El trabajo terminado regresa al odontólogo que lo pidió." },
 ];

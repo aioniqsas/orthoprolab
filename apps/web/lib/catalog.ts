@@ -50,7 +50,7 @@ export const SERVICES: ServiceType[] = [
     name: "Alineadores Invisibles",
     icon: "layers",
     description:
-      "Alineadores transparentes planificados a partir del escaneo o las impresiones que envía el odontólogo.",
+      "Alineadores transparentes planificados a partir de las impresiones que envía el odontólogo.",
     tagline: "Alineadores transparentes",
     items: [
       { code: "AL-PRO-CAD", name: "Alineadores transparentes", summary: "Serie de alineadores removibles diseñada sobre el modelo digital del paciente.", indication: "Alineación de dientes apiñados, rotados o con espacios." },
