@@ -118,4 +118,18 @@ describe('CryptoService', () => {
       expect(() => svc.blindIndex(' .- ')).toThrow();
     });
   });
+
+  describe('loginKey', () => {
+    it('is a deterministic HMAC of the normalized email', () => {
+      const k = svc.loginKey('Doc@Example.com');
+      expect(k).toMatch(/^[0-9a-f]{64}$/);
+      expect(svc.loginKey(' doc@example.com ')).toBe(k);
+      expect(svc.loginKey('other@example.com')).not.toBe(k);
+      expect(k).not.toContain('doc');
+    });
+
+    it('uses a domain prefix distinct from the cedula blind index', () => {
+      expect(svc.loginKey('12345')).not.toBe(svc.blindIndex('12345'));
+    });
+  });
 });

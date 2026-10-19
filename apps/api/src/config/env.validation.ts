@@ -25,6 +25,20 @@ export interface EnvConfig {
   /** Requests allowed per THROTTLE_TTL_MS for each IP on every route. */
   THROTTLE_DEFAULT_LIMIT: number;
   THROTTLE_TTL_MS: number;
+  /** base64 of at least 32 bytes; signs the access JWT (HS256). */
+  JWT_SECRET: string;
+  /** Lifetime of the access token / auth_token cookie, in seconds. */
+  ACCESS_TOKEN_TTL_SECONDS: number;
+  /** Lifetime of each refresh token (sliding: renewed on every use), in days. */
+  REFRESH_TOKEN_TTL_DAYS: number;
+  /** Absolute cap of a session family from its first login, in days. */
+  SESSION_MAX_LIFETIME_DAYS: number;
+  /** Failed logins (per email) before the cooldown starts. */
+  LOGIN_MAX_ATTEMPTS: number;
+  /** Cooldown length after too many failed logins, in seconds. */
+  LOGIN_LOCK_SECONDS: number;
+  /** A just-rotated refresh token reused within this many seconds is not theft. */
+  REFRESH_REUSE_GRACE_SECONDS: number;
 }
 
 const DEFAULT_CORS_ORIGINS = [
@@ -91,6 +105,26 @@ function readKey(raw: RawEnv, key: string, errors: string[]): string {
   const canonical = /^[A-Za-z0-9+/]+={0,2}$/.test(value);
   if (!canonical || decoded.length !== 32) {
     errors.push(`${key} must be base64 of exactly 32 bytes`);
+    return '';
+  }
+  return value;
+}
+
+/**
+ * Reads the JWT signing secret: base64 of at least 32 bytes. Errors name the
+ * variable only; the value must never appear in errors or logs.
+ */
+function readJwtSecret(raw: RawEnv, errors: string[]): string {
+  const value = asText(raw['JWT_SECRET']).trim();
+  if (value === '') {
+    errors.push(
+      'JWT_SECRET is required (generate with: openssl rand -base64 48)',
+    );
+    return '';
+  }
+  const canonical = /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+  if (!canonical || Buffer.from(value, 'base64').length < 32) {
+    errors.push('JWT_SECRET must be base64 of at least 32 bytes');
     return '';
   }
   return value;
@@ -225,7 +259,61 @@ export function validateEnv(raw: RawEnv): EnvConfig {
       3600000,
       errors,
     ),
+    JWT_SECRET: readJwtSecret(raw, errors),
+    ACCESS_TOKEN_TTL_SECONDS: readBoundedInt(
+      raw,
+      'ACCESS_TOKEN_TTL_SECONDS',
+      900,
+      30,
+      86400,
+      errors,
+    ),
+    REFRESH_TOKEN_TTL_DAYS: readBoundedInt(
+      raw,
+      'REFRESH_TOKEN_TTL_DAYS',
+      7,
+      1,
+      90,
+      errors,
+    ),
+    SESSION_MAX_LIFETIME_DAYS: readBoundedInt(
+      raw,
+      'SESSION_MAX_LIFETIME_DAYS',
+      30,
+      1,
+      365,
+      errors,
+    ),
+    LOGIN_MAX_ATTEMPTS: readBoundedInt(
+      raw,
+      'LOGIN_MAX_ATTEMPTS',
+      3,
+      1,
+      100,
+      errors,
+    ),
+    LOGIN_LOCK_SECONDS: readBoundedInt(
+      raw,
+      'LOGIN_LOCK_SECONDS',
+      300,
+      1,
+      86400,
+      errors,
+    ),
+    REFRESH_REUSE_GRACE_SECONDS: readBoundedInt(
+      raw,
+      'REFRESH_REUSE_GRACE_SECONDS',
+      10,
+      0,
+      300,
+      errors,
+    ),
   };
+  if (config.REFRESH_TOKEN_TTL_DAYS > config.SESSION_MAX_LIFETIME_DAYS) {
+    errors.push(
+      'SESSION_MAX_LIFETIME_DAYS must be greater than or equal to REFRESH_TOKEN_TTL_DAYS',
+    );
+  }
   if (
     config.ENCRYPTION_KEY !== '' &&
     config.ENCRYPTION_KEY === config.BLIND_INDEX_KEY

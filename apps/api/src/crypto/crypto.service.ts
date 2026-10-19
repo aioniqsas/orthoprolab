@@ -127,4 +127,15 @@ export class CryptoService {
       .update(normalized, 'utf8')
       .digest('hex');
   }
+
+  /**
+   * Redis key material for login lockout: HMAC-SHA256 (hex) of the normalized
+   * email under a distinct domain prefix, so raw emails never reach Redis and
+   * the value cannot be confused with a cedula blind index.
+   */
+  loginKey(email: string): string {
+    return createHmac('sha256', this.blindIndexKey)
+      .update(`login-lockout:v1:${email.trim().toLowerCase()}`, 'utf8')
+      .digest('hex');
+  }
 }

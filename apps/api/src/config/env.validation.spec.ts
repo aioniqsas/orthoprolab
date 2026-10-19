@@ -4,7 +4,13 @@ describe('validateEnv', () => {
   const key = (fill: number) => Buffer.alloc(32, fill).toString('base64');
   const ENCRYPTION_KEY = key(1);
   const BLIND_INDEX_KEY = key(2);
-  const base = { DATABASE_PASSWORD: 'secret', ENCRYPTION_KEY, BLIND_INDEX_KEY };
+  const JWT_SECRET = Buffer.alloc(48, 3).toString('base64');
+  const base = {
+    DATABASE_PASSWORD: 'secret',
+    ENCRYPTION_KEY,
+    BLIND_INDEX_KEY,
+    JWT_SECRET,
+  };
 
   it('applies dev defaults', () => {
     expect(validateEnv(base)).toEqual({
@@ -29,6 +35,81 @@ describe('validateEnv', () => {
       TRUST_PROXY: false,
       THROTTLE_DEFAULT_LIMIT: 60,
       THROTTLE_TTL_MS: 60000,
+      JWT_SECRET,
+      ACCESS_TOKEN_TTL_SECONDS: 900,
+      REFRESH_TOKEN_TTL_DAYS: 7,
+      SESSION_MAX_LIFETIME_DAYS: 30,
+      LOGIN_MAX_ATTEMPTS: 3,
+      LOGIN_LOCK_SECONDS: 300,
+      REFRESH_REUSE_GRACE_SECONDS: 10,
+    });
+  });
+
+  describe('auth settings', () => {
+    it('requires JWT_SECRET', () => {
+      const { JWT_SECRET: _omit, ...rest } = base;
+      expect(() => validateEnv(rest)).toThrow(/JWT_SECRET is required/);
+    });
+
+    it('accepts a base64 secret of at least 32 bytes', () => {
+      const ok = Buffer.alloc(32, 9).toString('base64');
+      expect(validateEnv({ ...base, JWT_SECRET: ok }).JWT_SECRET).toBe(ok);
+    });
+
+    it('rejects short or non-base64 secrets without printing the value', () => {
+      for (const bad of [
+        Buffer.alloc(31, 9).toString('base64'),
+        'not base64 !!! super-secret-value',
+      ]) {
+        let message = '';
+        try {
+          validateEnv({ ...base, JWT_SECRET: bad });
+        } catch (e) {
+          message = (e as Error).message;
+        }
+        expect(message).toMatch(/JWT_SECRET must be base64 of at least 32/);
+        expect(message).not.toContain(bad);
+      }
+    });
+
+    it('parses numeric overrides', () => {
+      const env = validateEnv({
+        ...base,
+        ACCESS_TOKEN_TTL_SECONDS: '60',
+        REFRESH_TOKEN_TTL_DAYS: '1',
+        SESSION_MAX_LIFETIME_DAYS: '2',
+        LOGIN_MAX_ATTEMPTS: '5',
+        LOGIN_LOCK_SECONDS: '2',
+        REFRESH_REUSE_GRACE_SECONDS: '0',
+      });
+      expect(env.ACCESS_TOKEN_TTL_SECONDS).toBe(60);
+      expect(env.REFRESH_TOKEN_TTL_DAYS).toBe(1);
+      expect(env.SESSION_MAX_LIFETIME_DAYS).toBe(2);
+      expect(env.LOGIN_MAX_ATTEMPTS).toBe(5);
+      expect(env.LOGIN_LOCK_SECONDS).toBe(2);
+      expect(env.REFRESH_REUSE_GRACE_SECONDS).toBe(0);
+    });
+
+    it.each([
+      'ACCESS_TOKEN_TTL_SECONDS',
+      'REFRESH_TOKEN_TTL_DAYS',
+      'SESSION_MAX_LIFETIME_DAYS',
+      'LOGIN_MAX_ATTEMPTS',
+      'LOGIN_LOCK_SECONDS',
+      'REFRESH_REUSE_GRACE_SECONDS',
+    ])('rejects an invalid %s', (name) => {
+      expect(() => validateEnv({ ...base, [name]: 'abc' })).toThrow(name);
+      expect(() => validateEnv({ ...base, [name]: '-1' })).toThrow(name);
+    });
+
+    it('rejects a refresh lifetime longer than the session cap', () => {
+      expect(() =>
+        validateEnv({
+          ...base,
+          REFRESH_TOKEN_TTL_DAYS: '30',
+          SESSION_MAX_LIFETIME_DAYS: '7',
+        }),
+      ).toThrow(/SESSION_MAX_LIFETIME_DAYS/);
     });
   });
 
