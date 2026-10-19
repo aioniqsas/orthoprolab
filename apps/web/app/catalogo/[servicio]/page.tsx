@@ -46,7 +46,8 @@ export default async function ServicePage({ params }: Props) {
           src={SERVICE_IMAGES[service.slug]!}
           alt={`${service.name} fabricado en OrthoPro Lab`}
           fill
-          priority
+          preload
+          fetchPriority="high"
           sizes="100vw"
           className="-z-20 object-cover"
         />

@@ -99,12 +99,13 @@ export default function Home() {
     <>
       {/* Hero: full-width image under a vertical gray-to-black mask. Copy sits
           in the lower, darker part of the mask so body text keeps AA contrast. */}
-      <section className="relative isolate flex min-h-[calc(100dvh-4rem)] items-end overflow-hidden pt-24 pb-20 lg:min-h-[calc(115dvh-4rem)] lg:pb-32">
+      <section className="relative isolate flex min-h-[70dvh] items-end overflow-hidden pt-24 pb-16 lg:min-h-[80dvh] lg:pb-20">
         <Image
           src="/images/hero.jpg"
           alt="Alineador transparente sobre una base de obsidiana en el laboratorio"
           fill
-          priority
+          preload
+          fetchPriority="high"
           sizes="100vw"
           className="-z-20 object-cover"
         />

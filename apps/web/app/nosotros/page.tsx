@@ -75,7 +75,8 @@ export default function AboutPage() {
           src="/images/lab-cleanroom.jpg"
           alt="Técnicos trabajando con fresadoras y escáner en el laboratorio"
           fill
-          priority
+          preload
+          fetchPriority="high"
           sizes="100vw"
           className="-z-20 object-cover object-left"
         />
