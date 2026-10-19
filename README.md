@@ -54,12 +54,14 @@ Both `.env` files are git-ignored; keep the same database password in each.
 |---|---|
 | Unit tests | `bun run test` |
 | Integration tests (needs `infra:up`) | `bun run test:e2e` |
+| First administrator | `bun run admin:create -- --correo <email> --cedula <digits> --nombres <text> --apellidos <text>` (hidden password prompt) |
 | Migrations | `bun run migration:generate -- src/database/migrations/<Name>`, `migration:run`, `migration:revert`, `migration:show` |
 
 - TypeORM never synchronizes the schema (`synchronize: false`); every change goes through a migration. `src/database/data-source.ts` feeds the TypeORM CLI.
 - Queues use BullMQ with the `orthopro` prefix. The `system` queue and its `ping` processor exist to prove the wiring; add real queues as modules under `src/queues`.
 - `GET /health` returns 503 when the database or Redis is unreachable.
 - Relative imports need the `.js` extension (ESM).
+- Auth: JWT in httpOnly cookies (`auth_token` 15 min, `refresh_token` 7 days with rotation and reuse detection), every route protected unless `@Public()`, per-email lockout (3 failures, 5 minutes), per-endpoint rate limits, helmet, CORS allow-list and Origin check. Requires `JWT_SECRET` in `apps/api/.env`. The first administrator is created with `bun run admin:create` (never over HTTP): the password is prompted twice with hidden input, or piped as one line with `--password-stdin` for automation. Full reference (flows, cookies, env variables, threat notes, follow-ups): [`apps/api/docs/auth.md`](apps/api/docs/auth.md).
 - Database model: ERD, data dictionary, integrity rules and data-protection notes in [`apps/api/docs/database-model.md`](apps/api/docs/database-model.md); generated DDL in `apps/api/docs/schema.sql` (`bun run db:schema` from `apps/api`, needs `infra:up`).
 
 ## Website (`apps/web`)

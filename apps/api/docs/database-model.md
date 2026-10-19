@@ -6,7 +6,7 @@ Status: provisional until the open questions in section 6 are answered by the cl
 
 ## 1. Overview and design principles
 
-12 application tables (plus TypeORM's `migrations` bookkeeping table) in the `public` schema.
+13 application tables (plus TypeORM's `migrations` bookkeeping table) in the `public` schema.
 
 - **Mixed identifiers.** `usuario.id` is a UUID (`gen_random_uuid()`, built in since PG 13) because it will appear in tokens and URLs and must not be guessable. Every other table uses `bigint GENERATED ALWAYS AS IDENTITY`. Catalog tables (`rol`, `estado_orden`) also use bigint ids and expose a stable business key (`nombre`, `codigo`).
 - **One role per user.** `usuario.rol_id` is a single FK to `rol`. There is no user-role join table.
@@ -40,6 +40,7 @@ erDiagram
     estado_orden |o--o{ historial_estado_orden : "estado_anterior_id"
     estado_orden ||--o{ historial_estado_orden : "estado_nuevo_id"
     usuario ||--o{ historial_estado_orden : "usuario_id"
+    usuario ||--o{ sesion_refresco : "usuario_id"
 
     rol {
         bigint id PK
@@ -58,6 +59,17 @@ erDiagram
         boolean activo
         timestamptz fecha_creacion
         timestamptz fecha_actualizacion
+    }
+    sesion_refresco {
+        bigint id PK
+        uuid usuario_id FK
+        uuid familia_id "one per login"
+        char64 token_hash UK "SHA-256 of the token"
+        timestamptz expira_en
+        timestamptz revocada_en
+        bigint reemplazada_por_id "rotation chain"
+        timestamptz creada_en
+        timestamptz ultimo_uso_en
     }
     clinica {
         bigint id PK
@@ -162,6 +174,21 @@ Types as in PostgreSQL. "Enc" = encrypted at application level (stored as text, 
 | fecha_creacion | timestamptz | no | Default `now()` |
 | fecha_actualizacion | timestamptz | no | Default `now()` |
 
+### sesion_refresco
+Refresh-token sessions (see [auth.md](./auth.md)). Only the SHA-256 hash of the opaque token is stored. No IP or user-agent is kept.
+
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| id | bigint identity | no | PK `pk_sesion_refresco` |
+| usuario_id | uuid | no | FK `usuario`, RESTRICT, indexed |
+| familia_id | uuid | no | Shared by every token of one login; indexed |
+| token_hash | char(64) | no | SHA-256 hex of the token, unique |
+| expira_en | timestamptz | no | Sliding expiry of this token, indexed |
+| revocada_en | timestamptz | yes | Set on rotation, logout or reuse detection |
+| reemplazada_por_id | bigint | yes | Id of the token that replaced this one (no FK) |
+| creada_en | timestamptz | no | Default `now()` |
+| ultimo_uso_en | timestamptz | no | Default `now()` |
+
 ### clinica
 | Column | Type | Null | Notes |
 |---|---|---|---|
@@ -262,6 +289,7 @@ Types as in PostgreSQL. "Enc" = encrypted at application level (stored as text, 
 - **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or >= `fecha_creacion`), `ck_servicio_precio_no_negativo` (>= 0).
 - **Unique constraints**: `rol.nombre`, `servicio.nombre`, `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
 - **Functional unique index** `uq_usuario_correo_lower` on `lower(correo)`: case-insensitive unique email.
+- **Unique index** `uq_sesion_refresco_token_hash` on `sesion_refresco.token_hash`; support indexes `idx_sesion_refresco_usuario`, `idx_sesion_refresco_familia`, `idx_sesion_refresco_expira`.
 - **Unique index** `uq_usuario_cedula_hash` on `usuario.cedula_hash`.
 - **Partial unique index** `uq_paciente_cedula_hash` on `paciente.cedula_hash WHERE cedula_hash IS NOT NULL`: unique cedula, several patients without one.
 - **Support indexes**: `idx_orden_doctor_fecha`, `idx_orden_estado`, `idx_orden_paciente`, `idx_detalle_orden_orden`, `idx_historial_orden_fecha`.
@@ -274,6 +302,7 @@ Types as in PostgreSQL. "Enc" = encrypted at application level (stored as text, 
 - TODO: every status change must insert a `historial_estado_orden` row and update `orden.estado_id` in the same transaction; `estado_anterior_id` must equal the current state; allowed transitions are not enforced by the DB.
 - TODO: `historial_estado_orden` is append-only; there is no trigger preventing UPDATE/DELETE, so the services must never issue them.
 - TODO: keep `fecha_actualizacion` current on updates (no trigger).
+- `sesion_refresco`: rotation, reuse detection, the absolute session cap and revocation are done by `SessionsService` (see [auth.md](./auth.md)). `reemplazada_por_id` is not a foreign key. Expired rows are not deleted yet (follow-up: BullMQ cleanup job), and because FKs are RESTRICT a user with sessions cannot be deleted until those rows are removed.
 - TODO: normalize cedula before hashing (done by the `cedulaHash` helper) and always set `cedula_hash` together with `cedula`.
 
 ## 5. Personal data protection

@@ -319,6 +319,37 @@ ALTER TABLE public.servicio ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: sesion_refresco; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sesion_refresco (
+    id bigint NOT NULL,
+    usuario_id uuid NOT NULL,
+    familia_id uuid NOT NULL,
+    token_hash character(64) NOT NULL,
+    expira_en timestamp with time zone NOT NULL,
+    revocada_en timestamp with time zone,
+    reemplazada_por_id bigint,
+    creada_en timestamp with time zone DEFAULT now() NOT NULL,
+    ultimo_uso_en timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: sesion_refresco_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.sesion_refresco ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.sesion_refresco_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: usuario; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -473,6 +504,14 @@ ALTER TABLE ONLY public.rol
 
 
 --
+-- Name: sesion_refresco pk_sesion_refresco; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sesion_refresco
+    ADD CONSTRAINT pk_sesion_refresco PRIMARY KEY (id);
+
+
+--
 -- Name: idx_detalle_orden_orden; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -508,10 +547,38 @@ CREATE INDEX idx_orden_paciente ON public.orden USING btree (paciente_id);
 
 
 --
+-- Name: idx_sesion_refresco_expira; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sesion_refresco_expira ON public.sesion_refresco USING btree (expira_en);
+
+
+--
+-- Name: idx_sesion_refresco_familia; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sesion_refresco_familia ON public.sesion_refresco USING btree (familia_id);
+
+
+--
+-- Name: idx_sesion_refresco_usuario; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sesion_refresco_usuario ON public.sesion_refresco USING btree (usuario_id);
+
+
+--
 -- Name: uq_paciente_cedula_hash; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_paciente_cedula_hash ON public.paciente USING btree (cedula_hash) WHERE (cedula_hash IS NOT NULL);
+
+
+--
+-- Name: uq_sesion_refresco_token_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_sesion_refresco_token_hash ON public.sesion_refresco USING btree (token_hash);
 
 
 --
@@ -646,6 +713,14 @@ ALTER TABLE ONLY public.historial_estado_orden
 
 ALTER TABLE ONLY public.historial_estado_orden
     ADD CONSTRAINT "FK_dd0cd30ade629362196327faa07" FOREIGN KEY (estado_nuevo_id) REFERENCES public.estado_orden(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: sesion_refresco fk_sesion_refresco_usuario; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sesion_refresco
+    ADD CONSTRAINT fk_sesion_refresco_usuario FOREIGN KEY (usuario_id) REFERENCES public.usuario(id) ON DELETE RESTRICT;
 
 
 --
