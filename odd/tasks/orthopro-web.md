@@ -19,11 +19,16 @@ Sections: Landing (Inicio), Sobre nosotros (Misión, Visión), Catálogo (one su
 ## Tasks
 - [x] T1 shadcn infrastructure shared via `packages/ui` + wired into `apps/web` (components.json in both, aliases, tailwind @source, docs still builds)
 - [x] T2 Theme mapping: shadcn CSS variables ← `@repo/theme` tokens; Outfit + Poppins in `apps/web` layout
-- [ ] T3 Shared layout (navbar, footer) + Landing page from Stitch screen "Inicio"
-- [ ] T4 Sobre nosotros page (Misión, Visión)
+- [x] T3 Shared layout (navbar, footer) + Landing page from Stitch screen "Inicio"
+- [x] T4 Sobre nosotros page (Misión, Visión)
 - [ ] T5 Catálogo: index + dynamic subroute per service type; "Ver precios" downloads PDF (placeholder PDF in `public/`)
 - [ ] T6 Pagos page: bank account cards with copy-to-clipboard (placeholder account data, flagged)
-- [ ] T7 Final verification: lint, check-types for web, build
+- [x] T5 Catálogo (index + 5 service subroutes, "Ver precios" PDF download) and T6 Pagos (bank cards + copy) — commits d649b76, e72abde; fix 3b4d54f (body hydration warning); 8f6dce1 (dynamic copyright year via `"use cache"`)
+- [x] R1 (redesign, skill `design-taste-frontend`, accepted by user: PRESERVE brand palette + Outfit/Poppins; dials variance 6 / motion 4 / density 3): download Stitch imagery into `apps/web/public/images/` (URLs from the Stitch screen HTML)
+- [x] R2 Landing redesign: full-width hero image with vertical gray→black mask (hero stats removed; CAD card with fake figures removed), hero stack ≤4 text elements, no neon glows, no "FASE 0X" labels, varied layout families, quotes ≤3 lines, copy self-audit, `Reveal` motion primitive (`motion/react`, reduced-motion aware)
+- [x] R3 Redesign Nosotros, Catálogo (index + subroutes), Pagos, header/footer with the same rules and the Stitch images
+- [ ] R4 SEO + local presence (after R2/R3, to avoid editing the same files concurrently): "laboratorio odontológico en Medellín" in `<title>`, meta description, the landing `<h1>` and naturally in a few landing sections; per-page metadata (title templates, descriptions, canonical, Open Graph/Twitter), `lang=es-CO`, `sitemap.ts`, `robots.ts`, JSON-LD (`DentalLaboratory`/`LocalBusiness` + `Organization`, `BreadcrumbList` on catalog subroutes), semantic headings, alt text; Google Maps embed section on the landing with the lab location (address provided by the user: "Cl. 53 #43 - 43, oficina 204, Medellín, Antioquia, Colombia"; embed via `https://www.google.com/maps?q=<encoded address>&output=embed` since no API key exists; coordinates/phone/hours still unknown, omit them from JSON-LD rather than invent)
+- [ ] T7 Final verification: lint, check-types for web, build, admin/clientes builds, `@repo/ui` lint fix (pre-existing `@babel/preset-typescript` failure), skill Pre-Flight check
 
 ## Route declaration
 Delegated writers for T1, T3–T6 (2+ non-trivial files each); T2 inline if small. Evidence: Stitch HTML screens are 4–9k px tall each → mapping delegated.
@@ -37,5 +42,11 @@ Gotcha: shadcn variables (`--background`, `--primary`, …) were NOT added; T2 m
 
 T2 (inline, mechanical): `packages/theme/theme.css` now defines shadcn semantic variables (dark-only) + `--color-surface-raised` (#1f2425, Stitch elevated surface); `apps/web` globals use them; layout lang=es, title Orthopro Lab. `next build` web OK. T1 review assess: medium, review_due=false (under_budget).
 
+T3+T4 (delegated writer): shell in `apps/web/components/` (brand, site-nav [client, Sheet mobile menu], site-header, site-footer, section-heading), `lib/site.ts` NAV_LINKS, landing `app/page.tsx`, `app/nosotros/page.tsx` (Misión `#mision`, Visión `#vision`). Commits e97e4eb (about), b85eb90 (shell+landing). Checks observed: tsc OK (parent re-run), lint OK, `next build` OK (writer). Deviations: no images (gradients/icons), Stitch's Argentina-specific info bar/contact data dropped, forms/PDF modal omitted. Landing stats/testimonials come from Stitch mock copy → must be confirmed by client. Layout owns `<main>`; pages must not add their own.
+
+R1+R2 (delegated writer): 11 Stitch images re-downloaded at `=w1600`, re-encoded to JPEG (912K) in `apps/web/public/images/` (hero, 5 services, team-technician, lab-milling; unused for now: lab-cleanroom, cad-planning, delivery-case, saved for R3). Landing redesigned (hero image + gray→black mask, bento services, horizontal timeline, perks split, 2 testimonials as PLACEHOLDER, CTA band), `components/reveal.tsx` (motion/react 14.4.0, reduced-motion aware). Commits a796a7b (images), 9c3c42a (landing). Checks observed: tsc OK (parent re-run), writer: lint OK, `next build` OK, dash/country greps clean. NOT verified (needs browser): 375px layout and measured AA contrast of hero text over the mask. RDD is OFF globally (`gentle-ai review mode status`) → delivery/review reports `disabled/unmanaged`; assess over a mis-based range flagged `payments` hot path (lib/payments.ts, earlier commit), no review started.
+
+R3 (delegated writer) + parent hero tweak: Nosotros, Catálogo (index + subroute), Pagos, header, footer redesigned; `lib/site.ts` exports BRAND_NAME/LAB_ADDRESS, `lib/catalog.ts` exports SERVICE_IMAGES; `section-heading.tsx` removed. Hero enlarged (lg:min-h 115dvh, softer mask, lg:text-7xl). Commits 78e89b6 (hero), 768caae (chrome), 05cf9b4 (pages). Checks observed: parent tsc OK + `next build` OK (13 static pages); writer: lint OK, dash/price/country greps clean, routes 200 + PDF content-type OK. Unverified (needs browser): AA contrast over masks, 375px, nav one line, reduced-motion, copy-button feedback. `lab-cleanroom.jpg` has a cut-off sign artifact. Unknown slug returns HTTP 200 with 404 fallback body + noindex (cacheComponents streaming), not a 404 status. Open question to user: what exactly they want from "cache components on the landing" (cacheComponents already enabled; `/` is static).
+
 ## Next step
-T3+T4
+R4 then T7
