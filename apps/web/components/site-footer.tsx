@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BadgeCheckIcon, ClockIcon, MapPinIcon } from "lucide-react";
 import { NAV_LINKS } from "@/lib/site";
 import { Brand } from "./brand";
+import { CurrentYear } from "./current-year";
 
 export function SiteFooter() {
   return (
@@ -55,7 +56,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-border px-6 py-5 text-center text-xs text-muted-foreground">
-        © 2024 OrthoPro Dental Laboratory S.A. Todos los derechos reservados. •
+        © <CurrentYear /> OrthoPro Dental Laboratory S.A. Todos los derechos reservados. •
         Protocolo ISO Certificado • Soporte Exclusivo Odontólogos
       </div>
     </footer>
