@@ -10,14 +10,14 @@ const EMBED_SRC = `https://www.google.com/maps?q=${encodeURIComponent(LAB_FULL_A
 
 export function LocationMap() {
   return (
-    <section id="ubicacion" className="scroll-mt-16 py-20 lg:py-28">
+    <section id="ubicacion" className="scroll-mt-16 bg-surface-raised/40 py-20 lg:py-28">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:items-stretch lg:gap-14 lg:px-12">
         <Reveal className="flex flex-col justify-center gap-6 lg:col-span-4">
           <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
             Dónde estamos en Medellín
           </h2>
           <p className="text-body/80">
-            {BRAND_NAME} atiende a odontólogos y especialistas desde su laboratorio en Medellín.
+            El laboratorio de {BRAND_NAME} queda en Medellín, Antioquia.
           </p>
           <address className="flex items-start gap-3 not-italic text-body">
             <MapPinIcon className="mt-0.5 size-5 shrink-0 text-highlight" strokeWidth={1.5} aria-hidden />

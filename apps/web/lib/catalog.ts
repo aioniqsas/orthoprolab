@@ -5,10 +5,8 @@ export const CATALOG_PDF_HREF = "/catalogo-orthopro-lab.pdf";
 export type CatalogItem = {
   code: string;
   name: string;
+  summary: string;
   indication: string;
-  material: string;
-  requirement: string;
-  turnaround: string;
 };
 
 export type ServiceType = {
@@ -16,8 +14,7 @@ export type ServiceType = {
   name: string;
   icon: "wrench" | "smile" | "layers" | "shield" | "gem";
   description: string;
-  materialTag: string;
-  turnaround: string;
+  tagline: string;
   items: CatalogItem[];
 };
 
@@ -27,13 +24,12 @@ export const SERVICES: ServiceType[] = [
     name: "Ortodoncia Fija",
     icon: "wrench",
     description:
-      "Aparatología fija y anclajes esqueléticos con soldadura láser micro-pulsada Nd:YAG, sin corrosión y con máxima biocompatibilidad.",
-    materialTag: "ISO 22674 • Aleación médica",
-    turnaround: "3 a 5 días hábiles",
+      "Aparatos fijos para tratamientos de ortodoncia, como disyuntores y anclajes, hechos para cada paciente.",
+    tagline: "Disyuntores y anclajes",
     items: [
-      { code: "OF-HYR-01", name: "Disyuntor Hyrax tipo Leone", indication: "Colapso transversal maxilar superior y mordida cruzada posterior esquelética.", material: "Husillo de acero inoxidable 316L y brazos de 1.5 mm con soldadura láser libre de plata.", requirement: "STL de arcada superior completa, antagonista y registro de mordida abierta de 2 mm.", turnaround: "4 días hábiles" },
-      { code: "OF-HSS-02", name: "Disyuntor Haas", indication: "Disyunción palatina con anclaje adicional en bóveda para pacientes en crecimiento tardío.", material: "Resina acrílica autopolimerizable hipoalergénica con almohadillas palatinas anatómicas pulidas.", requirement: "STL superior con definición nítida de la bóveda palatina y molares.", turnaround: "5 días hábiles" },
-      { code: "OF-NAN-03", name: "Botón de Nance / Arco lingual", indication: "Anclaje de molar máximo, mantenedor de espacio posterior y prevención de mesialización.", material: "Alambre elgiloy azul .036 / .040 templado y botón acrílico ultra-pulido.", requirement: "STL maxilar o mandibular con bandas ajustadas o impresión de arrastre.", turnaround: "3 días hábiles" },
+      { code: "OF-HYR-01", name: "Disyuntor Hyrax", summary: "Aparato fijo que ensancha el maxilar superior con un tornillo central.", indication: "Falta de ancho del maxilar superior y mordida cruzada posterior." },
+      { code: "OF-HSS-02", name: "Disyuntor Haas", summary: "Disyuntor que se apoya en el paladar además de los dientes.", indication: "Expansión del maxilar superior en pacientes que aún crecen." },
+      { code: "OF-NAN-03", name: "Botón de Nance y arco lingual", summary: "Aparatos que mantienen la posición de los molares.", indication: "Anclaje de molares y mantenimiento de espacio." },
     ],
   },
   {
@@ -41,13 +37,12 @@ export const SERVICES: ServiceType[] = [
     name: "Ortodoncia Removible",
     icon: "smile",
     description:
-      "Aparatología funcional y placas activas polimerizadas en olla presurizada para reducir el monómero residual y evitar burbujas.",
-    materialTag: "Acrílico biocompatible tipo 1",
-    turnaround: "3 a 5 días hábiles",
+      "Placas y aparatos funcionales que el paciente puede quitarse, hechos según el caso del odontólogo.",
+    tagline: "Placas y aparatos funcionales",
     items: [
-      { code: "OR-HWL-01", name: "Placa Hawley", indication: "Estabilización post-ortodoncia fija y cierre de micro-diastemas residuales.", material: "Resina acrílica traslúcida libre de cadmio, arco continuo .028 y retenedores Adams .028.", requirement: "STL completo con surco gingival y ecuador de coronas molares intactos.", turnaround: "3 días hábiles" },
-      { code: "OR-SCW-02", name: "Expansor Schwarz con tornillo sectorial", indication: "Apiñamiento leve a moderado y vestibularización en dentición mixta.", material: "Tornillo de microexpansión Leone 0.2 mm por cuarto de vuelta y acrílico ortodóncico hidrófobo.", requirement: "STL intraoral con escaneo profundo del vestíbulo lingual y alveolar.", turnaround: "4 días hábiles" },
-      { code: "OR-TWB-03", name: "Twin Block de Clark / Bionator de Balters", indication: "Corrección de Clase II esquelética por retrognatismo mandibular durante el pico de crecimiento.", material: "Bloques oclusales angulados a 70 grados, acrílico de alto impacto y ganchos Delta.", requirement: "STL bimaxilar y registro de mordida constructiva en cera con avance mandibular de 4 a 6 mm.", turnaround: "5 días hábiles" },
+      { code: "OR-HWL-01", name: "Placa Hawley", summary: "Placa removible con un arco que sujeta los dientes en su posición.", indication: "Retención al terminar un tratamiento de ortodoncia fija." },
+      { code: "OR-SCW-02", name: "Expansor Schwarz", summary: "Placa con un tornillo que amplía la arcada poco a poco.", indication: "Falta de espacio en la arcada durante la dentición mixta." },
+      { code: "OR-TWB-03", name: "Twin Block y Bionator", summary: "Aparatos funcionales que guían la posición de la mandíbula.", indication: "Corrección de la relación entre maxilar y mandíbula en pacientes en crecimiento." },
     ],
   },
   {
@@ -55,12 +50,11 @@ export const SERVICES: ServiceType[] = [
     name: "Alineadores Invisibles",
     icon: "layers",
     description:
-      "Alineadores multicapa con setup CAD 3D y simulación interactiva previa a la aprobación médica.",
-    materialTag: "Biopolímero Zendura FX® / Duran",
-    turnaround: "Setup 3D en 48 h",
+      "Alineadores transparentes planificados a partir del escaneo o las impresiones que envía el odontólogo.",
+    tagline: "Alineadores transparentes",
     items: [
-      { code: "AL-PRO-CAD", name: "Plan de alineadores OrthoPro ClearFlex™", indication: "Maloclusiones leves a severas, apiñamiento, cierre de diastemas, rotaciones molares e intrusión guiada.", material: "Lámina tricapa elastomérica con núcleo elástico y conchas termoactivas de alta durabilidad.", requirement: "STL bimaxilar en oclusión, fotos intra/extraorales y RX panorámica o DICOM.", turnaround: "48 horas tras recepción del STL" },
-      { code: "AL-ATT-02", name: "Guía de cementado de ataches y Aligner Lite", indication: "Recidivas anteriores, correcciones estéticas rápidas y alineación pre-protésica.", material: "Férula de transferencia flexible de silicona médica ultra-delgada para colocar el composite.", requirement: "STL bimaxilar en oclusión.", turnaround: "3 días hábiles" },
+      { code: "AL-PRO-CAD", name: "Alineadores transparentes", summary: "Serie de alineadores removibles diseñada sobre el modelo digital del paciente.", indication: "Alineación de dientes apiñados, rotados o con espacios." },
+      { code: "AL-ATT-02", name: "Guía para ataches", summary: "Férula flexible que lleva los ataches a la posición planificada en cada diente.", indication: "Colocación de ataches durante un tratamiento con alineadores." },
     ],
   },
   {
@@ -68,13 +62,12 @@ export const SERVICES: ServiceType[] = [
     name: "Retenedores y Férulas",
     icon: "shield",
     description:
-      "Férulas de descarga y retenedores fresados por CAD/CAM o termoformados a presión variable.",
-    materialTag: "PMMA libre de bisfenol A",
-    turnaround: "24 h a 4 días hábiles",
+      "Retenedores para el final del tratamiento y férulas de descarga hechas a la medida del paciente.",
+    tagline: "Retenedores y férulas de descarga",
     items: [
-      { code: "RF-MIC-01", name: "Férula de descarga Michigan rígida (ATM / bruxismo)", indication: "Bruxismo severo, dolor miofascial y trastornos internos de ATM.", material: "Disco de resina PMMA biocompatible transparente fresado por CAD/CAM, o acrílico termopolimerizable.", requirement: "STL bimaxilar completo con registro en relación céntrica (Jig de Lucia o Leaf Gauge).", turnaround: "4 días hábiles" },
-      { code: "RF-ESX-02", name: "Retenedores transparentes Essix Plus™ (0.75 / 1.0 mm)", indication: "Retención final post-ortodoncia con máxima discreción visual y protección oclusal leve.", material: "Copoliéster Erkodur con recorte festoneado o gingival.", requirement: "STL digital de fin de tratamiento o del retiro de brackets, sin deformaciones.", turnaround: "24 a 48 horas" },
-      { code: "RF-FIX-03", name: "Retenedores fijos trenzados CAD con guía de transferencia", indication: "Retención lingual 3 a 3 o 4 a 4 en casos de alta tendencia a la recidiva.", material: "Titanio grado V maquinado o alambre trenzado coaxial de acero 316.", requirement: "STL inferior o superior de alta resolución con cíngulos limpios.", turnaround: "48 horas" },
+      { code: "RF-MIC-01", name: "Férula de descarga", summary: "Férula rígida que se usa sobre los dientes, normalmente de noche.", indication: "Bruxismo y dolor de la articulación temporomandibular." },
+      { code: "RF-ESX-02", name: "Retenedor transparente", summary: "Cubierta transparente que se ajusta a ambas arcadas.", indication: "Mantener los dientes en su lugar tras la ortodoncia." },
+      { code: "RF-FIX-03", name: "Retenedor fijo", summary: "Alambre que se adhiere por la cara interna de los dientes.", indication: "Retención permanente de los dientes anteriores." },
     ],
   },
   {
@@ -82,13 +75,12 @@ export const SERVICES: ServiceType[] = [
     name: "Prótesis y CAD/CAM",
     icon: "gem",
     description:
-      "Estructuras cerámicas y prótesis implantosoportada con fresado simultáneo de 5 ejes y sinterizado lento.",
-    materialTag: "Zirconia 5Y-PSZ • IPS e.max",
-    turnaround: "4 a 5 días hábiles",
+      "Coronas, carillas y prótesis sobre implantes, diseñadas en computador y fabricadas con tecnología CAD/CAM.",
+    tagline: "Coronas, carillas y prótesis sobre implantes",
     items: [
-      { code: "CAD-ZIR-01", name: "Circonio monolítico multicapa 3D Pro", indication: "Coronas unitarias posteriores, puentes de tramo largo y rehabilitación sobre implantes.", material: "Circonio en gradiente con alta translucidez incisal y resistencia cervical superior a 1200 MPa.", requirement: "STL de muñón o scan body de implante con perfil de emergencia escaneado.", turnaround: "4 días hábiles" },
-      { code: "CAD-EMX-02", name: "Disilicato de litio prensado / fresado (e.max)", indication: "Carillas de mínima preparación (0.3 mm), inlays/onlays y coronas anteriores.", material: "Pastillas IPS e.max Press / CAD con estratificación cerámica de esmaltes opalescentes.", requirement: "STL con márgenes nítidos supragingivales o yuxtagingivales y color de sustrato.", turnaround: "5 días hábiles" },
-      { code: "CAD-IMP-03", name: "Corona atornillada híbrida sobre Ti-Base", indication: "Rehabilitación atornillada unitaria directa a implante con chimenea angulable hasta 25 grados.", material: "Base de titanio grado V certificada y superestructura de zirconia traslúcida cementada en laboratorio.", requirement: "STL con scan body oficial de la marca del implante, antagonista y oclusión.", turnaround: "5 días hábiles" },
+      { code: "CAD-ZIR-01", name: "Coronas y puentes", summary: "Restauraciones fijas que reemplazan o cubren uno o varios dientes.", indication: "Dientes dañados o ausentes que necesitan una restauración fija." },
+      { code: "CAD-EMX-02", name: "Carillas e incrustaciones", summary: "Restauraciones delgadas que cubren una cara del diente o rellenan una cavidad.", indication: "Restauraciones estéticas con poco desgaste del diente." },
+      { code: "CAD-IMP-03", name: "Corona sobre implante", summary: "Corona que se fija al implante con un tornillo.", indication: "Reemplazo de un diente con implante." },
     ],
   },
 ];

@@ -11,8 +11,8 @@ export function SiteFooter() {
         <div className="space-y-4 md:col-span-6">
           <Brand className="text-xl" />
           <p className="max-w-sm text-sm text-muted-foreground">
-            Laboratorio digital de ortodoncia y prótesis CAD/CAM para
-            odontólogos y especialistas.
+            Laboratorio dental en Medellín de ortodoncia y prótesis CAD/CAM
+            para odontólogos y especialistas.
           </p>
           <div className="flex max-w-sm gap-2 text-sm text-body/80">
             <MapPinIcon className="mt-0.5 size-4 shrink-0 text-highlight" aria-hidden />
