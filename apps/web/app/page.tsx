@@ -15,10 +15,57 @@ import {
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
+import { JsonLd } from "@/components/json-ld";
+import { LocationMap } from "@/components/location-map";
 import { SERVICES } from "@/lib/catalog";
+import {
+  BRAND_NAME,
+  LAB_COUNTRY,
+  LAB_LOCALITY,
+  LAB_REGION,
+  LAB_STREET,
+  OG_IMAGE,
+  SITE_DESCRIPTION,
+  SITE_TITLE,
+  SITE_URL,
+  pageSocial,
+} from "@/lib/site";
+
+const HOME_TITLE = `${SITE_TITLE} | ${BRAND_NAME}`;
 
 export const metadata: Metadata = {
-  title: "Inicio | Orthopro Lab",
+  title: { absolute: HOME_TITLE },
+  description: SITE_DESCRIPTION,
+  ...pageSocial(HOME_TITLE, SITE_DESCRIPTION, "/"),
+};
+
+const BUSINESS_JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: BRAND_NAME,
+      url: SITE_URL,
+      image: `${SITE_URL}${OG_IMAGE.url}`,
+    },
+    {
+      "@type": ["LocalBusiness", "DentalLaboratory"],
+      "@id": `${SITE_URL}/#localbusiness`,
+      name: BRAND_NAME,
+      url: SITE_URL,
+      image: `${SITE_URL}${OG_IMAGE.url}`,
+      description: SITE_DESCRIPTION,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: LAB_STREET,
+        addressLocality: LAB_LOCALITY,
+        addressRegion: LAB_REGION,
+        addressCountry: LAB_COUNTRY,
+      },
+      areaServed: { "@type": "City", name: LAB_LOCALITY },
+    },
+  ],
 };
 
 // Single corner-radius scale for the whole page: rounded-xl.
@@ -97,6 +144,7 @@ export default function Home() {
 
   return (
     <>
+      <JsonLd data={BUSINESS_JSON_LD} />
       {/* Hero: full-width image under a vertical gray-to-black mask. Copy sits
           in the lower, darker part of the mask so body text keeps AA contrast. */}
       <section className="relative isolate flex min-h-[70dvh] items-end overflow-hidden pt-24 pb-16 lg:min-h-[80dvh] lg:pb-20">
@@ -117,12 +165,12 @@ export default function Home() {
           <div className="flex max-w-4xl flex-col gap-7">
             <Reveal>
               <h1 className="text-5xl font-bold leading-[1.05] tracking-tighter text-body md:text-6xl lg:text-7xl">
-                Aparatología ortodóntica <span className="text-highlight">de precisión</span> para tu clínica
+                Laboratorio odontológico en <span className="text-highlight">Medellín</span>
               </h1>
             </Reveal>
             <Reveal delay={0.1}>
               <p className="max-w-[60ch] text-lg text-body/90 md:text-xl">
-                Laboratorio digital de ortodoncia fija, removible, alineadores y prótesis para odontólogos y especialistas.
+                Aparatología ortodóntica y prótesis de precisión para odontólogos y especialistas, con flujo digital de principio a fin.
               </p>
             </Reveal>
             <Reveal delay={0.2} className="flex flex-wrap items-center gap-4 pt-2">
@@ -150,7 +198,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Cinco áreas de trabajo, un mismo flujo digital
+              Cinco áreas de trabajo en nuestro laboratorio de Medellín
             </h2>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
@@ -202,7 +250,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Del escaneo a tu consultorio en cuatro pasos
+              Del escaneo a tu consultorio en Medellín, en cuatro pasos
             </h2>
           </Reveal>
           <ol className="grid gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
@@ -226,7 +274,7 @@ export default function Home() {
             <div className={cn("relative aspect-[4/3] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
                 src="/images/team-technician.jpg"
-                alt="Técnica del laboratorio revisando un alineador con microscopio"
+                alt="Técnica del laboratorio odontológico en Medellín revisando un alineador con microscopio"
                 fill
                 sizes="(min-width: 1024px) 50vw, 100vw"
                 className="object-cover"
@@ -279,6 +327,8 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      <LocationMap />
 
       {/* Closing CTA: full-width band over the milling image */}
       <section className="relative isolate overflow-hidden py-20 lg:py-28">
