@@ -33,8 +33,8 @@ Implement the relational model of OrthoPro Lab in `apps/api` with TypeORM on Pos
 - Conventional Commits, no AI attribution.
 
 ## Tasks
-- [ ] D1 Entities (one per table) + `DomainModule`/feature modules registering them + schema migration (generated, then reviewed/hand-fixed so composite FK, partial/functional unique indexes, checks and identity columns are exact)
-- [ ] D2 Seed migration for `rol` and `estado_orden` (idempotent) + integration tests against the live DB (constraint behavior, rollback per test)
+- [x] D1 Entities (one per table) + `DomainModule`/feature modules registering them + schema migration (generated, then reviewed/hand-fixed so composite FK, partial/functional unique indexes, checks and identity columns are exact)
+- [x] D2 Seed migration for `rol` and `estado_orden` (idempotent) + integration tests against the live DB (constraint behavior, rollback per test)
 - [ ] D3 Reference doc `apps/api/docs/database-model.md`: Mermaid ERD, final DDL (as produced by the migration), design notes, open questions for the client; README/CLAUDE.md pointers
 - [ ] D4 Verification: build, lint, check-types, unit, e2e/integration, migration run/revert/run cycle
 
@@ -47,5 +47,8 @@ Integration tests describe the constraints (RED before the migration exists, GRE
 ## Progress / evidence
 (none yet)
 
+D1+D2 (delegated writer W1): 12 entities under `src/{usuarios,pacientes,catalogo,pedidos}` with feature modules; migrations `1792450356299-CreateInitialSchema` (identity bigint, uuid `gen_random_uuid()` via pgcrypto, composite FK orden->paciente_doctor, CHECKs, `uq_usuario_correo_lower`, partial unique `uq_paciente_cedula`, `idx_orden_doctor_fecha`; all FKs RESTRICT incl. detalle_orden.orden_id) and `1792450400000-SeedCatalogs` (provisional roles/states). Test-first: `test/database-model.e2e-spec.ts` RED 18 failed (`relation "rol" does not exist`) -> GREEN 18/18 (rolled-back transaction per test). Cycle run/show/revert/run OK; `migration:generate` after: "No changes in database schema". Parent re-run: turbo build/lint/check-types/test --filter=api 4/4 (lint 0 warnings, 15 unit tests). Writer: test:e2e 20/20, ports freed, no .env tracked.
+Open design input from user (2026-10-19): Colombian legal compliance (Ley 1581 de 2012): which columns to hash/encrypt. Research summary: the law requires "medidas tecnicas, humanas y administrativas necesarias" (art. 4 g, art. 17 d, art. 18 b) and defines sensitive data (art. 5, includes health); it never names "cifrado"/"encriptacion" or specific columns; passwords must be hashed (argon2id), identifiers/free-text clinical notes should be encrypted at application level with blind indexes for lookups. Pending user confirmation before schema change (new migration).
+
 ## Next step
-D1
+D3/D4 after the encryption decision (affects DDL).
