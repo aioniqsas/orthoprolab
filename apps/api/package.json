@@ -27,6 +27,7 @@
     "migration:run": "bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:run",
     "migration:revert": "bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:revert",
     "migration:show": "bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:show",
+    "keys:generate": "bun scripts/generate-keys.ts",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
     "@nestjs/platform-express": "^12.0.1",
     "@nestjs/terminus": "^12.1.0",
     "@nestjs/typeorm": "^12.0.2",
+    "bcrypt": "^6.0.0",
     "bullmq": "^6.3.17",
     "ioredis": "^6.0.0",
     "pg": "^8.23.1",
@@ -49,6 +51,7 @@
     "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.23.1",
