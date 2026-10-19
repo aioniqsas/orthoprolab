@@ -2,18 +2,21 @@
 @import "@repo/theme/theme.css";
 @source "../../../packages/ui/src";
 
-body {
-  background: var(--color-surface);
-  color: var(--color-body);
-  font-family: var(--font-sans);
-}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  color: var(--color-title);
-  font-family: var(--font-heading);
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-title font-heading;
+  }
 }

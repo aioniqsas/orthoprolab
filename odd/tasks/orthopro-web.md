@@ -18,7 +18,7 @@ Sections: Landing (Inicio), Sobre nosotros (Misión, Visión), Catálogo (one su
 
 ## Tasks
 - [x] T1 shadcn infrastructure shared via `packages/ui` + wired into `apps/web` (components.json in both, aliases, tailwind @source, docs still builds)
-- [ ] T2 Theme mapping: shadcn CSS variables ← `@repo/theme` tokens; Outfit + Poppins in `apps/web` layout
+- [x] T2 Theme mapping: shadcn CSS variables ← `@repo/theme` tokens; Outfit + Poppins in `apps/web` layout
 - [ ] T3 Shared layout (navbar, footer) + Landing page from Stitch screen "Inicio"
 - [ ] T4 Sobre nosotros page (Misión, Visión)
 - [ ] T5 Catálogo: index + dynamic subroute per service type; "Ver precios" downloads PDF (placeholder PDF in `public/`)
@@ -35,5 +35,7 @@ Delegated writers for T1, T3–T6 (2+ non-trivial files each); T2 inline if smal
 T1 (delegated writer, route: delegated): shadcn `base-nova` components.json hand-written in `packages/ui` and `apps/web` (init not usable in existing monorepo); components in `packages/ui/src/components/` (accordion, badge, button, card, navigation-menu, separator, sheet); import convention `@repo/ui/components/<name>`, `@repo/ui/lib/utils`. Old stubs kept (`@repo/ui/button` → docs). Checks observed: bun install OK; check-types ui+docs OK; `next build` web OK; `build --filter=docs` OK. FAILED (pre-existing, same with changes stashed): `turbo lint --filter=@repo/ui` → missing `@babel/preset-typescript`. TDD exception: infra/config, no meaningful RED. Review assessment: pending after commit.
 Gotcha: shadcn variables (`--background`, `--primary`, …) were NOT added; T2 must define them from `@repo/theme`.
 
+T2 (inline, mechanical): `packages/theme/theme.css` now defines shadcn semantic variables (dark-only) + `--color-surface-raised` (#1f2425, Stitch elevated surface); `apps/web` globals use them; layout lang=es, title Orthopro Lab. `next build` web OK. T1 review assess: medium, review_due=false (under_budget).
+
 ## Next step
-T2
+T3+T4
