@@ -28,8 +28,8 @@ Frontends of the two portals: `apps/admin` (administrators, port 3002) and `apps
 ## Tasks
 - [x] P0 Shared foundations: `@repo/api-client` (client, errors, single-flight refresh, schemas, unit tests), shadcn `input`/`label`/`alert`/... in `packages/ui`, auth composites (`AuthShell`, `LoginForm`, `RegisterForm`) from the Stitch screens with the login edits applied
 - [x] P1 Portal auth wiring: `apps/admin` (login, gating, role check, logout, minimal home) and `apps/clientes` (login, registro, gating, logout, minimal home), silent refresh, safe `next`, `.env.example`, smoke tests against the live API
-- [ ] P2a done / P2b pending: P2 Admin shell + screens over a sample-data layer: layout (sidebar/topbar) and Ordenes, Clinicas, Usuarios y permisos, Catalogo y aranceles, CMS web
-- [ ] P3 Docs + verification: `docs/portals.md`, README/CLAUDE.md, full checks
+- [x] P2 Admin shell + screens over a sample-data layer: layout (sidebar/topbar) and Ordenes, Clinicas, Usuarios y permisos, Catalogo y aranceles, CMS web
+- [x] P3 Docs + verification: `docs/portals.md`, README/CLAUDE.md, full checks
 
 ## Route declaration
 Sequential delegated writers: W1 = P0, W2 = P1, W3.. = P2 (split per screen group if large), parent = P3. Evidence: several non-trivial files per task, new Next 16 APIs.
@@ -43,5 +43,8 @@ P1 (delegated writer W2): `packages/api-client` gains `safeRedirectPath`, `toAut
 
 P2a (delegated writer W3): admin shell (`apps/admin/app/_components/*`: sidebar/topbar, mobile Sheet nav, `aria-current`), routes `/ordenes` (filters `?estado=`, `?urgente=1`, `?q=`; detail `/ordenes/[id]` with history, line items, total), `/clinicas` (+ `/clinicas/[id]`), placeholders `/usuarios`, `/catalogo`, `/cms` ("Proximamente"), `/` redirects to `/ordenes` (config redirect). Sample data layer `apps/admin/lib/data/` (`SAMPLE_DATA = true`, `listOrdenes/getOrden/listClinicas/getClinica`, integer-cent money helpers; swap = replace bodies with `api.request(...)`), visible "Datos de ejemplo" notice, write actions disabled with explanation. Evidence: helpers RED (no tests, module missing) -> GREEN 12/12; parent re-run `turbo build lint check-types test` 18/18 (lint 0 warnings); smoke on 3102/3103 (redirects, filters, detail, placeholders, doctor-role "Sin permisos", cleanup done). Decision (parent): unknown ids return HTTP 200 with the not-found body + noindex because `cacheComponents` streams the layout gate first; accepted for the noindex admin portal. Unauthenticated `/` hops `/ordenes` then `/login`. Unverified: browser behaviour and visual fidelity (compared by eye).
 
+P2b (delegated writer W4): `/usuarios` (+ `/[id]`, masked cedulas, role matrix with "Por definir con el cliente"), `/catalogo` (+ `/[id]`, COP tariffs, historical price explanation; 4 services as in `apps/web/lib/catalog.ts`), `/cms` (read-only overview of the 4 real public pages, all controls disabled). Data layer additions (`gestion.ts`, `permisos.ts`, `types.ts`, `sample.ts`, `repository.ts`), specs 28/28 (RED was a missing-module RED after moving files out). Parent re-run `turbo build lint check-types test` 18/18 (lint 0 warnings); writer smoke on 3102/3103 (all routes 200 with cookie, 307 without, doctor "Sin permisos", no hashes or full cedulas or "homolog" in bodies, cleanup done). P3 (parent): `docs/portals.md`, README and CLAUDE.md updated.
+Feature complete on branch `feat/portals` (commits through cd203b2). Not merged or pushed yet (needs user go-ahead). Open items: connect real endpoints (orders, clinics, users, catalog, CMS), API `COOKIE_DOMAIN` for production, CSP with nonces, browser QA, real clientes dashboard (no Stitch screens), registration fields the API lacks.
+
 ## Next step
-P2b: Usuarios y permisos, Catalogo y aranceles, CMS (sample data), then P3.
+Merge feat/portals after review; then backend endpoints for orders/clinics/users/catalog so the admin screens can leave sample data.
