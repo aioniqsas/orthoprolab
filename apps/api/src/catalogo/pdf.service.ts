@@ -118,11 +118,18 @@ export class PdfService {
       // Cover page
       this.writeCover(doc);
 
-      // One page per service
-      services.forEach((service, i) => {
+      // Menu-style listing: multiple services per page
+      if (services.length > 0) {
         doc.addPage();
-        this.writeServiceBlock(doc, service, imageBuffers[i] ?? null);
-      });
+        this.writeMenuSectionHeader(doc);
+        let cursorY = doc.page.margins.top + 44; // below section header
+
+        services.forEach((service, i) => {
+          cursorY = this.writeMenuEntry(doc, service, imageBuffers[i] ?? null, cursorY);
+        });
+
+        this.writePageNumber(doc, doc.bufferedPageRange().count);
+      }
 
       doc.end();
     });
@@ -178,58 +185,116 @@ export class PdfService {
     this.writePageNumber(doc, 1);
   }
 
-  private writeServiceBlock(
+  private writeMenuSectionHeader(doc: InstanceType<typeof PDFDocument>): void {
+    const margin = doc.page.margins.left;
+    const contentWidth = doc.page.width - margin * 2;
+    const y = doc.page.margins.top;
+
+    doc
+      .font('Outfit-Bold')
+      .fontSize(20)
+      .fillColor(C.highlight)
+      .text('Nuestros Servicios', margin, y, { width: contentWidth });
+  }
+
+  /**
+   * Draws one menu entry (restaurant-menu style) at the given Y position.
+   * Returns the Y position after the entry so the caller can stack entries.
+   * Adds a new page automatically when there is not enough room.
+   */
+  private writeMenuEntry(
     doc: InstanceType<typeof PDFDocument>,
     service: ServicioParaPdf,
     imageBuffer: Buffer | null,
-  ): void {
+    startY: number,
+  ): number {
     const margin = doc.page.margins.left;
-    const contentWidth = doc.page.width - margin * 2;
-    let y = doc.page.margins.top;
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    const contentWidth = pageWidth - margin * 2;
+    const bottomBoundary = pageHeight - doc.page.margins.bottom - 20;
 
-    // Service image
+    // Thumbnail dimensions
+    const THUMB_W = 90;
+    const THUMB_H = 70;
+    const THUMB_GAP = 14; // gap between thumbnail and text column
+
+    // Text column
+    const textX = imageBuffer ? margin + THUMB_W + THUMB_GAP : margin;
+    const textW = imageBuffer ? contentWidth - THUMB_W - THUMB_GAP : contentWidth;
+
+    // Estimate entry height so we can trigger a page break before drawing
+    const ENTRY_MIN_H = Math.max(THUMB_H, 72) + 20; // thumb or text block + separator
+    if (startY + ENTRY_MIN_H > bottomBoundary) {
+      doc.addPage();
+      this.writePageNumber(doc, doc.bufferedPageRange().count);
+      startY = doc.page.margins.top;
+    }
+
+    const entryY = startY;
+
+    // Thumbnail
     if (imageBuffer) {
       try {
-        doc.image(imageBuffer, margin, y, {
-          width: contentWidth,
-          height: 200,
+        doc.image(imageBuffer, margin, entryY, {
+          width: THUMB_W,
+          height: THUMB_H,
+          cover: [THUMB_W, THUMB_H],
           align: 'center',
           valign: 'center',
         });
-        y += 215; // image height + gap
       } catch {
-        this.logger.warn(`Failed to embed image for service ${service.id}`);
+        this.logger.warn(`Failed to embed thumbnail for service ${service.id}`);
       }
     }
 
     // Service name
     doc
       .font('Outfit-Bold')
-      .fontSize(24)
+      .fontSize(13)
       .fillColor(C.title)
-      .text(service.nombre, margin, y, { width: contentWidth });
-    y = doc.y + 10;
+      .text(service.nombre, textX, entryY, { width: textW, lineGap: 1 });
 
-    // Description
+    const afterName = doc.y + 4;
+
+    // Description (up to 3 lines, then truncated by pdfkit)
     if (service.descripcion) {
       doc
         .font('Poppins')
-        .fontSize(12)
+        .fontSize(9)
         .fillColor(C.body)
-        .text(service.descripcion, margin, y, { width: contentWidth });
-      y = doc.y + 16;
+        .text(service.descripcion, textX, afterName, {
+          width: textW,
+          height: 38, // ~3 lines at 9pt
+          ellipsis: true,
+          lineGap: 1,
+        });
     }
 
-    // Price
+    const afterDesc = Math.max(doc.y, entryY + THUMB_H) + 8;
+
+    // Price row: label on the left, value right-aligned
     const precioStr = this.formatPrecio(service.precio);
     doc
-      .font('Poppins')
-      .fontSize(14)
-      .fillColor(C.muted)
-      .text(precioStr, margin, y, { width: contentWidth });
+      .font('Poppins-SemiBold')
+      .fontSize(10)
+      .fillColor(C.highlight)
+      .text(precioStr, textX, afterDesc, { width: textW, align: 'right' });
 
-    // Page number
-    this.writePageNumber(doc, doc.bufferedPageRange().count);
+    const afterPrice = doc.y + 14;
+
+    // Separator line
+    const sepY = afterPrice;
+    doc
+      .save()
+      .moveTo(margin, sepY)
+      .lineTo(margin + contentWidth, sepY)
+      .lineWidth(0.4)
+      .strokeColor(C.raised)
+      .stroke()
+      .restore();
+
+    return sepY + 16;
   }
 
   private writePageNumber(
