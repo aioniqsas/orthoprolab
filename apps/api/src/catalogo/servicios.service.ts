@@ -5,10 +5,12 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import type { Redis } from 'ioredis';
 import { DetalleOrden } from '../pedidos/detalle-orden.entity.js';
 import type {
   CreateServicioDto,
@@ -23,6 +25,7 @@ import {
 } from './image-storage.js';
 import { Servicio } from './servicio.entity.js';
 import { slugify, uniqueSlug } from './slug.js';
+import { PDF_REDIS, invalidatePdfCache } from './pdf-cache.js';
 
 /** The ONLY fields the public catalog exposes: never price, state or internals. */
 export interface ServicioPublico {
@@ -32,6 +35,9 @@ export interface ServicioPublico {
   descripcion: string | null;
   imagenUrl: string | null;
 }
+
+/** ServicioPublico plus price, used internally by PdfService only (never sent over HTTP in plain text). */
+export type ServicioParaPdf = ServicioPublico & { precio: string };
 
 /** Admin representation: everything except the internal Cloudinary asset id. */
 export interface ServicioAdmin extends ServicioPublico {
@@ -50,6 +56,11 @@ export const toPublico = (s: Servicio): ServicioPublico => ({
   nombre: s.nombre,
   descripcion: s.descripcion,
   imagenUrl: s.imagenUrl,
+});
+
+export const toParaPdf = (s: Servicio): ServicioParaPdf => ({
+  ...toPublico(s),
+  precio: s.precio,
 });
 
 export const toAdmin = (s: Servicio): ServicioAdmin => ({
@@ -75,6 +86,7 @@ export class ServiciosService {
     @InjectRepository(DetalleOrden)
     private readonly detalles: Repository<DetalleOrden>,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
+    @Optional() @Inject(PDF_REDIS) private readonly pdfRedis: Redis | null,
   ) {}
 
   // --- public ---------------------------------------------------------------
@@ -91,6 +103,15 @@ export class ServiciosService {
     const row = await this.servicios.findOneBy({ slug, activo: true });
     if (!row) throw new NotFoundException('Servicio no encontrado.');
     return toPublico(row);
+  }
+
+  /** Internal: all active services WITH precio. Used by PdfService only. */
+  async findAllForPdf(): Promise<ServicioParaPdf[]> {
+    const rows = await this.servicios.find({
+      where: { activo: true },
+      order: { nombre: 'ASC' },
+    });
+    return rows.map(toParaPdf);
   }
 
   // --- admin ----------------------------------------------------------------
@@ -116,7 +137,9 @@ export class ServiciosService {
       precio: dto.precio,
       activo: dto.activo ?? true,
     });
-    return toAdmin(await this.saveOrConflict(entity));
+    const result = toAdmin(await this.saveOrConflict(entity));
+    await this.invalidatePdf();
+    return result;
   }
 
   async update(id: string, dto: UpdateServicioDto): Promise<ServicioAdmin> {
@@ -125,7 +148,9 @@ export class ServiciosService {
     if (dto.descripcion !== undefined) row.descripcion = dto.descripcion;
     if (dto.precio !== undefined) row.precio = dto.precio;
     if (dto.activo !== undefined) row.activo = dto.activo;
-    return toAdmin(await this.saveOrConflict(row));
+    const result = toAdmin(await this.saveOrConflict(row));
+    await this.invalidatePdf();
+    return result;
   }
 
   /**
@@ -135,16 +160,20 @@ export class ServiciosService {
    */
   async remove(id: string): Promise<RemoveResult> {
     const row = await this.getOrFail(id);
+    let result: RemoveResult;
     if (await this.detalles.existsBy({ servicioId: row.id })) {
       row.activo = false;
-      return {
+      result = {
         kind: 'deactivated',
         servicio: toAdmin(await this.servicios.save(row)),
       };
+    } else {
+      await this.servicios.remove(row);
+      await this.deleteAssetQuietly(row.imagenPublicId);
+      result = { kind: 'deleted' };
     }
-    await this.servicios.remove(row);
-    await this.deleteAssetQuietly(row.imagenPublicId);
-    return { kind: 'deleted' };
+    await this.invalidatePdf();
+    return result;
   }
 
   async setImage(id: string, buffer: Buffer): Promise<ServicioAdmin> {
@@ -181,6 +210,7 @@ export class ServiciosService {
     row.imagenPublicId = uploaded.publicId;
     const saved = await this.servicios.save(row);
     await this.deleteAssetQuietly(previous);
+    await this.invalidatePdf();
     return toAdmin(saved);
   }
 
@@ -213,5 +243,11 @@ export class ServiciosService {
         `Could not delete image asset (${e instanceof Error ? e.name : 'unknown'})`,
       );
     }
+  }
+
+  /** Best effort PDF cache invalidation — never fails the calling mutation. */
+  private async invalidatePdf(): Promise<void> {
+    if (!this.pdfRedis) return;
+    await invalidatePdfCache(this.pdfRedis).catch(() => {});
   }
 }

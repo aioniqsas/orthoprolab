@@ -58,10 +58,15 @@ function build(opts: {
     delete: vi.fn().mockResolvedValue(undefined),
     ...opts.storage,
   };
+  const pdfRedis = {
+    keys: vi.fn().mockResolvedValue([]),
+    del: vi.fn().mockResolvedValue(0),
+  };
   const service = new ServiciosService(
     repo as never,
     detalles as never,
     storage as unknown as ImageStorage,
+    pdfRedis as never,
   );
   return { service, repo, detalles, storage };
 }
