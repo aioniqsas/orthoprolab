@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui"],
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "res.cloudinary.com" },
+    ],
+  },
   turbopack: {
     rules: {
       "*.css": {

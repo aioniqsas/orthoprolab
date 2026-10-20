@@ -5,7 +5,7 @@ import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
-import { SERVICES, SERVICE_IMAGES } from "@/lib/catalog";
+import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const CATALOG_TITLE = "Catálogo de ortodoncia y prótesis dental en Medellín";
@@ -29,7 +29,9 @@ const SPANS = [
   "lg:col-span-4",
 ];
 
-export default function CatalogPage() {
+export default async function CatalogPage() {
+  const services = await fetchServices();
+  const serviceImages = await Promise.all(services.map(resolveImage));
   return (
     <>
       <section className="pt-16 pb-10 lg:pt-24">
@@ -46,7 +48,7 @@ export default function CatalogPage() {
 
       <section className="pb-20 lg:pb-28">
         <ul className="mx-auto grid max-w-7xl gap-4 px-6 lg:grid-cols-12 lg:px-12">
-          {SERVICES.map((service, i) => (
+          {services.map((service, i) => (
             <li key={service.slug} className={cn("h-full", SPANS[i])}>
               <Reveal delay={(i % 2) * 0.08} className="h-full">
                 <Link
@@ -60,7 +62,7 @@ export default function CatalogPage() {
                   )}
                 >
                   <Image
-                    src={SERVICE_IMAGES[service.slug]!}
+                    src={serviceImages[i]!}
                     alt=""
                     fill
                     sizes={i === 0 ? "100vw" : "(min-width: 1024px) 33vw, 100vw"}
