@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AccessNotice } from "@repo/ui/auth/access-notice";
-import { PortalFrame } from "@repo/ui/auth/portal-frame";
 import { getAccess, getRequestPath } from "@/lib/session";
+import { AdminShell } from "../_components/admin-shell";
 import { Logout } from "./logout";
 
 async function Gate({ children }: { children: React.ReactNode }) {
@@ -19,7 +19,6 @@ async function Gate({ children }: { children: React.ReactNode }) {
         description="Inténtalo de nuevo más tarde."
       >
         {/* A full document reload is intended here, not a client navigation. */}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
           Recargar
         </a>
@@ -39,9 +38,9 @@ async function Gate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <PortalFrame productName="OrthoPro Admin" usuario={access.usuario} actions={<Logout />}>
+    <AdminShell usuario={access.usuario} actions={<Logout />}>
       {children}
-    </PortalFrame>
+    </AdminShell>
   );
 }
 

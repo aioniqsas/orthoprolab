@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui", "@repo/api-client"],
   cacheComponents: true,
   partialPrefetching: true,
+  async redirects() {
+    return [{ source: "/", destination: "/ordenes", permanent: false }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
