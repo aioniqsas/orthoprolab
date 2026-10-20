@@ -27,3 +27,6 @@ export function DisabledAction({
 
 export const ORDENES_REASON = "Disponible cuando el backend de órdenes esté conectado";
 export const CLINICAS_REASON = "Disponible cuando el backend de clínicas esté conectado";
+export const USUARIOS_REASON = "Disponible cuando el backend de usuarios esté conectado";
+export const CATALOGO_REASON = "Disponible cuando el backend del catálogo esté conectado";
+export const CMS_REASON = "Disponible cuando exista un backend de contenido web";

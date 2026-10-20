@@ -2,6 +2,7 @@
  * SAMPLE DATA. Every name, address, e-mail and amount below is fictional.
  * Do not present any of it as real. Consumed only by `repository.ts`.
  */
+import { maskCedula } from "./gestion";
 import { normalizeText, orderTotal } from "./helpers";
 import type {
   Clinica,
@@ -11,6 +12,9 @@ import type {
   HistorialEstado,
   Orden,
   Paciente,
+  PaginaWeb,
+  Servicio,
+  UsuarioDetalle,
 } from "./types";
 
 const doctor = (
@@ -122,4 +126,68 @@ export const SAMPLE_ORDENES: Orden[] = [
   orden(1008, 0, P(8, "Paciente Ejemplo Ocho"), "en_produccion", false, "2025-10-14T17:00:00.000Z", "2025-10-21T20:00:00.000Z", [["corona", 3], ["modelo", 1]]),
   orden(1009, 2, P(9, "Paciente Ejemplo Nueve"), "terminada", true, "2025-10-08T14:30:00.000Z", "2025-10-10T20:00:00.000Z", [["ferula", 2]]),
   orden(1010, 3, P(10, "Paciente Ejemplo Diez"), "en_produccion", false, "2025-10-12T19:00:00.000Z", "2025-10-22T20:00:00.000Z", [["carilla", 2]]),
+];
+
+const uid = (n: number) => `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`;
+const clinicaPorId = new Map(SAMPLE_CLINICAS.map((c) => [c.id, c.nombre]));
+
+/** Fictional cedulas: they exist only to demonstrate masking, never stored in `Usuario`. */
+const CEDULAS_FICTICIAS = ["1000000101", "1000000202", "1000000303", "1000000404"];
+
+const base = (
+  n: number,
+  nombres: string,
+  apellidos: string,
+  rol: UsuarioDetalle["rol"],
+  activo = true,
+): UsuarioDetalle => ({
+  id: uid(n),
+  nombres,
+  apellidos,
+  correo: `${normalizeText(nombres.split(" ")[0]!)}.${n}@ejemplo.test`,
+  rol,
+  activo,
+  cedulaEnmascarada: maskCedula(CEDULAS_FICTICIAS[n % CEDULAS_FICTICIAS.length]! + String(n)),
+  clinica: null,
+  doctoresAsignados: [],
+});
+
+const DOCTORES_USUARIO: UsuarioDetalle[] = SAMPLE_CLINICAS.flatMap((c) =>
+  c.doctores.map((d) => ({
+    ...base(100, d.nombres, d.apellidos, "odontologo"),
+    id: d.id,
+    correo: d.correo,
+    cedulaEnmascarada: maskCedula(CEDULAS_FICTICIAS[Number(d.id.slice(-2)) % 4]! + d.id.slice(-2)),
+    clinica: { id: c.id, nombre: clinicaPorId.get(c.id)! },
+  })),
+);
+
+const docRef = (i: number) => {
+  const d = DOCTORES_USUARIO[i]!;
+  return { id: d.id, nombres: d.nombres, apellidos: d.apellidos };
+};
+
+export const SAMPLE_USUARIOS: UsuarioDetalle[] = [
+  base(1, "Administrador", "Ejemplo Uno", "administrador"),
+  base(2, "Administradora", "Ejemplo Dos", "administrador", false),
+  ...DOCTORES_USUARIO,
+  { ...base(11, "Paula", "Asistente Ejemplo", "asistente"), doctoresAsignados: [docRef(0), docRef(1)] },
+  { ...base(12, "Tomás", "Apoyo Muestra", "asistente"), doctoresAsignados: [docRef(3)] },
+  { ...base(13, "Rosa", "Auxiliar Prueba", "asistente", false), doctoresAsignados: [] },
+];
+
+/** Service names/descriptions follow the public site; PRICES ARE FICTIONAL. */
+export const SAMPLE_SERVICIOS: Servicio[] = [
+  { id: 1, nombre: "Ortodoncia Fija", descripcion: "Aparatos fijos para tratamientos de ortodoncia, como disyuntores y anclajes, hechos para cada paciente.", precio: "450000.00", activo: true },
+  { id: 2, nombre: "Ortodoncia Removible", descripcion: "Placas y aparatos funcionales que el paciente puede quitarse, hechos según el caso del odontólogo.", precio: "320000.00", activo: true },
+  { id: 3, nombre: "Alineadores Invisibles", descripcion: "Alineadores transparentes planificados a partir de las impresiones que envía el odontólogo.", precio: "1800000.00", activo: true },
+  { id: 4, nombre: "Retenedores y Férulas", descripcion: "Retenedores para el final del tratamiento y férulas de descarga hechas a la medida del paciente.", precio: "280000.00", activo: true },
+];
+
+/** Titles and descriptions copied from the metadata of `apps/web` (as published). */
+export const SAMPLE_PAGINAS_WEB: PaginaWeb[] = [
+  { ruta: "/", nombre: "Inicio", titulo: "Laboratorio dental en Medellín | OrthoPro Lab", descripcion: "Laboratorio dental en Medellín: ortodoncia fija y removible, alineadores y retenedores para tu consultorio." },
+  { ruta: "/nosotros", nombre: "Nosotros", titulo: "Sobre nosotros: laboratorio dental en Medellín", descripcion: "Conoce la misión y la visión de OrthoPro Lab, laboratorio dental en Medellín para ortodoncia." },
+  { ruta: "/catalogo", nombre: "Catálogo", titulo: "Catálogo de ortodoncia y prótesis dental en Medellín", descripcion: "Ortodoncia fija y removible, alineadores, retenedores y férulas de OrthoPro Lab. Descarga el catálogo con precios en PDF." },
+  { ruta: "/pagos", nombre: "Pagos", titulo: "Pagos y cuentas bancarias", descripcion: "Cuenta bancaria oficial de OrthoPro Lab para pagar por transferencia o consignación y confirmar tu pago." },
 ];

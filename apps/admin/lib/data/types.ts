@@ -62,3 +62,58 @@ export interface Clinica {
   direccion: string | null;
   doctores: Doctor[];
 }
+
+export const ROLES = ["administrador", "odontologo", "asistente"] as const;
+export type RolNombre = (typeof ROLES)[number];
+
+/**
+ * Staff/user row (`usuario` joined with `rol`). Never carries `password_hash`
+ * nor the clear `cedula`: only the masked value reaches the UI.
+ */
+export interface Usuario {
+  id: string;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  rol: RolNombre;
+  activo: boolean;
+  /** Only the last 3 digits are visible, e.g. `*******050`. */
+  cedulaEnmascarada: string;
+}
+
+export interface UsuarioDetalle extends Usuario {
+  /** Doctors only: the clinic they belong to (`doctor.clinica_id`). */
+  clinica: { id: number; nombre: string } | null;
+  /** Assistants only: doctors linked through `asistente_doctor`. */
+  doctoresAsignados: Pick<Doctor, "id" | "nombres" | "apellidos">[];
+}
+
+/** Row of `servicio`. `precio` is a numeric(12,2) string in COP. */
+export interface Servicio {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  precio: string;
+  activo: boolean;
+}
+
+/** Editable page of the public site (read from `apps/web`, no CMS tables exist). */
+export interface PaginaWeb {
+  ruta: string;
+  nombre: string;
+  titulo: string;
+  descripcion: string;
+}
+
+export type NivelPermiso = "si" | "no" | "delegado" | "por_definir";
+
+export interface PermisoRol {
+  nivel: NivelPermiso;
+  nota?: string;
+}
+
+export interface PermisoFila {
+  id: string;
+  capacidad: string;
+  roles: Record<RolNombre, PermisoRol>;
+}

@@ -13,8 +13,14 @@
  * `fetchSessionOnServer` in `@repo/api-client`), then set `SAMPLE_DATA` to
  * false so the "Datos de ejemplo" notice disappears.
  */
-import { SAMPLE_CLINICAS, SAMPLE_ORDENES } from "./sample";
-import type { Clinica, Orden } from "./types";
+import {
+  SAMPLE_CLINICAS,
+  SAMPLE_ORDENES,
+  SAMPLE_PAGINAS_WEB,
+  SAMPLE_SERVICIOS,
+  SAMPLE_USUARIOS,
+} from "./sample";
+import type { Clinica, Orden, PaginaWeb, Servicio, Usuario, UsuarioDetalle } from "./types";
 
 /** When true, screens show the "Datos de ejemplo" notice. */
 export const SAMPLE_DATA = true;
@@ -33,4 +39,33 @@ export async function listClinicas(): Promise<Clinica[]> {
 
 export async function getClinica(id: number): Promise<Clinica | null> {
   return SAMPLE_CLINICAS.find((c) => c.id === id) ?? null;
+}
+
+/** List rows never expose detail-only fields. */
+export async function listUsuarios(): Promise<Usuario[]> {
+  return SAMPLE_USUARIOS.map((u) => ({
+    id: u.id,
+    nombres: u.nombres,
+    apellidos: u.apellidos,
+    correo: u.correo,
+    rol: u.rol,
+    activo: u.activo,
+    cedulaEnmascarada: u.cedulaEnmascarada,
+  }));
+}
+
+export async function getUsuario(id: string): Promise<UsuarioDetalle | null> {
+  return SAMPLE_USUARIOS.find((u) => u.id === id) ?? null;
+}
+
+export async function listServicios(): Promise<Servicio[]> {
+  return SAMPLE_SERVICIOS;
+}
+
+export async function getServicio(id: number): Promise<Servicio | null> {
+  return SAMPLE_SERVICIOS.find((s) => s.id === id) ?? null;
+}
+
+export async function listPaginasWeb(): Promise<PaginaWeb[]> {
+  return SAMPLE_PAGINAS_WEB;
 }
