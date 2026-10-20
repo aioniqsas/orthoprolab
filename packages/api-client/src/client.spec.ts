@@ -5,7 +5,7 @@ import {
   UnauthorizedError,
   createApiClient,
   fetchSessionOnServer,
-} from "./index.js";
+} from "./index";
 
 const usuario = {
   id: "1",

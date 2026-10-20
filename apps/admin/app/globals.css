@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@repo/theme/theme.css";
+@source "../../../packages/ui/src";
 
 body {
   background: var(--color-surface);

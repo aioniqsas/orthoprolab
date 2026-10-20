@@ -4,7 +4,7 @@ import {
   registerFormSchema,
   registerSchema,
   toRegisterPayload,
-} from "./schemas.js";
+} from "./schemas";
 
 const valid = {
   nombres: "María José",

@@ -14,7 +14,9 @@
       "name": "admin",
       "version": "0.1.0",
       "dependencies": {
+        "@repo/api-client": "*",
         "@repo/theme": "*",
+        "@repo/ui": "*",
         "next": "16.4.2",
         "react": "19.3.0",
         "react-dom": "19.3.0",
@@ -86,7 +88,9 @@
       "name": "clientes",
       "version": "0.1.0",
       "dependencies": {
+        "@repo/api-client": "*",
         "@repo/theme": "*",
+        "@repo/ui": "*",
         "next": "16.4.2",
         "react": "19.3.0",
         "react-dom": "19.3.0",

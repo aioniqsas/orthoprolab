@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { AuthShell } from "./auth-shell";
 import { LoginForm } from "./login-form";
 import { RegisterForm } from "./register-form";
+import { SilentSession } from "./silent-session";
+import { AccessNotice } from "./access-notice";
+import { PortalFrame } from "./portal-frame";
+import { LogoutButton } from "./logout-button";
 
 // Stem of the Stitch block the user asked to remove, split so the repo check stays clean.
 const REMOVED_STEM = ["homo", "log"].join("");
@@ -76,5 +80,36 @@ describe("AuthShell", () => {
     expect(html).toContain("Portal de clientes");
     expect(html).toContain("Acceso");
     expect(html).toContain("slot-content");
+  });
+});
+
+describe("portal pieces", () => {
+  it("renders the silent session loading state accessibly", () => {
+    
+    const html = renderToString(
+      <SilentSession
+        client={{ auth: { refresh: async () => {}, me: async () => { throw new Error("x"); } } }}
+        onAuthenticated={() => {}}
+        onAnonymous={() => {}}
+      />,
+    );
+    expect(html).toContain('role="status"');
+    expect(html).toContain("Verificando tu sesión");
+  });
+
+  it("renders the access notice and portal frame", () => {
+    
+    
+    expect(renderToString(<AccessNotice title="T" description="D"><a href="/">x</a></AccessNotice>)).toContain("<h1");
+    const html = renderToString(
+      <PortalFrame productName="P" usuario={{ nombres: "Ana", apellidos: "Paz", rol: "odontologo" }}>c</PortalFrame>,
+    );
+    expect(html).toContain("Ana");
+    expect(html).toContain("Odontólogo");
+  });
+
+  it("renders the logout button", () => {
+    
+    expect(renderToString(<LogoutButton onLogout={async () => {}} onDone={() => {}} />)).toContain("Cerrar sesión");
   });
 });

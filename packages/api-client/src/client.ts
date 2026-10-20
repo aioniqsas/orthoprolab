@@ -3,8 +3,8 @@ import {
   RateLimitedError,
   UnauthorizedError,
   parseRetryAfter,
-} from "./errors.js";
-import type { LoginBody, RegisterBody, Usuario } from "./types.js";
+} from "./errors";
+import type { LoginBody, RegisterBody, Usuario } from "./types";
 
 export interface ApiClientOptions {
   baseUrl: string;
