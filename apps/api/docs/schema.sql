@@ -300,6 +300,10 @@ CREATE TABLE public.servicio (
     activo boolean DEFAULT true NOT NULL,
     fecha_creacion timestamp with time zone DEFAULT now() NOT NULL,
     fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL,
+    slug character varying NOT NULL,
+    imagen_url text,
+    imagen_public_id text,
+    CONSTRAINT ck_servicio_imagen_url_cloudinary CHECK (((imagen_url IS NULL) OR (imagen_url ~~ 'https://res.cloudinary.com/%'::text))),
     CONSTRAINT ck_servicio_precio_no_negativo CHECK ((precio >= (0)::numeric))
 );
 
@@ -572,6 +576,13 @@ CREATE INDEX idx_sesion_refresco_usuario ON public.sesion_refresco USING btree (
 --
 
 CREATE UNIQUE INDEX uq_paciente_cedula_hash ON public.paciente USING btree (cedula_hash) WHERE (cedula_hash IS NOT NULL);
+
+
+--
+-- Name: uq_servicio_slug; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_servicio_slug ON public.servicio USING btree (slug);
 
 
 --

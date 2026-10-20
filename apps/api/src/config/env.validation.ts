@@ -39,6 +39,12 @@ export interface EnvConfig {
   LOGIN_LOCK_SECONDS: number;
   /** A just-rotated refresh token reused within this many seconds is not theft. */
   REFRESH_REUSE_GRACE_SECONDS: number;
+  /** Cloudinary credentials: all three or none (uploads answer 503 without). */
+  CLOUDINARY_CLOUD_NAME?: string;
+  CLOUDINARY_API_KEY?: string;
+  CLOUDINARY_API_SECRET?: string;
+  /** Cloudinary folder for catalog images (default orthopro/catalogo). */
+  CLOUDINARY_FOLDER: string;
 }
 
 const DEFAULT_CORS_ORIGINS = [
@@ -218,6 +224,29 @@ function readBoundedInt(
   return n;
 }
 
+const CLOUDINARY_CREDENTIALS = [
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
+] as const;
+
+/** Folder path: letters, digits, `_`, `-` and `/` separators, no leading slash or `..`. */
+function readCloudinaryFolder(raw: RawEnv, errors: string[]): string {
+  const fallback = 'orthopro/catalogo';
+  const value = asText(raw['CLOUDINARY_FOLDER']).trim();
+  if (value === '') return fallback;
+  if (
+    value.length > 100 ||
+    !/^[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*$/.test(value)
+  ) {
+    errors.push(
+      'CLOUDINARY_FOLDER must be a path like orthopro/catalogo (letters, digits, "-", "_" and "/"; max 100 characters)',
+    );
+    return fallback;
+  }
+  return value;
+}
+
 /** Validates and types process env; throws one error listing every problem. */
 export function validateEnv(raw: RawEnv): EnvConfig {
   const errors: string[] = [];
@@ -308,7 +337,19 @@ export function validateEnv(raw: RawEnv): EnvConfig {
       300,
       errors,
     ),
+    CLOUDINARY_FOLDER: readCloudinaryFolder(raw, errors),
   };
+  const cloudinary = CLOUDINARY_CREDENTIALS.map((k) => asText(raw[k]).trim());
+  const provided = cloudinary.filter((v) => v !== '').length;
+  if (provided === CLOUDINARY_CREDENTIALS.length) {
+    config.CLOUDINARY_CLOUD_NAME = cloudinary[0];
+    config.CLOUDINARY_API_KEY = cloudinary[1];
+    config.CLOUDINARY_API_SECRET = cloudinary[2];
+  } else if (provided > 0) {
+    errors.push(
+      `${CLOUDINARY_CREDENTIALS.join(', ')} must be set together (all three or none)`,
+    );
+  }
   if (config.REFRESH_TOKEN_TTL_DAYS > config.SESSION_MAX_LIFETIME_DAYS) {
     errors.push(
       'SESSION_MAX_LIFETIME_DAYS must be greater than or equal to REFRESH_TOKEN_TTL_DAYS',

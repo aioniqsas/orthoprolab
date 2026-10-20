@@ -49,6 +49,8 @@ bun run dev --filter=api               # or: bunx turbo run dev --filter=api
 curl localhost:3003/health             # database and redis checks
 ```
 
+Service catalog: public `GET /catalogo/servicios[/:slug]` (no prices) and admin CRUD at `/admin/catalogo/servicios` (role `administrador`, image upload at `POST /admin/catalogo/servicios/:id/imagen`). Uploads go to Cloudinary and need `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` (all three or none, optional `CLOUDINARY_FOLDER`) in `apps/api/.env`; without them the upload answers 503.
+
 Both `.env` files are git-ignored; keep the same database password in each.
 
 | Task | Command (from `apps/api`) |

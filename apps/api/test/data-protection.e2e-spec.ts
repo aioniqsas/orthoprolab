@@ -198,7 +198,7 @@ describe('Data protection (integration)', () => {
     )[0];
     const servicio = (
       await raw(
-        `INSERT INTO servicio (nombre, precio) VALUES ($1, 10) RETURNING id`,
+        `INSERT INTO servicio (nombre, slug, precio) VALUES ($1, $1, 10) RETURNING id`,
         [`s-${uniq()}`],
       )
     )[0];

@@ -229,12 +229,17 @@ Refresh-token sessions (see [auth.md](./auth.md)). Only the SHA-256 hash of the 
 | fecha_asignacion | timestamptz | no | Default `now()` |
 
 ### servicio
+Catalog of lab services. Migration `AddCatalogFieldsToServicio` added `slug`, `imagen_url` and `imagen_public_id` (existing rows get a slug backfilled before `NOT NULL`); migration `SeedCatalogServices` inserts the four website lines (Ortodoncia Fija, Ortodoncia Removible, Alineadores Invisibles, Retenedores y Ferulas) with a PROVISIONAL `precio = 0.00`, idempotently. **Exposure rule:** the public endpoints (`GET /catalogo/servicios[/:slug]`) return only `id, slug, nombre, descripcion, imagenUrl` of active services, never `precio`, `activo`, `imagen_public_id` or timestamps; the admin endpoints (`/admin/catalogo/servicios`, role `administrador`) return everything except `imagen_public_id`. A service referenced by `detalle_orden` is deactivated instead of deleted.
+
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | id | bigint identity | no | PK |
+| slug | varchar | no | Unique index `uq_servicio_slug`; generated from `nombre` at creation and never regenerated (stable public URLs) |
 | nombre | varchar | no | Unique |
 | descripcion | text | yes | |
 | precio | numeric(12,2) | no | CHECK >= 0 |
+| imagen_url | text | yes | Cloudinary URL; CHECK `ck_servicio_imagen_url_cloudinary` (null or starts with `https://res.cloudinary.com/`) |
+| imagen_public_id | text | yes | Cloudinary asset id, internal: needed to replace or delete the image; never returned by the API |
 | activo | boolean | no | Default true |
 | fecha_creacion | timestamptz | no | Default `now()` |
 | fecha_actualizacion | timestamptz | no | Default `now()` |
@@ -286,8 +291,8 @@ Refresh-token sessions (see [auth.md](./auth.md)). Only the SHA-256 hash of the 
 
 ### Enforced by the database
 - **Composite FK** `orden (paciente_id, doctor_id) -> paciente_doctor (paciente_id, doctor_id)`: an order can only exist for a patient assigned to that doctor.
-- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or >= `fecha_creacion`), `ck_servicio_precio_no_negativo` (>= 0).
-- **Unique constraints**: `rol.nombre`, `servicio.nombre`, `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
+- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or >= `fecha_creacion`), `ck_servicio_precio_no_negativo` (>= 0), `ck_servicio_imagen_url_cloudinary` (image URL is null or a Cloudinary https URL).
+- **Unique constraints**: `rol.nombre`, `servicio.nombre`, `servicio.slug` (`uq_servicio_slug`), `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
 - **Functional unique index** `uq_usuario_correo_lower` on `lower(correo)`: case-insensitive unique email.
 - **Unique index** `uq_sesion_refresco_token_hash` on `sesion_refresco.token_hash`; support indexes `idx_sesion_refresco_usuario`, `idx_sesion_refresco_familia`, `idx_sesion_refresco_expira`.
 - **Unique index** `uq_usuario_cedula_hash` on `usuario.cedula_hash`.
