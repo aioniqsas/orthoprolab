@@ -9,9 +9,10 @@ Turborepo with Bun workspaces. Requires Node >= 24 and Bun 1.4.2.
 | Path | What it is |
 |---|---|
 | `apps/web` | Public marketing site (Next.js, Tailwind v4, shadcn/ui). Pages: landing, nosotros, catálogo (one route per service), pagos. |
-| `apps/admin` | Admin app (Next.js, Tailwind v4). Starter only for now. |
+| `apps/admin` | Admin portal (Next.js): login, orders, clinics, users, catalog, CMS. Runs on sample data, see `docs/portals.md`. |
 | `apps/api` | NestJS backend API (port 3003). |
-| `apps/clientes` | Client portal (Next.js, Tailwind v4). Starter only for now. |
+| `apps/clientes` | Client portal (Next.js): login and registration, placeholder home. See `docs/portals.md`. |
+| `packages/api-client` | `@repo/api-client`: typed client for the API (auth, refresh, schemas). |
 | `packages/theme` | `@repo/theme`: shared Tailwind v4 tokens and the shadcn semantic variables (`theme.css`). |
 | `packages/ui` | `@repo/ui`: shadcn/ui components shared across apps (`@repo/ui/components/*`, `@repo/ui/lib/utils`). |
 | `packages/eslint-config`, `packages/typescript-config` | Shared lint and TypeScript configs. |
