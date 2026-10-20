@@ -312,6 +312,7 @@ export class PdfService {
       .text(`Página ${pageNum}`, margin, bottomY, {
         width: contentWidth,
         align: 'center',
+        lineBreak: false,
       });
   }
 
