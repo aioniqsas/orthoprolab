@@ -26,7 +26,7 @@ Frontends of the two portals: `apps/admin` (administrators, port 3002) and `apps
 - No browser is available to the agents: verification is build/lint/types/unit tests plus HTTP-level smoke checks (SSR status codes, redirects, cookie flows with curl against the real API, CORS preflight).
 
 ## Tasks
-- [ ] P0 Shared foundations: `@repo/api-client` (client, errors, single-flight refresh, schemas, unit tests), shadcn `input`/`label`/`alert`/... in `packages/ui`, auth composites (`AuthShell`, `LoginForm`, `RegisterForm`) from the Stitch screens with the login edits applied
+- [x] P0 Shared foundations: `@repo/api-client` (client, errors, single-flight refresh, schemas, unit tests), shadcn `input`/`label`/`alert`/... in `packages/ui`, auth composites (`AuthShell`, `LoginForm`, `RegisterForm`) from the Stitch screens with the login edits applied
 - [ ] P1 Portal auth wiring: `apps/admin` (login, gating, role check, logout, minimal home) and `apps/clientes` (login, registro, gating, logout, minimal home), silent refresh, safe `next`, `.env.example`, smoke tests against the live API
 - [ ] P2 Admin shell + screens over a sample-data layer: layout (sidebar/topbar) and Ordenes, Clinicas, Usuarios y permisos, Catalogo y aranceles, CMS web
 - [ ] P3 Docs + verification: `docs/portals.md`, README/CLAUDE.md, full checks
@@ -37,5 +37,7 @@ Sequential delegated writers: W1 = P0, W2 = P1, W3.. = P2 (split per screen grou
 ## Progress / evidence
 (none yet)
 
+P0 (delegated writer W1): `packages/api-client` (`createApiClient`, `auth.*`, `request` with single-flight refresh + one retry, `ApiError`/`UnauthorizedError`/`RateLimitedError`, `fetchSessionOnServer`, zod 4 schemas `loginSchema`/`registerSchema`/`registerFormSchema`/`toRegisterPayload`), shadcn `input`/`label`/`alert`, `@repo/ui/auth/*` (`AuthShell`, `LoginForm`, `RegisterForm`, `FormField`, `PasswordField`, `AuthResult` type with kinds credentials|validation|rate-limited|unavailable|network). Evidence: api-client RED (2 files failed, modules missing) -> GREEN 48/48; `@repo/ui` renderToString tests 7/7; parent re-run `turbo build lint check-types test` 16/16 (lint 0 warnings), no `.env` tracked. Stitch choices: login = version `6234883c` (the only one whose text contains "Aun no homologo su escaner intraoral? / Solicitar homologacion clinica", verified by the parent by downloading all 3 versions), removed that block AND the compliance badge row under it (ANMAT/ISO/STL), plus invented telemetry tiles and the "remember session" checkbox (no API support); registration = `23e397a8` (live password rules). Registration fields omitted (backend follow-ups): clinic/practice data, professional licence, terms acceptance, password complexity rules, remember-session. Not verified: DOM behaviour (countdown, aria-busy) only SSR-rendered; no browser available.
+
 ## Next step
-P0
+P1 (wire apps/admin and apps/clientes).
