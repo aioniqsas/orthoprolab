@@ -25,7 +25,7 @@ A real service catalog stored in PostgreSQL and managed by administrators: each 
 - Hard rules for writers: never read/print/edit `.env*` (only `.env.example`), never run `keys:generate`, never touch processes you did not start (the user may have dev servers on 3000-3003; use isolated ports 3101-3103), kill by PID only, never `pkill -f`.
 
 ## Tasks
-- [ ] K1 Schema + API: migration (`slug`, `imagen_url`, `imagen_public_id`, seed of 4 services), entity update, catalog module with public and admin endpoints, DTO validation, `ImageStorage` port + Cloudinary adapter + fake, image upload validation, env additions, tests (RED first), docs update (`database-model.md`, `schema.sql`)
+- [x] K1 Schema + API: migration (`slug`, `imagen_url`, `imagen_public_id`, seed of 4 services), entity update, catalog module with public and admin endpoints, DTO validation, `ImageStorage` port + Cloudinary adapter + fake, image upload validation, env additions, tests (RED first), docs update (`database-model.md`, `schema.sql`)
 - [ ] K1b Env validation with zod (user request): install `zod` in `apps/api` (zod 4, same major as `packages/api-client`) and rewrite `validateEnv` in `src/config/env.validation.ts` as ONE zod schema (`z.object` + `z.coerce`/`transform`/`default`, `superRefine` for cross-field rules: Cloudinary all-or-none, `REFRESH_TOKEN_TTL_DAYS <= SESSION_MAX_LIFETIME_DAYS`, `ENCRYPTION_KEY` != `BLIND_INDEX_KEY`, base64 32-byte keys, JWT secret length, CORS origins list, `TRUST_PROXY`, ports, throttle and lockout numbers), with `EnvConfig = z.infer<...>` (derived type, no hand-written interface). Keep the exported `validateEnv(raw)` signature and the `ConfigModule.forRoot({ validate })` wiring; one error listing EVERY problem by variable name and NEVER echoing secret values (do not use zod messages that include the received value; keep `reportInput` off); keep every existing behaviour and spec green (adapt spec expectations only when the message text legitimately changes), plus new specs for the schema. Sequence: after K1 (same file), before K2.
 - [ ] K2 PDF generation: `pdfkit`, fonts, layout in the brand style, image fetching with SSRF guard, Redis cache, endpoint, tests; verify with `pdftotext`/`pdftoppm`
 - [ ] K3 Web integration: API client in `apps/web`, catalog pages/landing/sitemap/JSON-LD from the API, PDF button, remove static PDF, build with and without the API
@@ -36,7 +36,19 @@ A real service catalog stored in PostgreSQL and managed by administrators: each 
 Sequential delegated writers W1 = K1, W2 = K2, W3 = K3, W4 = K4, parent = K5. Evidence: several non-trivial files per task, unfamiliar APIs (Cloudinary SDK, pdfkit, Next 16 caching).
 
 ## Progress / evidence
-(none yet)
+
+**K1** (delegated writer W1, route: delegated): commit `02b0ac5`.
+- Migrations: `1792452000000-AddCatalogFieldsToServicio` (slug unique NOT NULL, imagen_url, imagen_public_id, CHECK res.cloudinary.com prefix), `1792452100000-SeedCatalogServices` (4 services at 0.00).
+- Entity: slug, imagenUrl, imagenPublicId fields.
+- `ImageStorage` port (upload/delete) + `CloudinaryImageStorage` adapter (SDK v2) + `FakeImageStorage` (tests).
+- `ServiciosService` with slug generation (stable after creation, numeric suffix on collision), soft-delete when referenced by `detalle_orden`, hard-delete + Cloudinary cleanup otherwise.
+- Public `CatalogoPublicoController` — GET /catalogo/servicios, GET /catalogo/servicios/:slug; Cache-Control public.
+- Admin `CatalogoAdminController` — full CRUD + POST /admin/catalogo/servicios/:id/imagen (multer, magic-byte validation, 5 MB, returns 400 for oversized not 413).
+- 268 unit tests pass, 123 e2e tests pass (38 new catalog e2e). `turbo run build lint check-types test --filter=api` 4/4.
+- Migration cycle verified (run → revert × 2 → run → migration:generate reports "no changes").
+- Smoke on port 3103: public list omits precio, admin list includes precio, upload without Cloudinary vars returns 503.
+- `.env.example` update: delegated to secondary agent (permission-blocked on main session).
+- Tier: passive (RDD OFF globally). Review: disabled/unmanaged.
 
 ## Next step
-K1
+K1b
