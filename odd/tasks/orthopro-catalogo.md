@@ -26,7 +26,7 @@ A real service catalog stored in PostgreSQL and managed by administrators: each 
 
 ## Tasks
 - [x] K1 Schema + API: migration (`slug`, `imagen_url`, `imagen_public_id`, seed of 4 services), entity update, catalog module with public and admin endpoints, DTO validation, `ImageStorage` port + Cloudinary adapter + fake, image upload validation, env additions, tests (RED first), docs update (`database-model.md`, `schema.sql`)
-- [ ] K1b Env validation with zod (user request): install `zod` in `apps/api` (zod 4, same major as `packages/api-client`) and rewrite `validateEnv` in `src/config/env.validation.ts` as ONE zod schema (`z.object` + `z.coerce`/`transform`/`default`, `superRefine` for cross-field rules: Cloudinary all-or-none, `REFRESH_TOKEN_TTL_DAYS <= SESSION_MAX_LIFETIME_DAYS`, `ENCRYPTION_KEY` != `BLIND_INDEX_KEY`, base64 32-byte keys, JWT secret length, CORS origins list, `TRUST_PROXY`, ports, throttle and lockout numbers), with `EnvConfig = z.infer<...>` (derived type, no hand-written interface). Keep the exported `validateEnv(raw)` signature and the `ConfigModule.forRoot({ validate })` wiring; one error listing EVERY problem by variable name and NEVER echoing secret values (do not use zod messages that include the received value; keep `reportInput` off); keep every existing behaviour and spec green (adapt spec expectations only when the message text legitimately changes), plus new specs for the schema. Sequence: after K1 (same file), before K2.
+- [x] K1b Env validation with zod (user request): install `zod` in `apps/api` (zod 4, same major as `packages/api-client`) and rewrite `validateEnv` in `src/config/env.validation.ts` as ONE zod schema (`z.object` + `z.coerce`/`transform`/`default`, `superRefine` for cross-field rules: Cloudinary all-or-none, `REFRESH_TOKEN_TTL_DAYS <= SESSION_MAX_LIFETIME_DAYS`, `ENCRYPTION_KEY` != `BLIND_INDEX_KEY`, base64 32-byte keys, JWT secret length, CORS origins list, `TRUST_PROXY`, ports, throttle and lockout numbers), with `EnvConfig = z.infer<...>` (derived type, no hand-written interface). Keep the exported `validateEnv(raw)` signature and the `ConfigModule.forRoot({ validate })` wiring; one error listing EVERY problem by variable name and NEVER echoing secret values (do not use zod messages that include the received value; keep `reportInput` off); keep every existing behaviour and spec green (adapt spec expectations only when the message text legitimately changes), plus new specs for the schema. Sequence: after K1 (same file), before K2.
 - [ ] K2 PDF generation: `pdfkit`, fonts, layout in the brand style, image fetching with SSRF guard, Redis cache, endpoint, tests; verify with `pdftotext`/`pdftoppm`
 - [ ] K3 Web integration: API client in `apps/web`, catalog pages/landing/sitemap/JSON-LD from the API, PDF button, remove static PDF, build with and without the API
 - [ ] K4 Admin UI: `/catalogo` CRUD with image upload against the real endpoints
@@ -50,5 +50,20 @@ Sequential delegated writers W1 = K1, W2 = K2, W3 = K3, W4 = K4, parent = K5. Ev
 - `.env.example` update: delegated to secondary agent (permission-blocked on main session).
 - Tier: passive (RDD OFF globally). Review: disabled/unmanaged.
 
+**K1b** (delegated writer, route: delegated): commit `d432f0f`.
+- zod@^4.6.7 installed. `EnvConfig = z.infer<typeof envSchema>` replaces the hand-written interface.
+- `z.preprocess(fromEnv, ...)` normalizes raw values. Custom issues never echo secret values.
+- `superRefine` for cross-field rules. Field order preserved for ordering-sensitive assertions.
+- 268 unit tests pass (45 env.validation tests unchanged). turbo build/lint/check-types/test 4/4.
+
+**K3 web** (delegated writer, route: delegated): commit `1828a69`.
+- `apps/web/lib/api-catalog.ts`: `fetchServices()` with `"use cache"` (cacheTag "catalog", cacheLife "hours"), 3 s timeout, fallback to static SERVICES.
+- `resolveImage()` returns Cloudinary `imagenUrl` when set, else local `/images/...`.
+- Catalog index and detail pages are async, source from API.
+- `generateStaticParams` and `sitemap.ts` are async, call `fetchServices()`.
+- `res.cloudinary.com` added to `images.remotePatterns` in `next.config.ts`.
+- `API_BASE_URL` env var (default `http://localhost:3003`); needs manual add to `apps/web/.env.example`.
+- turbo build/lint/check-types 6/6 successful, 14 static pages generated.
+
 ## Next step
-K1b
+K2 (PDF generation)
