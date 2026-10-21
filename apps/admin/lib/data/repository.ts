@@ -17,9 +17,9 @@ import {
   SAMPLE_CLINICAS,
   SAMPLE_ORDENES,
   SAMPLE_PAGINAS_WEB,
-  SAMPLE_SERVICIOS,
   SAMPLE_USUARIOS,
 } from "./sample";
+import { listCatalogoServicios, getCatalogoServicio } from "../catalogo-api";
 import type { Clinica, Orden, PaginaWeb, Servicio, Usuario, UsuarioDetalle } from "./types";
 
 /** When true, screens show the "Datos de ejemplo" notice. */
@@ -59,11 +59,11 @@ export async function getUsuario(id: string): Promise<UsuarioDetalle | null> {
 }
 
 export async function listServicios(): Promise<Servicio[]> {
-  return SAMPLE_SERVICIOS;
+  return listCatalogoServicios();
 }
 
-export async function getServicio(id: number): Promise<Servicio | null> {
-  return SAMPLE_SERVICIOS.find((s) => s.id === id) ?? null;
+export async function getServicio(id: string): Promise<Servicio | null> {
+  return getCatalogoServicio(id);
 }
 
 export async function listPaginasWeb(): Promise<PaginaWeb[]> {

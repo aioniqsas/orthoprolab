@@ -28,14 +28,14 @@ const USUARIOS = [
   u("3", "Sofía", "asistente", "sofia@ejemplo.test"),
 ];
 
-const s = (id: number, nombre: string, activo: boolean): Servicio => ({
+const s = (id: string, nombre: string, activo: boolean): Servicio => ({
   id,
   nombre,
   descripcion: `Descripción de ${nombre}`,
   precio: "100000.00",
   activo,
 });
-const SERVICIOS = [s(1, "Ortodoncia Fija", true), s(2, "Retenedores y Férulas", false)];
+const SERVICIOS = [s("1", "Ortodoncia Fija", true), s("2", "Retenedores y Férulas", false)];
 
 describe("maskCedula", () => {
   it("keeps only the last 3 digits", () => {
@@ -77,8 +77,8 @@ describe("usuarios filters", () => {
 
 describe("servicios filters", () => {
   it("filters by active state", () => {
-    expect(filterServicios(SERVICIOS, { activo: false }).map((x) => x.id)).toEqual([2]);
-    expect(filterServicios(SERVICIOS, { activo: true }).map((x) => x.id)).toEqual([1]);
+    expect(filterServicios(SERVICIOS, { activo: false }).map((x) => x.id)).toEqual(["2"]);
+    expect(filterServicios(SERVICIOS, { activo: true }).map((x) => x.id)).toEqual(["1"]);
   });
   it("searches name ignoring accents", () => {
     expect(filterServicios(SERVICIOS, { q: "ferulas" })).toHaveLength(1);

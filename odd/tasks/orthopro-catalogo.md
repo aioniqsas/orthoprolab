@@ -27,9 +27,9 @@ A real service catalog stored in PostgreSQL and managed by administrators: each 
 ## Tasks
 - [x] K1 Schema + API: migration (`slug`, `imagen_url`, `imagen_public_id`, seed of 4 services), entity update, catalog module with public and admin endpoints, DTO validation, `ImageStorage` port + Cloudinary adapter + fake, image upload validation, env additions, tests (RED first), docs update (`database-model.md`, `schema.sql`)
 - [x] K1b Env validation with zod (user request): install `zod` in `apps/api` (zod 4, same major as `packages/api-client`) and rewrite `validateEnv` in `src/config/env.validation.ts` as ONE zod schema (`z.object` + `z.coerce`/`transform`/`default`, `superRefine` for cross-field rules: Cloudinary all-or-none, `REFRESH_TOKEN_TTL_DAYS <= SESSION_MAX_LIFETIME_DAYS`, `ENCRYPTION_KEY` != `BLIND_INDEX_KEY`, base64 32-byte keys, JWT secret length, CORS origins list, `TRUST_PROXY`, ports, throttle and lockout numbers), with `EnvConfig = z.infer<...>` (derived type, no hand-written interface). Keep the exported `validateEnv(raw)` signature and the `ConfigModule.forRoot({ validate })` wiring; one error listing EVERY problem by variable name and NEVER echoing secret values (do not use zod messages that include the received value; keep `reportInput` off); keep every existing behaviour and spec green (adapt spec expectations only when the message text legitimately changes), plus new specs for the schema. Sequence: after K1 (same file), before K2.
-- [ ] K2 PDF generation: `pdfkit`, fonts, layout in the brand style, image fetching with SSRF guard, Redis cache, endpoint, tests; verify with `pdftotext`/`pdftoppm`
-- [ ] K3 Web integration: API client in `apps/web`, catalog pages/landing/sitemap/JSON-LD from the API, PDF button, remove static PDF, build with and without the API
-- [ ] K4 Admin UI: `/catalogo` CRUD with image upload against the real endpoints
+- [x] K2 PDF generation: `pdfkit`, fonts, layout in the brand style, image fetching with SSRF guard, Redis cache, endpoint, tests; verify with `pdftotext`/`pdftoppm`
+- [x] K3 Web integration: API client in `apps/web`, catalog pages/landing/sitemap/JSON-LD from the API, PDF button, remove static PDF, build with and without the API
+- [x] K4 Admin UI: `/catalogo` CRUD with image upload against the real endpoints
 - [ ] K5 Docs + verification: `apps/api/docs/catalogo.md`, README/CLAUDE.md, final checks, instructions for the user to configure Cloudinary and test a real upload
 
 ## Route declaration
@@ -65,5 +65,21 @@ Sequential delegated writers W1 = K1, W2 = K2, W3 = K3, W4 = K4, parent = K5. Ev
 - `API_BASE_URL` env var (default `http://localhost:3003`); needs manual add to `apps/web/.env.example`.
 - turbo build/lint/check-types 6/6 successful, 14 static pages generated.
 
+**K2 pdf** (delegated writer, route: delegated): commits `490eeae`, `4612af5`, `18b05c2`.
+- `pdfkit` service + `CatalogoPdfController`, fonts embedded from `apps/api/assets/fonts`, brand palette.
+- Cloudinary image fetch with host allow-list, size cap and graceful degradation.
+- Redis cache keyed by catalog state.
+- Layout iterated to a compact menu style (multiple services per page) and a page-number overflow blank-page fix.
+
+**K4 admin** (route: inline after the runtime denied subagent launches): commit pending.
+- `catalogo-api.ts` reads the admin endpoints with the `auth_token` cookie.
+- `actions.ts`: create, update, toggle activo, delete (soft/hard per API rule) and image upload.
+- `/catalogo` lists real services with thumbnail, search and estado filter; "Nuevo servicio" links to the form.
+- `/catalogo/nuevo`, `/catalogo/[id]` and `/catalogo/[id]/editar` implement create, detail and edit.
+- `servicio-acciones.tsx` (activar/desactivar/eliminar) and `servicio-imagen-form.tsx` (upload + refresh).
+- Removed sample data for servicios (`SAMPLE_SERVICIOS`, `SAMPLE_DATA_CATALOGO`) and the stale `ArancelesPanel`.
+- `next.config.ts`: Cloudinary `remotePatterns` and `serverActions.bodySizeLimit: "6mb"` (uploads exceed the 1 MB default).
+- `turbo run lint check-types test --filter=admin` 9/9, `turbo run build --filter=admin` 15 routes.
+
 ## Next step
-K2 (PDF generation)
+K5 (docs + verification).

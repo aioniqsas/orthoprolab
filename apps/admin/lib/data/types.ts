@@ -88,13 +88,17 @@ export interface UsuarioDetalle extends Usuario {
   doctoresAsignados: Pick<Doctor, "id" | "nombres" | "apellidos">[];
 }
 
-/** Row of `servicio`. `precio` is a numeric(12,2) string in COP. */
+/** Row of `servicio` as returned by `GET /admin/catalogo/servicios`. `precio` is a numeric(12,2) string in COP. */
 export interface Servicio {
-  id: number;
+  id: string;           // UUID
+  slug?: string;
   nombre: string;
   descripcion: string | null;
   precio: string;
   activo: boolean;
+  imagenUrl?: string | null;
+  fechaCreacion?: string;
+  fechaActualizacion?: string;
 }
 
 /** Editable page of the public site (read from `apps/web`, no CMS tables exist). */

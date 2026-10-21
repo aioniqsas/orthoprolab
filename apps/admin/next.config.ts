@@ -14,6 +14,13 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui", "@repo/api-client"],
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com" }],
+  },
+  experimental: {
+    // Catalog images are up to 5 MB; server actions default to 1 MB.
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   async redirects() {
     return [{ source: "/", destination: "/ordenes", permanent: false }];
   },

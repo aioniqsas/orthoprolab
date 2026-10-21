@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { ImageIcon, Plus } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -10,19 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { buttonVariants } from "@repo/ui/components/button";
 import { isAdmin } from "@/lib/auth-guard";
 import { filterServicios, parseServicioFilters } from "@/lib/data/gestion";
 import type { ServicioFilters } from "@/lib/data/gestion";
 import { formatCop } from "@/lib/data/helpers";
 import { listServicios } from "@/lib/data/repository";
-import { CATALOGO_REASON, DisabledAction } from "../../_components/disabled-action";
 import { FilterTabs } from "../../_components/filter-tabs";
 import { ListSkeleton } from "../../_components/list-skeleton";
 import { PageHeader } from "../../_components/page-header";
-import { SampleNotice } from "../../_components/sample-notice";
 import { SearchForm } from "../../_components/search-form";
 import { ActivoBadge } from "../../_components/status-badges";
-import { ArancelesPanel } from "./aranceles-info";
 
 export const metadata: Metadata = { title: "Catálogo y aranceles" };
 
@@ -34,6 +33,26 @@ function hrefWith(filters: ServicioFilters, activo: boolean | undefined): string
   return qs ? `/catalogo?${qs}` : "/catalogo";
 }
 
+function Thumb({ src, nombre }: { src: string | null | undefined; nombre: string }) {
+  if (!src) {
+    return (
+      <span className="flex size-12 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground">
+        <ImageIcon aria-hidden className="size-4" />
+        <span className="sr-only">Sin imagen</span>
+      </span>
+    );
+  }
+  return (
+    <Image
+      src={src}
+      alt={nombre}
+      width={48}
+      height={48}
+      className="size-12 rounded-lg object-cover"
+    />
+  );
+}
+
 export default function CatalogoPage({ searchParams }: PageProps<"/catalogo">) {
   return (
     <section className="flex flex-col gap-6">
@@ -41,20 +60,14 @@ export default function CatalogoPage({ searchParams }: PageProps<"/catalogo">) {
         title="Catálogo y aranceles"
         description="Servicios que ofrece el laboratorio y el precio de cada uno en pesos colombianos."
         actions={
-          <DisabledAction id="nuevo-servicio-reason" variant="default" reason={CATALOGO_REASON}>
+          <Link href="/catalogo/nuevo" className={buttonVariants()}>
             <Plus aria-hidden /> Nuevo servicio
-          </DisabledAction>
+          </Link>
         }
       />
-      <SampleNotice section="catálogo" />
-      <p role="note" className="text-sm text-muted-foreground">
-        Los nombres y descripciones siguen las líneas de trabajo del sitio público. Los precios
-        mostrados son ficticios.
-      </p>
       <Suspense fallback={<ListSkeleton />}>
         <CatalogoView searchParams={searchParams} />
       </Suspense>
-      <ArancelesPanel />
     </section>
   );
 }
@@ -103,6 +116,7 @@ async function CatalogoView({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Imagen</TableHead>
                   <TableHead>Servicio</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead className="text-end">Precio (COP)</TableHead>
@@ -112,6 +126,9 @@ async function CatalogoView({
               <TableBody>
                 {servicios.map((s) => (
                   <TableRow key={s.id}>
+                    <TableCell>
+                      <Thumb src={s.imagenUrl} nombre={s.nombre} />
+                    </TableCell>
                     <TableCell>
                       <Link
                         href={`/catalogo/${s.id}`}
@@ -135,13 +152,20 @@ async function CatalogoView({
           <ul className="flex flex-col gap-3 md:hidden">
             {servicios.map((s) => (
               <li key={s.id} className="rounded-xl border border-border bg-card p-4">
-                <Link
-                  href={`/catalogo/${s.id}`}
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  {s.nombre}
-                </Link>
-                <p className="mt-1 text-sm text-muted-foreground">{s.descripcion ?? "Sin descripción"}</p>
+                <div className="flex items-start gap-3">
+                  <Thumb src={s.imagenUrl} nombre={s.nombre} />
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/catalogo/${s.id}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      {s.nombre}
+                    </Link>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {s.descripcion ?? "Sin descripción"}
+                    </p>
+                  </div>
+                </div>
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-sm font-medium tabular-nums">{formatCop(s.precio)}</span>
                   <ActivoBadge activo={s.activo} />
