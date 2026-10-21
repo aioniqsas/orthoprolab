@@ -9,7 +9,7 @@ import { OrdersView } from "./orders-view";
 
 export const metadata: Metadata = { title: "Órdenes" };
 
-export default function OrdenesPage({ searchParams }: PageProps<"/ordenes">) {
+export default function OrdenesPage() {
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
@@ -22,9 +22,8 @@ export default function OrdenesPage({ searchParams }: PageProps<"/ordenes">) {
         }
       />
       <SampleNotice section="órdenes" />
-      {/* Request-time data (search params) must stay inside Suspense. */}
       <Suspense fallback={<ListSkeleton />}>
-        <OrdersView searchParams={searchParams} />
+        <OrdersView />
       </Suspense>
     </section>
   );
