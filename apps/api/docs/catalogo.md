@@ -152,13 +152,16 @@ Antes de guardar, la URL devuelta debe empezar con `https://res.cloudinary.com/<
 
 ## 8. Consumo desde `apps/web`
 
-- `apps/web/lib/api-catalog.ts` envuelve `fetchServices()` con `"use cache"`, `cacheTag("catalog")` y `cacheLife("hours")`; si la API no responde en 3 s usa el catálogo local de respaldo.
-- `apps/web/app/api/catalogo/eventos/route.ts` es un puente SSE: se conecta a la API, ejecuta `revalidateTag("catalog", { expire: 0 })` y reenvía `event: catalogo`.
+- `apps/web/lib/api-catalog.ts` envuelve `fetchServices()` con `"use cache"`, `cacheTag("catalog")` y `cacheLife("catalogo")` (perfil de `apps/web/next.config.ts`: `stale` 30 s, `revalidate` 10 s, `expire` 5 min; el `stale` no puede bajar de 30 s o el build deja de prerenderizar la ruta); el `fetch` a la API usa `next: { revalidate: 10, tags: ["catalog"] }` para que la respuesta de la API no imponga su propio `max-age`. Si la API no responde en 3 s usa el catálogo local de respaldo.
+- `apps/web/app/api/catalogo/eventos/route.ts` es un puente SSE: se conecta a la API y reenvía `event: catalogo` al navegador.
+- La invalidación del cache la hace `POST /api/catalogo/revalidar` (`revalidateTag("catalog", { expire: 0 })` + `revalidatePath`), y el puente la llama al recibir un evento. Tiene que ser una request aparte: `revalidateTag` solo registra el tag en las revalidaciones pendientes de la request actual, que se aplican cuando la respuesta termina, y la del puente es un stream que nunca termina.
 - `apps/web/components/catalog-live.tsx` escucha el evento en el navegador y hace `router.refresh()`.
 - El componente está montado en `/catalogo` y `/catalogo/[servicio]`.
 - `apps/web/app/api/catalogo/pdf/route.ts` sirve el PDF desde el origen del sitio ("Ver precios") reenviando `GET /catalogo/pdf` de la API; así la descarga no depende de que la API sea pública.
 
 Sin la API, el sitio sigue mostrando el catálogo de respaldo (`apps/web/lib/catalog.ts`) y el PDF devuelve 502: el sitio no depende de la API para renderizar.
+
+El catálogo cambia casi al instante mientras haya una pestaña del sitio abierta (el evento SSE refresca la página). Sin ninguna pestaña abierta, la copia cacheada se renueva sola cada 10 s.
 
 ## 9. Variables de entorno
 

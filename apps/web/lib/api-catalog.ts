@@ -9,13 +9,16 @@ const DEFAULT_API_BASE = "http://localhost:3003";
 
 export async function fetchServices(): Promise<ApiService[]> {
   cacheTag("catalog");
-  cacheLife("hours");
+  cacheLife("catalogo");
 
   const base = (process.env.API_BASE_URL ?? DEFAULT_API_BASE).replace(/\/$/, "");
 
   try {
     const res = await fetch(`${base}/catalogo/servicios`, {
       signal: AbortSignal.timeout(3000),
+      // The response lives in the data cache with the same short lifetime and
+      // tag as the function above, so `revalidateTag("catalog")` always wins.
+      next: { revalidate: 10, tags: ["catalog"] },
     });
     if (!res.ok) return fallback();
 

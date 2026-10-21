@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 const DEFAULT_API_BASE = "http://localhost:3003";
 const HEARTBEAT_MS = 25_000;
 
@@ -50,8 +48,13 @@ export async function GET(request: Request) {
             const event = buffer.slice(0, end + 2);
             buffer = buffer.slice(end + 2);
             if (event.includes("event: catalogo")) {
-              revalidateTag("catalog", { expire: 0 });
-              send("event: catalogo\ndata: {}\n\n");
+              // The cache is expired by a separate request: pending
+              // revalidations are applied when a response finishes, and this
+              // one streams forever.
+              await fetch(new URL("/api/catalogo/revalidar", request.url), {
+                method: "POST",
+              }).catch(() => {});
+              send('event: catalogo\ndata: {"ok":true}\n\n');
             }
           }
         }
