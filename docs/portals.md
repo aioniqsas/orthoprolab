@@ -25,9 +25,9 @@ The API sets two httpOnly cookies: `auth_token` (JWT, 15 minutes, `Path=/`) and 
 - Admin portal requires role `administrador`; clientes allows `odontologo` and `asistente`. Other roles see an access notice with logout.
 - Login: administrators are created with `bun run admin:create` (see `apps/api/docs/auth.md`); clientes registration creates the role `odontologo` (policy to be revisited with the client).
 
-## Admin screens run on sample data
+## Admin screens: catalog live, the rest on sample data
 
-The API has no endpoints yet for orders, clinics, users, catalog or CMS. Every admin screen reads `apps/admin/lib/data/repository.ts` (`SAMPLE_DATA = true`) and shows a visible "Datos de ejemplo" notice. Write actions are rendered disabled with an explanation; nothing simulates a write. To connect a section, keep the repository signatures, replace the bodies with `api.request(...)` (forward the `auth_token` cookie on the server) and flip `SAMPLE_DATA`.
+The catalog (`/catalogo`) is fully backed by the API: list, create, edit, deactivate, delete and image upload, with a live SSE bridge to `apps/web`. Orders, clinics, users and CMS have no endpoints yet: those screens read `apps/admin/lib/data/repository.ts` (`SAMPLE_DATA = true`) and show a visible "Datos de ejemplo" notice. Write actions are rendered disabled with an explanation; nothing simulates a write. To connect a section, keep the repository signatures, replace the bodies with `api.request(...)` (forward the `auth_token` cookie on the server) and flip `SAMPLE_DATA`. Catalog reference: `apps/api/docs/catalogo.md`.
 
 ## Known limitations and follow-ups
 

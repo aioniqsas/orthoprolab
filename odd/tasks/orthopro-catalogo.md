@@ -30,7 +30,7 @@ A real service catalog stored in PostgreSQL and managed by administrators: each 
 - [x] K2 PDF generation: `pdfkit`, fonts, layout in the brand style, image fetching with SSRF guard, Redis cache, endpoint, tests; verify with `pdftotext`/`pdftoppm`
 - [x] K3 Web integration: API client in `apps/web`, catalog pages/landing/sitemap/JSON-LD from the API, PDF button, remove static PDF, build with and without the API
 - [x] K4 Admin UI: `/catalogo` CRUD with image upload against the real endpoints
-- [ ] K5 Docs + verification: `apps/api/docs/catalogo.md`, README/CLAUDE.md, final checks, instructions for the user to configure Cloudinary and test a real upload
+- [x] K5 Docs + verification: `apps/api/docs/catalogo.md`, README/CLAUDE.md, final checks, instructions for the user to configure Cloudinary and test a real upload
 
 ## Route declaration
 Sequential delegated writers W1 = K1, W2 = K2, W3 = K3, W4 = K4, parent = K5. Evidence: several non-trivial files per task, unfamiliar APIs (Cloudinary SDK, pdfkit, Next 16 caching).
@@ -71,7 +71,7 @@ Sequential delegated writers W1 = K1, W2 = K2, W3 = K3, W4 = K4, parent = K5. Ev
 - Redis cache keyed by catalog state.
 - Layout iterated to a compact menu style (multiple services per page) and a page-number overflow blank-page fix.
 
-**K4 admin** (route: inline after the runtime denied subagent launches): commit pending.
+**K4 admin** (route: inline after the runtime denied subagent launches): commit `aa29996`.
 - `catalogo-api.ts` reads the admin endpoints with the `auth_token` cookie.
 - `actions.ts`: create, update, toggle activo, delete (soft/hard per API rule) and image upload.
 - `/catalogo` lists real services with thumbnail, search and estado filter; "Nuevo servicio" links to the form.
@@ -81,5 +81,17 @@ Sequential delegated writers W1 = K1, W2 = K2, W3 = K3, W4 = K4, parent = K5. Ev
 - `next.config.ts`: Cloudinary `remotePatterns` and `serverActions.bodySizeLimit: "6mb"` (uploads exceed the 1 MB default).
 - `turbo run lint check-types test --filter=admin` 9/9, `turbo run build --filter=admin` 15 routes.
 
+**Tiempo real** (route: inline): commit `d8486c3`.
+- `CatalogoEventosService` (Subject) + `GET /catalogo/eventos` con heartbeat de 25 s.
+- Emisión en crear, editar, borrar y subir imagen.
+- `apps/web/app/api/catalogo/eventos`: invalida `catalog` con `revalidateTag(..., { expire: 0 })` y reenvía el evento.
+- `CatalogLive` hace `router.refresh()` en `/catalogo` y `/catalogo/[servicio]`.
+- Doc: `odd/tasks/catalogo-tiempo-real.md`.
+
+**K5 docs** (route: inline): commit pendiente.
+- `apps/api/docs/catalogo.md`: modelo, rutas públicas y admin, regla de borrado, SSE, Cloudinary (incluida la prueba de una carga real), PDF, integración con la web, pruebas.
+- README: catálogo real, SSE y enlace a la doc; se quitó la referencia al PDF placeholder.
+- CLAUDE.md y `docs/portals.md`: el catálogo del admin ya no usa datos de ejemplo.
+
 ## Next step
-K5 (docs + verification).
+Ninguno: feature completa. La prueba manual de una carga real a Cloudinary queda a cargo del usuario (sección 6 de `apps/api/docs/catalogo.md`).
