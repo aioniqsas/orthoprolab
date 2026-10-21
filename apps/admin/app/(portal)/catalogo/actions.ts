@@ -11,6 +11,30 @@ async function authCookie(): Promise<string> {
 
 type ActionResult<T = Servicio> = { ok: true; data: T } | { ok: false; error: string };
 
+const errorFrom = (body: unknown, fallback: string): string => {
+  const msg = (body as { message?: string | string[] }).message;
+  return Array.isArray(msg) ? msg.join(", ") : (msg ?? fallback);
+};
+
+const isFile = (value: FormDataEntryValue | null): value is File =>
+  typeof value === "object" && value !== null && "arrayBuffer" in value;
+
+/** Sends only the file: the action FormData may carry Next internals. */
+async function uploadImagen(id: string, imagen: File): Promise<ActionResult> {
+  const body = new FormData();
+  body.set("imagen", imagen);
+  const res = await fetch(`${API_URL}/admin/catalogo/servicios/${id}/imagen`, {
+    method: "POST",
+    headers: { Cookie: await authCookie() },
+    body,
+  });
+  if (!res.ok) {
+    const parsed = await res.json().catch(() => ({}));
+    return { ok: false, error: errorFrom(parsed, "Error al subir la imagen") };
+  }
+  return { ok: true, data: (await res.json()) as Servicio };
+}
+
 export async function createServicio(
   _prevState: ActionResult | null,
   formData: FormData,
@@ -30,11 +54,25 @@ export async function createServicio(
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      const msg = (body as { message?: string | string[] }).message;
-      const error = Array.isArray(msg) ? msg.join(", ") : (msg ?? "Error al crear el servicio");
-      return { ok: false, error };
+      return { ok: false, error: errorFrom(body, "Error al crear el servicio") };
     }
-    const data = (await res.json()) as Servicio;
+    let data = (await res.json()) as Servicio;
+
+    const imagen = formData.get("imagen");
+    if (isFile(imagen) && imagen.size > 0) {
+      const subida = await uploadImagen(data.id, imagen);
+      if (!subida.ok) {
+        // Creating with a photo is one operation: do not leave an orphan
+        // service behind when the upload fails (it has no orders yet).
+        await fetch(`${API_URL}/admin/catalogo/servicios/${data.id}`, {
+          method: "DELETE",
+          headers: { Cookie: await authCookie() },
+        }).catch(() => {});
+        return subida;
+      }
+      data = subida.data;
+    }
+
     revalidatePath("/catalogo");
     return { ok: true, data };
   } catch {
@@ -128,25 +166,17 @@ export async function uploadImagenServicio(
   _prevState: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const imagen = formData.get("imagen");
+  if (!isFile(imagen) || imagen.size === 0) {
+    return { ok: false, error: "Selecciona una imagen." };
+  }
+
   try {
-    const res = await fetch(`${API_URL}/admin/catalogo/servicios/${id}/imagen`, {
-      method: "POST",
-      headers: {
-        Cookie: await authCookie(),
-        // Do NOT set Content-Type — the browser sets it with the multipart boundary
-      },
-      body: formData,
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const msg = (body as { message?: string | string[] }).message;
-      const error = Array.isArray(msg) ? msg.join(", ") : (msg ?? "Error al subir la imagen");
-      return { ok: false, error };
-    }
-    const data = (await res.json()) as Servicio;
+    const result = await uploadImagen(id, imagen);
+    if (!result.ok) return result;
     revalidatePath("/catalogo");
     revalidatePath(`/catalogo/${id}`);
-    return { ok: true, data };
+    return result;
   } catch {
     return { ok: false, error: "No se pudo conectar con el servidor" };
   }

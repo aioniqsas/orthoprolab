@@ -156,8 +156,9 @@ Antes de guardar, la URL devuelta debe empezar con `https://res.cloudinary.com/<
 - `apps/web/app/api/catalogo/eventos/route.ts` es un puente SSE: se conecta a la API, ejecuta `revalidateTag("catalog", { expire: 0 })` y reenvía `event: catalogo`.
 - `apps/web/components/catalog-live.tsx` escucha el evento en el navegador y hace `router.refresh()`.
 - El componente está montado en `/catalogo` y `/catalogo/[servicio]`.
+- `apps/web/app/api/catalogo/pdf/route.ts` sirve el PDF desde el origen del sitio ("Ver precios") reenviando `GET /catalogo/pdf` de la API; así la descarga no depende de que la API sea pública.
 
-Sin la API, el sitio sigue mostrando el catálogo de respaldo (`apps/web/lib/catalog.ts`) y el PDF devuelve error: el sitio no depende de la API para renderizar.
+Sin la API, el sitio sigue mostrando el catálogo de respaldo (`apps/web/lib/catalog.ts`) y el PDF devuelve 502: el sitio no depende de la API para renderizar.
 
 ## 9. Variables de entorno
 

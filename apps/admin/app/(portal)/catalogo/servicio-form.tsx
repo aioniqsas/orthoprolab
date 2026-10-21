@@ -72,6 +72,24 @@ export function ServicioForm(props: Props) {
           className="rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
         />
       </div>
+      {props.mode === "create" ? (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="imagen" className="text-sm font-medium">
+            Imagen
+          </label>
+          <input
+            id="imagen"
+            name="imagen"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium"
+          />
+          <p className="text-xs text-muted-foreground">
+            JPEG, PNG o WebP. Máximo 5 MB. Opcional: si falla la carga, el
+            servicio no se crea.
+          </p>
+        </div>
+      ) : null}
       <div className="flex gap-3 pt-2">
         <Button type="submit" disabled={pending}>
           {pending
