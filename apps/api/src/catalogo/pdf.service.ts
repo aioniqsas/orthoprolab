@@ -12,7 +12,9 @@ import { PDF_REDIS, invalidatePdfCache } from './pdf-cache.js';
 
 export { PDF_REDIS } from './pdf-cache.js';
 
-const CACHE_KEY = 'orthopro:pdf:catalog';
+// Bump the suffix whenever the layout changes: the key only fingerprints the
+// catalog state, so a deploy would otherwise keep serving the cached old PDF.
+const CACHE_KEY = 'orthopro:pdf:catalog:v2';
 const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24 h safety net
 
 // Path to bundled font files relative to this file's location.
@@ -92,6 +94,8 @@ export class PdfService {
         size: 'A4',
         margins: { top: 56, bottom: 56, left: 56, right: 56 },
         info: { Title: 'Catálogo OrthoPro Lab', Author: 'OrthoPro Lab' },
+        // Page numbers are stamped after the content, once every page exists.
+        bufferPages: true,
       });
 
       // Register fonts (WOFF for Outfit, TTF for Poppins — fontkit handles both)
@@ -127,8 +131,13 @@ export class PdfService {
         services.forEach((service, i) => {
           cursorY = this.writeMenuEntry(doc, service, imageBuffers[i] ?? null, cursorY);
         });
+      }
 
-        this.writePageNumber(doc, doc.bufferedPageRange().count);
+      // Stamp the page number on every page, cover included.
+      const range = doc.bufferedPageRange();
+      for (let i = 0; i < range.count; i++) {
+        doc.switchToPage(i);
+        this.writePageNumber(doc, i + 1);
       }
 
       doc.end();
@@ -180,9 +189,6 @@ export class PdfService {
         width: contentWidth,
         align: 'center',
       });
-
-    // Page number for cover
-    this.writePageNumber(doc, 1);
   }
 
   private writeMenuSectionHeader(doc: InstanceType<typeof PDFDocument>): void {
@@ -227,7 +233,6 @@ export class PdfService {
     const ENTRY_MIN_H = Math.max(THUMB_H, 72) + 20; // thumb or text block + separator
     if (startY + ENTRY_MIN_H > bottomBoundary) {
       doc.addPage();
-      this.writePageNumber(doc, doc.bufferedPageRange().count);
       startY = doc.page.margins.top;
     }
 
@@ -305,6 +310,12 @@ export class PdfService {
     const contentWidth = doc.page.width - margin * 2;
     const bottomY = doc.page.height - 36;
 
+    // The footer sits inside the bottom margin. Zeroing it while drawing keeps
+    // pdfkit's text flow from treating the footer as overflowing and adding a
+    // blank page.
+    const { bottom } = doc.page.margins;
+    doc.page.margins.bottom = 0;
+
     doc
       .font('Poppins')
       .fontSize(10)
@@ -314,6 +325,8 @@ export class PdfService {
         align: 'center',
         lineBreak: false,
       });
+
+    doc.page.margins.bottom = bottom;
   }
 
   // -------------------------------------------------------------------------
