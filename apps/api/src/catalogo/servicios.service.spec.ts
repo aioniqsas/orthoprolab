@@ -62,13 +62,15 @@ function build(opts: {
     keys: vi.fn().mockResolvedValue([]),
     del: vi.fn().mockResolvedValue(0),
   };
+  const eventos = { emitir: vi.fn() };
   const service = new ServiciosService(
     repo as never,
     detalles as never,
     storage as unknown as ImageStorage,
     pdfRedis as never,
+    eventos as never,
   );
-  return { service, repo, detalles, storage };
+  return { service, repo, detalles, storage, eventos };
 }
 
 describe('ServiciosService.remove (delete rule)', () => {
@@ -208,5 +210,22 @@ describe('ServiciosService.create', () => {
     await expect(
       service.create({ nombre: 'X', precio: '1.00' } as never),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('ServiciosService events', () => {
+  it('emits a catalog change after each successful mutation', async () => {
+    const { service, eventos } = build({});
+    await service.create({ nombre: 'Nuevo', precio: '100.00' } as never);
+    await service.update('7', { nombre: 'Otro' });
+    await service.remove('7');
+    await service.setImage('7', JPEG);
+
+    expect(eventos.emitir.mock.calls.map(([tipo]) => tipo)).toEqual([
+      'creado',
+      'actualizado',
+      'eliminado',
+      'imagen',
+    ]);
   });
 });

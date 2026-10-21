@@ -10,6 +10,7 @@ import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
+import { CatalogLive } from "@/components/catalog-live";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial } from "@/lib/site";
 
@@ -76,6 +77,7 @@ export default async function ServicePage({ params }: Props) {
   return (
     <>
       <JsonLd data={jsonLd} />
+      <CatalogLive />
       {/* Hero: service image under a vertical gray-to-black mask */}
       <section className="relative isolate flex min-h-[calc(78dvh-4rem)] items-end overflow-hidden pt-16 pb-14 lg:pb-20">
         <Image

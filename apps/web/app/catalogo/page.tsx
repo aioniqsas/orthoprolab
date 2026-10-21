@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
+import { CatalogLive } from "@/components/catalog-live";
 import { Reveal } from "@/components/reveal";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
@@ -34,6 +35,7 @@ export default async function CatalogPage() {
   const serviceImages = await Promise.all(services.map(resolveImage));
   return (
     <>
+      <CatalogLive />
       <section className="pt-16 pb-10 lg:pt-24">
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
           <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">

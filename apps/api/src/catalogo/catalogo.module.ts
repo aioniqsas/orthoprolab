@@ -5,6 +5,7 @@ import { Redis } from 'ioredis';
 import type { EnvConfig } from '../config/env.validation.js';
 import { DetalleOrden } from '../pedidos/detalle-orden.entity.js';
 import { CatalogoAdminController } from './catalogo-admin.controller.js';
+import { CatalogoEventosService } from './catalogo-eventos.service.js';
 import { CatalogoPublicoController } from './catalogo-publico.controller.js';
 import { EstadoOrden } from './estado-orden.entity.js';
 import { IMAGE_STORAGE } from './image-storage.js';
@@ -19,6 +20,7 @@ import { ServiciosService } from './servicios.service.js';
   controllers: [CatalogoPublicoController, CatalogoAdminController],
   providers: [
     ServiciosService,
+    CatalogoEventosService,
     PdfService,
     ImagenUploadInterceptor,
     {

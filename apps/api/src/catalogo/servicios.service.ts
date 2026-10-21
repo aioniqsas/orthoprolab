@@ -12,6 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import type { Redis } from 'ioredis';
 import { DetalleOrden } from '../pedidos/detalle-orden.entity.js';
+import { CatalogoEventosService } from './catalogo-eventos.service.js';
 import type {
   CreateServicioDto,
   UpdateServicioDto,
@@ -87,6 +88,7 @@ export class ServiciosService {
     private readonly detalles: Repository<DetalleOrden>,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
     @Optional() @Inject(PDF_REDIS) private readonly pdfRedis: Redis | null,
+    private readonly eventos: CatalogoEventosService,
   ) {}
 
   // --- public ---------------------------------------------------------------
@@ -139,6 +141,7 @@ export class ServiciosService {
     });
     const result = toAdmin(await this.saveOrConflict(entity));
     await this.invalidatePdf();
+    this.eventos.emitir('creado');
     return result;
   }
 
@@ -150,6 +153,7 @@ export class ServiciosService {
     if (dto.activo !== undefined) row.activo = dto.activo;
     const result = toAdmin(await this.saveOrConflict(row));
     await this.invalidatePdf();
+    this.eventos.emitir('actualizado');
     return result;
   }
 
@@ -173,6 +177,7 @@ export class ServiciosService {
       result = { kind: 'deleted' };
     }
     await this.invalidatePdf();
+    this.eventos.emitir('eliminado');
     return result;
   }
 
@@ -211,6 +216,7 @@ export class ServiciosService {
     const saved = await this.servicios.save(row);
     await this.deleteAssetQuietly(previous);
     await this.invalidatePdf();
+    this.eventos.emitir('imagen');
     return toAdmin(saved);
   }
 
