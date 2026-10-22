@@ -10,6 +10,6 @@ async function bootstrap() {
   );
   configureApp(app);
   app.enableShutdownHooks();
-  await app.listen(process.env.PORT ?? 3003);
+  await app.listen(Number(process.env.PORT ?? 3003), '0.0.0.0');
 }
 await bootstrap();
