@@ -65,6 +65,17 @@ ALTER TABLE public.clinica ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: contenido_web; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contenido_web (
+    clave character varying(120) NOT NULL,
+    valor text NOT NULL,
+    fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: detalle_orden; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -505,6 +516,14 @@ ALTER TABLE ONLY public.servicio
 
 ALTER TABLE ONLY public.rol
     ADD CONSTRAINT "UQ_9792c580a992d554ee1621c5b45" UNIQUE (nombre);
+
+
+--
+-- Name: contenido_web pk_contenido_web; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contenido_web
+    ADD CONSTRAINT pk_contenido_web PRIMARY KEY (clave);
 
 
 --

@@ -6,7 +6,7 @@ Status: provisional until the open questions in section 6 are answered by the cl
 
 ## 1. Overview and design principles
 
-13 application tables (plus TypeORM's `migrations` bookkeeping table) in the `public` schema.
+14 application tables (plus TypeORM's `migrations` bookkeeping table) in the `public` schema.
 
 - **Mixed identifiers.** `usuario.id` is a UUID (`gen_random_uuid()`, built in since PG 13) because it will appear in tokens and URLs and must not be guessable. Every other table uses `bigint GENERATED ALWAYS AS IDENTITY`. Catalog tables (`rol`, `estado_orden`) also use bigint ids and expose a stable business key (`nombre`, `codigo`).
 - **One role per user.** `usuario.rol_id` is a single FK to `rol`. There is no user-role join table.
@@ -144,7 +144,14 @@ erDiagram
         timestamptz fecha_cambio
         text observaciones "encrypted"
     }
+    contenido_web {
+        varchar clave PK "<pagina>.<seccion>.<campo>"
+        text valor
+        timestamptz fecha_actualizacion
+    }
 ```
+
+`contenido_web` is a standalone key/value table: no FKs.
 
 `orden` carries two FKs touching the patient and the doctor: the composite `(paciente_id, doctor_id) -> paciente_doctor` (the one that matters) plus the single-column FKs to `paciente` and `doctor`.
 
@@ -286,6 +293,15 @@ Catalog of lab services. Migration `AddCatalogFieldsToServicio` added `slug`, `i
 | usuario_id | uuid | no | FK `usuario`, who made the change |
 | fecha_cambio | timestamptz | no | Default `now()` |
 | observaciones | text | yes | Enc |
+
+### contenido_web
+Editable copy of the public site (see [contenido.md](./contenido.md)). Key/value: one row per field an administrator changed. A missing row means "the site uses its own default text"; saving an empty value deletes the row. The field schema (groups, labels, types, limits) lives in code (`src/contenido/contenido.schema.ts`), not in the database.
+
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| clave | varchar(120) | no | PK `pk_contenido_web`; follows `<pagina>.<seccion>.<campo>`, e.g. `home.hero.titulo` |
+| valor | text | no | Text, `/images/...` path for image fields, or opaque string for the account number; never empty |
+| fecha_actualizacion | timestamptz | no | Default `now()`, updated by TypeORM on each write |
 
 ## 4. Integrity rules
 

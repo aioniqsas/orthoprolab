@@ -46,7 +46,7 @@ event: catalogo
 data: {"tipo":"creado"}
 ```
 
-`tipo` es `creado`, `actualizado`, `eliminado` o `imagen`. Cada 25 s envía `event: ping` para mantener viva la conexión. El stream no incluye el servicio modificado: el cliente solo lo usa como disparador y vuelve a pedir los datos.
+`tipo` es `creado`, `actualizado`, `eliminado` o `imagen`; el módulo de contenido emite además `contenido` por el mismo bus (ver `contenido.md`). Cada 25 s envía `event: ping` para mantener viva la conexión. El stream no incluye el servicio modificado: el cliente solo lo usa como disparador y vuelve a pedir los datos.
 
 El bus (`CatalogoEventosService`) es un `Subject` en memoria: los eventos no se persisten y no cruzan réplicas de la API. Con más de una instancia hace falta pub/sub en Redis.
 
