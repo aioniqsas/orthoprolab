@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { FileCheckIcon, LandmarkIcon, SendIcon, ShieldAlertIcon, WalletIcon, type LucideIcon } from "lucide-react";
+import { FileCheckIcon, LandmarkIcon, SendIcon, ShieldAlertIcon, WalletIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { AccountQr } from "@/components/account-qr";
 import { CopyButton } from "@/components/copy-button";
 import { Reveal } from "@/components/reveal";
+import { fetchContenido, texto } from "@/lib/content";
 import { BANK_ACCOUNTS } from "@/lib/payments";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
@@ -21,28 +22,36 @@ export const metadata: Metadata = {
 const RADIUS = "rounded-xl";
 const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 
-const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
-  { icon: WalletIcon, title: "Deposita el valor", text: "Transfiere o consigna en la cuenta de esta página." },
-  { icon: FileCheckIcon, title: "Guarda el comprobante", text: "Un PDF o una captura donde se lean la fecha, el valor y la aprobación." },
-  { icon: SendIcon, title: "Confirma el pago", text: "Indica el nombre del odontólogo y el caso al que corresponde el pago." },
-];
+// The page body awaits the cached content before rendering anything, so the
+// navigation cannot produce an instant shell without that data.
+export const instant = false;
 
-export default function PaymentsPage() {
+export default async function PaymentsPage() {
+  const contenido = await fetchContenido();
+  const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
+
+  const steps = [
+    { icon: WalletIcon, title: t("pagos.pasos.paso1.titulo", "Deposita el valor"), text: t("pagos.pasos.paso1.texto", "Transfiere o consigna en la cuenta de esta página.") },
+    { icon: FileCheckIcon, title: t("pagos.pasos.paso2.titulo", "Guarda el comprobante"), text: t("pagos.pasos.paso2.texto", "Un PDF o una captura donde se lean la fecha, el valor y la aprobación.") },
+    { icon: SendIcon, title: t("pagos.pasos.paso3.titulo", "Confirma el pago"), text: t("pagos.pasos.paso3.texto", "Indica el nombre del odontólogo y el caso al que corresponde el pago.") },
+  ];
+
   return (
     <>
       <section className="py-16 lg:py-24">
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-span-5 lg:self-start">
             <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">
-              Paga por <span className="text-highlight">transferencia</span>
+              {t("pagos.hero.titulo", "Paga por")} <span className="text-highlight">{t("pagos.hero.titulo_destacado", "transferencia")}</span>
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">
-              Recibimos pagos solo en la cuenta bancaria de esta página.
+              {t("pagos.hero.intro", "Recibimos pagos solo en la cuenta bancaria de esta página.")}
             </p>
             <div className="flex gap-3 border-l-2 border-highlight/60 pl-4">
               <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-highlight" aria-hidden />
               <p className="text-sm text-body/80">
-                <strong className="font-semibold text-body">Aviso de seguridad:</strong> paga únicamente en la cuenta de esta página.
+                <strong className="font-semibold text-body">{t("pagos.hero.aviso_titulo", "Aviso de seguridad:")}</strong>{" "}
+                {t("pagos.hero.aviso_texto", "paga únicamente en la cuenta de esta página.")}
               </p>
             </div>
           </Reveal>
@@ -60,23 +69,23 @@ export default function PaymentsPage() {
                         <div className="flex items-center gap-3">
                           <LandmarkIcon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
                           <div>
-                            <h2 className="font-heading text-xl font-semibold text-body">{account.bank}</h2>
-                            <p className="text-sm text-muted-foreground">{account.accountType}</p>
+                            <h2 className="font-heading text-xl font-semibold text-body">{t("pagos.cuenta.banco", account.bank)}</h2>
+                            <p className="text-sm text-muted-foreground">{t("pagos.cuenta.tipo", account.accountType)}</p>
                           </div>
                         </div>
                         <dl className="mt-6 space-y-5">
                           <div>
-                            <dt className="text-sm text-muted-foreground">Número de cuenta</dt>
+                            <dt className="text-sm text-muted-foreground">{t("pagos.cuenta.label_numero", "Número de cuenta")}</dt>
                             <dd className="mt-1 flex flex-wrap items-center gap-3">
-                              <span className="font-mono text-2xl tracking-tight text-body">{account.accountNumber}</span>
+                              <span className="font-mono text-2xl tracking-tight text-body">{t("pagos.cuenta.numero", account.accountNumber)}</span>
                               <CopyButton value={account.accountNumber} label={`número de cuenta ${account.bank}`} />
-                              <AccountQr account={account} className="md:hidden" />
+                              <AccountQr account={account} qrImage={t("pagos.qr.imagen", "/images/qr-cuenta.webp")} className="md:hidden" />
                             </dd>
                           </div>
                           <div className={cn("grid gap-5", account.taxId && "sm:grid-cols-2")}>
                             <div>
-                              <dt className="text-sm text-muted-foreground">Titular</dt>
-                              <dd className="mt-1 text-body">{account.holder}</dd>
+                              <dt className="text-sm text-muted-foreground">{t("pagos.cuenta.label_titular", "Titular")}</dt>
+                              <dd className="mt-1 text-body">{t("pagos.cuenta.titular", account.holder)}</dd>
                             </div>
                             {account.taxId ? (
                               <div>
@@ -92,14 +101,14 @@ export default function PaymentsPage() {
                           dialog, because the card there is far too narrow for the code. */}
                       <figure className="hidden min-w-0 flex-col items-center gap-3 md:flex md:max-w-[220px] lg:max-w-[160px] xl:max-w-[220px]">
                         <Image
-                          src="/images/qr-cuenta.webp"
+                          src={t("pagos.qr.imagen", "/images/qr-cuenta.webp")}
                           alt={`Código QR de la ${account.accountType.toLowerCase()} de ${account.bank} de ${BRAND_NAME}`}
                           width={220}
                           height={229}
                           className="h-auto w-full rounded-lg bg-white"
                         />
                         <figcaption className="text-center text-xs text-muted-foreground">
-                          Escanea el QR desde tu app bancaria.
+                          {t("pagos.qr.texto", "Escanea el QR desde tu app bancaria.")}
                         </figcaption>
                       </figure>
                     </div>
@@ -115,11 +124,11 @@ export default function PaymentsPage() {
         <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Cómo pagar y confirmar en tres pasos
+              {t("pagos.pasos.titulo", "Cómo pagar y confirmar en tres pasos")}
             </h2>
           </Reveal>
           <ol className="grid gap-10 md:grid-cols-3 md:gap-6">
-            {STEPS.map(({ icon: Icon, ...s }, i) => (
+            {steps.map(({ icon: Icon, ...s }, i) => (
               <li key={s.title}>
                 <Reveal delay={i * 0.08} className="flex flex-col gap-4 border-t border-border pt-6 md:border-highlight/40">
                   <Icon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />

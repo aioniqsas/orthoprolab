@@ -4,7 +4,7 @@ import { cn } from "@repo/ui/lib/utils";
 import { CATALOG_PDF_HREF } from "@/lib/catalog";
 
 // Plain anchor: Button is not polymorphic for links, and no client JS is needed.
-export function PriceDownloadButton({ className }: { className?: string }) {
+export function PriceDownloadButton({ label, className }: { label: string; className?: string }) {
   return (
     <a
       href={CATALOG_PDF_HREF}
@@ -16,7 +16,7 @@ export function PriceDownloadButton({ className }: { className?: string }) {
       )}
     >
       <DownloadIcon aria-hidden />
-      Ver precios
+      {label}
     </a>
   );
 }

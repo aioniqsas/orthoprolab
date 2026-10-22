@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
-import { CatalogLive } from "@/components/catalog-live";
 import { Reveal } from "@/components/reveal";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
+import { fetchContenido, texto } from "@/lib/content";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 // The page body awaits the cached catalog before rendering anything, so the
@@ -37,18 +37,19 @@ const SPANS = [
 export default async function CatalogPage() {
   const services = await fetchServices();
   const serviceImages = await Promise.all(services.map(resolveImage));
+  const contenido = await fetchContenido();
+  const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
   return (
     <>
-      <CatalogLive />
       <section className="pt-16 pb-10 lg:pt-24">
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
           <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">
-            Catálogo de <span className="text-highlight">servicios</span>
+            {t("catalogo.titulo", "Catálogo de")} <span className="text-highlight">{t("catalogo.titulo_destacado", "servicios")}</span>
           </h1>
           <p className="max-w-[60ch] text-lg text-body/80">
-            Cuatro líneas de ortodoncia. Los precios están en el catálogo en PDF.
+            {t("catalogo.intro", "Cuatro líneas de ortodoncia. Los precios están en el catálogo en PDF.")}
           </p>
-          <PriceDownloadButton />
+          <PriceDownloadButton label={t("catalogo.boton_precios", "Ver precios")} />
         </Reveal>
       </section>
 
@@ -86,7 +87,7 @@ export default async function CatalogPage() {
                   </p>
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
                     <span className="inline-flex items-center gap-2 text-sm font-semibold whitespace-nowrap text-highlight">
-                      Ver servicio
+                      {t("catalogo.boton", "Ver servicio")}
                       <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
                     </span>
                   </div>

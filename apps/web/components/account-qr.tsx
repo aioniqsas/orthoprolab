@@ -17,7 +17,7 @@ import type { BankAccount } from "@/lib/payments";
  * Mobile entry point for the payment QR. The card is too narrow below xl to hold the
  * code inline, so the icon opens it in a dialog at a size that can actually be scanned.
  */
-export function AccountQr({ account, className }: { account: BankAccount; className?: string }) {
+export function AccountQr({ account, qrImage, className }: { account: BankAccount; qrImage: string; className?: string }) {
   const label = `Código QR de la ${account.accountType.toLowerCase()} de ${account.bank}`;
 
   return (
@@ -37,7 +37,7 @@ export function AccountQr({ account, className }: { account: BankAccount; classN
           </DialogDescription>
         </DialogHeader>
         <Image
-          src="/images/qr-cuenta.webp"
+          src={qrImage}
           alt={label}
           width={320}
           height={333}

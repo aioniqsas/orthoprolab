@@ -10,8 +10,8 @@ import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
-import { CatalogLive } from "@/components/catalog-live";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
+import { fetchContenido, texto } from "@/lib/content";
 import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial } from "@/lib/site";
 
 type Props = { params: Promise<{ servicio: string }> };
@@ -43,9 +43,12 @@ export default async function ServicePage({ params }: Props) {
   const service = services.find((s) => s.slug === servicio);
   if (!service) notFound();
 
+  const contenido = await fetchContenido();
+  const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
+
   const details = [
-    { label: "Qué es", key: "summary" },
-    { label: "Cuándo se indica", key: "indication" },
+    { label: t("catalogo.detalle.label_que_es", "Qué es"), key: "summary" },
+    { label: t("catalogo.detalle.label_cuando", "Cuándo se indica"), key: "indication" },
   ] as const;
   const related = services.filter((s) => s.slug !== service.slug);
   const heroImage = await resolveImage(service);
@@ -77,7 +80,6 @@ export default async function ServicePage({ params }: Props) {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <CatalogLive />
       {/* Hero: service image under a vertical gray-to-black mask */}
       <section className="relative isolate flex min-h-[calc(78dvh-4rem)] items-end overflow-hidden pt-16 pb-14 lg:pb-20">
         <Image
@@ -100,7 +102,7 @@ export default async function ServicePage({ params }: Props) {
             className="mb-8 inline-flex items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
           >
             <ArrowLeftIcon className="size-4" aria-hidden />
-            Volver al catálogo
+            {t("catalogo.detalle.volver", "Volver al catálogo")}
           </Link>
           <Reveal className="flex max-w-3xl flex-col gap-6">
             <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
@@ -108,7 +110,7 @@ export default async function ServicePage({ params }: Props) {
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">{service.description}</p>
             <div>
-              <PriceDownloadButton />
+              <PriceDownloadButton label={t("catalogo.boton_precios", "Ver precios")} />
             </div>
           </Reveal>
         </div>
@@ -119,7 +121,7 @@ export default async function ServicePage({ params }: Props) {
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Productos de esta línea
+              {t("catalogo.detalle.productos_titulo", "Productos de esta línea")}
             </h2>
           </Reveal>
           <ul className="divide-y divide-border border-y border-border">
@@ -150,7 +152,7 @@ export default async function ServicePage({ params }: Props) {
         <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
             <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Otras líneas del laboratorio
+              {t("catalogo.detalle.relacionados_titulo", "Otras líneas del laboratorio")}
             </h2>
           </Reveal>
           <ul className="divide-y divide-border lg:col-span-8">
