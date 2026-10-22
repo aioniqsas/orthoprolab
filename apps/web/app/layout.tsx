@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Outfit, Poppins } from "next/font/google";
+import { CatalogLive } from "@/components/catalog-live";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { BRAND_NAME, SITE_DESCRIPTION, SITE_TITLE, SITE_URL, pageSocial } from "@/lib/site";
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
+        <CatalogLive />
       </body>
     </html>
   );

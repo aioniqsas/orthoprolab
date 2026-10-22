@@ -1,45 +1,4 @@
-export interface EnvConfig {
-  PORT: number;
-  DATABASE_HOST: string;
-  DATABASE_PORT: number;
-  DATABASE_USER: string;
-  DATABASE_PASSWORD: string;
-  DATABASE_NAME: string;
-  REDIS_HOST: string;
-  REDIS_PORT: number;
-  /** Optional; omitted when Redis has no auth (local dev). */
-  REDIS_PASSWORD?: string;
-  /** base64 of 32 bytes. Losing it makes encrypted personal data unrecoverable. */
-  ENCRYPTION_KEY: string;
-  /** base64 of 32 bytes, independent from ENCRYPTION_KEY. */
-  BLIND_INDEX_KEY: string;
-  /** bcrypt work factor, integer 10..15 (default 12). */
-  BCRYPT_COST: number;
-  NODE_ENV: 'development' | 'production' | 'test';
-  /** Allow-list of browser origins (scheme://host[:port]) for CORS and CSRF. */
-  CORS_ORIGINS: string[];
-  /** SameSite attribute of the auth cookie. */
-  COOKIE_SAMESITE: 'strict' | 'lax';
-  /** Express "trust proxy": false (off), true, or the number of proxy hops. */
-  TRUST_PROXY: boolean | number;
-  /** Requests allowed per THROTTLE_TTL_MS for each IP on every route. */
-  THROTTLE_DEFAULT_LIMIT: number;
-  THROTTLE_TTL_MS: number;
-  /** base64 of at least 32 bytes; signs the access JWT (HS256). */
-  JWT_SECRET: string;
-  /** Lifetime of the access token / auth_token cookie, in seconds. */
-  ACCESS_TOKEN_TTL_SECONDS: number;
-  /** Lifetime of each refresh token (sliding: renewed on every use), in days. */
-  REFRESH_TOKEN_TTL_DAYS: number;
-  /** Absolute cap of a session family from its first login, in days. */
-  SESSION_MAX_LIFETIME_DAYS: number;
-  /** Failed logins (per email) before the cooldown starts. */
-  LOGIN_MAX_ATTEMPTS: number;
-  /** Cooldown length after too many failed logins, in seconds. */
-  LOGIN_LOCK_SECONDS: number;
-  /** A just-rotated refresh token reused within this many seconds is not theft. */
-  REFRESH_REUSE_GRACE_SECONDS: number;
-}
+import { z } from 'zod';
 
 const DEFAULT_CORS_ORIGINS = [
   'http://localhost:3000',
@@ -47,287 +6,513 @@ const DEFAULT_CORS_ORIGINS = [
   'http://localhost:3002',
 ];
 
-type RawEnv = Record<string, unknown>;
+/**
+ * Normalize a raw env value to a trimmed string or undefined.
+ * Empty strings, null, and undefined are all treated as absent.
+ */
+function fromEnv(v: unknown): string | undefined {
+  if (v === undefined || v === null || v === '') return undefined;
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return undefined;
+}
 
-function readString(
-  raw: RawEnv,
-  key: string,
-  fallback: string | undefined,
-  errors: string[],
-): string {
-  const value = asText(raw[key]);
-  if (value === '') {
-    if (fallback === undefined) {
-      errors.push(`${key} is required`);
-      return '';
+const envSchema = z
+  .object({
+    // ── Database ──────────────────────────────────────────────────────────────
+    DATABASE_PASSWORD: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'DATABASE_PASSWORD is required',
+          });
+          return '';
+        }
+        return v;
+      }),
+    ),
+
+    PORT: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 3003;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 65535) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'PORT must be an integer between 1 and 65535',
+          });
+          return 3003;
+        }
+        return n;
+      }),
+    ),
+
+    DATABASE_HOST: z.preprocess(
+      fromEnv,
+      z.string().optional().transform(v => v ?? 'localhost'),
+    ),
+
+    DATABASE_PORT: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 5432;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 65535) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'DATABASE_PORT must be an integer between 1 and 65535',
+          });
+          return 5432;
+        }
+        return n;
+      }),
+    ),
+
+    DATABASE_USER: z.preprocess(
+      fromEnv,
+      z.string().optional().transform(v => v ?? 'orthopro'),
+    ),
+
+    DATABASE_NAME: z.preprocess(
+      fromEnv,
+      z.string().optional().transform(v => v ?? 'orthopro'),
+    ),
+
+    // ── Redis ─────────────────────────────────────────────────────────────────
+    REDIS_HOST: z.preprocess(
+      fromEnv,
+      z.string().optional().transform(v => v ?? 'localhost'),
+    ),
+
+    REDIS_PORT: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 6380;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 65535) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'REDIS_PORT must be an integer between 1 and 65535',
+          });
+          return 6380;
+        }
+        return n;
+      }),
+    ),
+
+    /** Optional; omitted when Redis has no auth (local dev). */
+    REDIS_PASSWORD: z.preprocess(fromEnv, z.string().optional()),
+
+    // ── Data-protection keys ──────────────────────────────────────────────────
+    /** base64 of 32 bytes. Losing it makes encrypted personal data unrecoverable. */
+    ENCRYPTION_KEY: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'ENCRYPTION_KEY is required (generate with: bun run keys:generate)',
+          });
+          return '';
+        }
+        const canonical = /^[A-Za-z0-9+/]+={0,2}$/.test(v);
+        if (!canonical || Buffer.from(v, 'base64').length !== 32) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'ENCRYPTION_KEY must be base64 of exactly 32 bytes',
+          });
+          return '';
+        }
+        return v;
+      }),
+    ),
+
+    /** base64 of 32 bytes, independent from ENCRYPTION_KEY. */
+    BLIND_INDEX_KEY: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'BLIND_INDEX_KEY is required (generate with: bun run keys:generate)',
+          });
+          return '';
+        }
+        const canonical = /^[A-Za-z0-9+/]+={0,2}$/.test(v);
+        if (!canonical || Buffer.from(v, 'base64').length !== 32) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'BLIND_INDEX_KEY must be base64 of exactly 32 bytes',
+          });
+          return '';
+        }
+        return v;
+      }),
+    ),
+
+    // ── Application settings ──────────────────────────────────────────────────
+    /** bcrypt work factor, integer 10..15 (default 12). */
+    BCRYPT_COST: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 12;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 10 || n > 15) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'BCRYPT_COST must be an integer between 10 and 15',
+          });
+          return 12;
+        }
+        return n;
+      }),
+    ),
+
+    NODE_ENV: z.preprocess(
+      fromEnv,
+      z
+        .string()
+        .optional()
+        .transform((v, ctx): 'development' | 'production' | 'test' => {
+          if (v === undefined) return 'development';
+          if (v === 'development' || v === 'production' || v === 'test')
+            return v;
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'NODE_ENV must be one of: development, production, test',
+          });
+          return 'development';
+        }),
+    ),
+
+    /** Allow-list of browser origins (scheme://host[:port]) for CORS and CSRF. */
+    CORS_ORIGINS: z.preprocess(
+      fromEnv,
+      z
+        .string()
+        .optional()
+        .transform((v, ctx): string[] => {
+          if (v === undefined) return [...DEFAULT_CORS_ORIGINS];
+          const origins = v
+            .split(',')
+            .map(o => o.trim())
+            .filter(o => o !== '');
+          const valid =
+            origins.length > 0 &&
+            origins.every(o => {
+              try {
+                const url = new URL(o);
+                return (
+                  (url.protocol === 'http:' || url.protocol === 'https:') &&
+                  url.origin === o
+                );
+              } catch {
+                return false;
+              }
+            });
+          if (!valid) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message:
+                'CORS_ORIGINS must be a comma separated list of origins like https://app.example.com (scheme, host, optional port; no path, no wildcard)',
+            });
+            return [...DEFAULT_CORS_ORIGINS];
+          }
+          return origins;
+        }),
+    ),
+
+    /** SameSite attribute of the auth cookie. */
+    COOKIE_SAMESITE: z.preprocess(
+      fromEnv,
+      z
+        .string()
+        .optional()
+        .transform((v, ctx): 'strict' | 'lax' => {
+          if (v === undefined) return 'strict';
+          const lv = v.toLowerCase();
+          if (lv === 'strict' || lv === 'lax') return lv as 'strict' | 'lax';
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'COOKIE_SAMESITE must be "strict" or "lax"',
+          });
+          return 'strict';
+        }),
+    ),
+
+    /** Express "trust proxy": false (off), true, or the number of proxy hops. */
+    TRUST_PROXY: z.preprocess(
+      fromEnv,
+      z
+        .string()
+        .optional()
+        .transform((v, ctx): boolean | number => {
+          if (v === undefined) return false;
+          const lv = v.toLowerCase();
+          if (lv === 'false') return false;
+          if (lv === 'true') return true;
+          if (/^\d{1,2}$/.test(v)) return Number(v);
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'TRUST_PROXY must be "true", "false" or a number of proxy hops (0-99)',
+          });
+          return false;
+        }),
+    ),
+
+    /** Requests allowed per THROTTLE_TTL_MS for each IP on every route. */
+    THROTTLE_DEFAULT_LIMIT: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 60;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 100000) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'THROTTLE_DEFAULT_LIMIT must be an integer between 1 and 100000',
+          });
+          return 60;
+        }
+        return n;
+      }),
+    ),
+
+    THROTTLE_TTL_MS: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 60000;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1000 || n > 3600000) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'THROTTLE_TTL_MS must be an integer between 1000 and 3600000',
+          });
+          return 60000;
+        }
+        return n;
+      }),
+    ),
+
+    // ── JWT / session ─────────────────────────────────────────────────────────
+    /** base64 of at least 32 bytes; signs the access JWT (HS256). */
+    JWT_SECRET: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'JWT_SECRET is required (generate with: openssl rand -base64 48)',
+          });
+          return '';
+        }
+        const canonical = /^[A-Za-z0-9+/]+={0,2}$/.test(v);
+        if (!canonical || Buffer.from(v, 'base64').length < 32) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'JWT_SECRET must be base64 of at least 32 bytes',
+          });
+          return '';
+        }
+        return v;
+      }),
+    ),
+
+    /** Lifetime of the access token / auth_token cookie, in seconds. */
+    ACCESS_TOKEN_TTL_SECONDS: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 900;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 30 || n > 86400) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'ACCESS_TOKEN_TTL_SECONDS must be an integer between 30 and 86400',
+          });
+          return 900;
+        }
+        return n;
+      }),
+    ),
+
+    /** Lifetime of each refresh token (sliding: renewed on every use), in days. */
+    REFRESH_TOKEN_TTL_DAYS: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 7;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 90) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'REFRESH_TOKEN_TTL_DAYS must be an integer between 1 and 90',
+          });
+          return 7;
+        }
+        return n;
+      }),
+    ),
+
+    /** Absolute cap of a session family from its first login, in days. */
+    SESSION_MAX_LIFETIME_DAYS: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 30;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 365) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'SESSION_MAX_LIFETIME_DAYS must be an integer between 1 and 365',
+          });
+          return 30;
+        }
+        return n;
+      }),
+    ),
+
+    /** Failed logins (per email) before the cooldown starts. */
+    LOGIN_MAX_ATTEMPTS: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 3;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 100) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'LOGIN_MAX_ATTEMPTS must be an integer between 1 and 100',
+          });
+          return 3;
+        }
+        return n;
+      }),
+    ),
+
+    /** Cooldown length after too many failed logins, in seconds. */
+    LOGIN_LOCK_SECONDS: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 300;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 86400) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'LOGIN_LOCK_SECONDS must be an integer between 1 and 86400',
+          });
+          return 300;
+        }
+        return n;
+      }),
+    ),
+
+    /** A just-rotated refresh token reused within this many seconds is not theft. */
+    REFRESH_REUSE_GRACE_SECONDS: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        if (v === undefined) return 10;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 0 || n > 300) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'REFRESH_REUSE_GRACE_SECONDS must be an integer between 0 and 300',
+          });
+          return 10;
+        }
+        return n;
+      }),
+    ),
+
+    // ── Cloudinary ────────────────────────────────────────────────────────────
+    /** Cloudinary credentials: all three or none (uploads answer 503 without). */
+    CLOUDINARY_CLOUD_NAME: z.preprocess(fromEnv, z.string().optional()),
+    CLOUDINARY_API_KEY: z.preprocess(fromEnv, z.string().optional()),
+    CLOUDINARY_API_SECRET: z.preprocess(fromEnv, z.string().optional()),
+
+    /** Cloudinary folder for catalog images (default orthopro/catalogo). */
+    CLOUDINARY_FOLDER: z.preprocess(
+      fromEnv,
+      z.string().optional().transform((v, ctx) => {
+        const fallback = 'orthopro/catalogo';
+        if (v === undefined) return fallback;
+        if (
+          v.length > 100 ||
+          !/^[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*$/.test(v)
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'CLOUDINARY_FOLDER must be a path like orthopro/catalogo (letters, digits, "-", "_" and "/"; max 100 characters)',
+          });
+          return fallback;
+        }
+        return v;
+      }),
+    ),
+  })
+  .superRefine((data, ctx) => {
+    // 1. Cloudinary credentials must be all-or-nothing.
+    const cloud = [
+      data.CLOUDINARY_CLOUD_NAME,
+      data.CLOUDINARY_API_KEY,
+      data.CLOUDINARY_API_SECRET,
+    ];
+    const provided = cloud.filter(v => v !== undefined && v !== '').length;
+    if (provided > 0 && provided < 3) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET must be set together (all three or none)',
+      });
     }
-    return fallback;
-  }
-  return value;
-}
 
-/** Env values arrive as strings; anything that is not a primitive counts as unset. */
-function asText(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  return '';
-}
+    // 2. Refresh token lifetime must not exceed the session lifetime cap.
+    if (data.REFRESH_TOKEN_TTL_DAYS > data.SESSION_MAX_LIFETIME_DAYS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'SESSION_MAX_LIFETIME_DAYS must be greater than or equal to REFRESH_TOKEN_TTL_DAYS',
+      });
+    }
 
-function readPort(
-  raw: RawEnv,
-  key: string,
-  fallback: number,
-  errors: string[],
-): number {
-  const value = asText(raw[key]);
-  if (value === '') return fallback;
-  const port = Number(value);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    errors.push(`${key} must be an integer between 1 and 65535 (got ${value})`);
-    return fallback;
-  }
-  return port;
-}
-
-/**
- * Reads a base64 key of exactly 32 bytes. Error messages name the variable
- * only: key material must never appear in errors or logs.
- */
-function readKey(raw: RawEnv, key: string, errors: string[]): string {
-  const value = asText(raw[key]).trim();
-  if (value === '') {
-    errors.push(`${key} is required (generate with: bun run keys:generate)`);
-    return '';
-  }
-  const decoded = Buffer.from(value, 'base64');
-  const canonical = /^[A-Za-z0-9+/]+={0,2}$/.test(value);
-  if (!canonical || decoded.length !== 32) {
-    errors.push(`${key} must be base64 of exactly 32 bytes`);
-    return '';
-  }
-  return value;
-}
-
-/**
- * Reads the JWT signing secret: base64 of at least 32 bytes. Errors name the
- * variable only; the value must never appear in errors or logs.
- */
-function readJwtSecret(raw: RawEnv, errors: string[]): string {
-  const value = asText(raw['JWT_SECRET']).trim();
-  if (value === '') {
-    errors.push(
-      'JWT_SECRET is required (generate with: openssl rand -base64 48)',
-    );
-    return '';
-  }
-  const canonical = /^[A-Za-z0-9+/]+={0,2}$/.test(value);
-  if (!canonical || Buffer.from(value, 'base64').length < 32) {
-    errors.push('JWT_SECRET must be base64 of at least 32 bytes');
-    return '';
-  }
-  return value;
-}
-
-function readBcryptCost(raw: RawEnv, errors: string[]): number {
-  const value = asText(raw['BCRYPT_COST']);
-  if (value === '') return 12;
-  const cost = Number(value);
-  if (!Number.isInteger(cost) || cost < 10 || cost > 15) {
-    errors.push('BCRYPT_COST must be an integer between 10 and 15');
-    return 12;
-  }
-  return cost;
-}
-
-function readNodeEnv(raw: RawEnv, errors: string[]): EnvConfig['NODE_ENV'] {
-  const value = asText(raw['NODE_ENV']).trim();
-  if (value === '') return 'development';
-  if (value === 'development' || value === 'production' || value === 'test') {
-    return value;
-  }
-  errors.push('NODE_ENV must be one of: development, production, test');
-  return 'development';
-}
-
-function readCorsOrigins(raw: RawEnv, errors: string[]): string[] {
-  const value = asText(raw['CORS_ORIGINS']).trim();
-  if (value === '') return [...DEFAULT_CORS_ORIGINS];
-  const origins = value
-    .split(',')
-    .map((o) => o.trim())
-    .filter((o) => o !== '');
-  const valid = origins.every((o) => {
-    try {
-      const url = new URL(o);
-      return (
-        (url.protocol === 'http:' || url.protocol === 'https:') &&
-        url.origin === o
-      );
-    } catch {
-      return false;
+    // 3. Data-protection keys must be distinct (check only when both parsed).
+    if (
+      data.ENCRYPTION_KEY !== '' &&
+      data.ENCRYPTION_KEY === data.BLIND_INDEX_KEY
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ENCRYPTION_KEY and BLIND_INDEX_KEY must differ',
+      });
     }
   });
-  if (!valid || origins.length === 0) {
-    errors.push(
-      'CORS_ORIGINS must be a comma separated list of origins like https://app.example.com (scheme, host, optional port; no path, no wildcard)',
-    );
-    return [...DEFAULT_CORS_ORIGINS];
-  }
-  return origins;
-}
 
-function readSameSite(
-  raw: RawEnv,
-  errors: string[],
-): EnvConfig['COOKIE_SAMESITE'] {
-  const value = asText(raw['COOKIE_SAMESITE']).trim().toLowerCase();
-  if (value === '') return 'strict';
-  if (value === 'strict' || value === 'lax') return value;
-  errors.push('COOKIE_SAMESITE must be "strict" or "lax"');
-  return 'strict';
-}
-
-function readTrustProxy(raw: RawEnv, errors: string[]): boolean | number {
-  const value = asText(raw['TRUST_PROXY']).trim().toLowerCase();
-  if (value === '' || value === 'false') return false;
-  if (value === 'true') return true;
-  if (/^\d{1,2}$/.test(value)) return Number(value);
-  errors.push(
-    'TRUST_PROXY must be "true", "false" or a number of proxy hops (0-99)',
-  );
-  return false;
-}
-
-function readBoundedInt(
-  raw: RawEnv,
-  key: string,
-  fallback: number,
-  min: number,
-  max: number,
-  errors: string[],
-): number {
-  const value = asText(raw[key]).trim();
-  if (value === '') return fallback;
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < min || n > max) {
-    errors.push(`${key} must be an integer between ${min} and ${max}`);
-    return fallback;
-  }
-  return n;
-}
+export type EnvConfig = z.infer<typeof envSchema>;
 
 /** Validates and types process env; throws one error listing every problem. */
-export function validateEnv(raw: RawEnv): EnvConfig {
-  const errors: string[] = [];
-  const DATABASE_PASSWORD = readString(
-    raw,
-    'DATABASE_PASSWORD',
-    undefined,
-    errors,
-  );
-  const config: EnvConfig = {
-    PORT: readPort(raw, 'PORT', 3003, errors),
-    DATABASE_HOST: readString(raw, 'DATABASE_HOST', 'localhost', errors),
-    DATABASE_PORT: readPort(raw, 'DATABASE_PORT', 5432, errors),
-    DATABASE_USER: readString(raw, 'DATABASE_USER', 'orthopro', errors),
-    DATABASE_PASSWORD,
-    DATABASE_NAME: readString(raw, 'DATABASE_NAME', 'orthopro', errors),
-    REDIS_HOST: readString(raw, 'REDIS_HOST', 'localhost', errors),
-    REDIS_PORT: readPort(raw, 'REDIS_PORT', 6380, errors),
-    ENCRYPTION_KEY: readKey(raw, 'ENCRYPTION_KEY', errors),
-    BLIND_INDEX_KEY: readKey(raw, 'BLIND_INDEX_KEY', errors),
-    BCRYPT_COST: readBcryptCost(raw, errors),
-    NODE_ENV: readNodeEnv(raw, errors),
-    CORS_ORIGINS: readCorsOrigins(raw, errors),
-    COOKIE_SAMESITE: readSameSite(raw, errors),
-    TRUST_PROXY: readTrustProxy(raw, errors),
-    THROTTLE_DEFAULT_LIMIT: readBoundedInt(
-      raw,
-      'THROTTLE_DEFAULT_LIMIT',
-      60,
-      1,
-      100000,
-      errors,
-    ),
-    THROTTLE_TTL_MS: readBoundedInt(
-      raw,
-      'THROTTLE_TTL_MS',
-      60000,
-      1000,
-      3600000,
-      errors,
-    ),
-    JWT_SECRET: readJwtSecret(raw, errors),
-    ACCESS_TOKEN_TTL_SECONDS: readBoundedInt(
-      raw,
-      'ACCESS_TOKEN_TTL_SECONDS',
-      900,
-      30,
-      86400,
-      errors,
-    ),
-    REFRESH_TOKEN_TTL_DAYS: readBoundedInt(
-      raw,
-      'REFRESH_TOKEN_TTL_DAYS',
-      7,
-      1,
-      90,
-      errors,
-    ),
-    SESSION_MAX_LIFETIME_DAYS: readBoundedInt(
-      raw,
-      'SESSION_MAX_LIFETIME_DAYS',
-      30,
-      1,
-      365,
-      errors,
-    ),
-    LOGIN_MAX_ATTEMPTS: readBoundedInt(
-      raw,
-      'LOGIN_MAX_ATTEMPTS',
-      3,
-      1,
-      100,
-      errors,
-    ),
-    LOGIN_LOCK_SECONDS: readBoundedInt(
-      raw,
-      'LOGIN_LOCK_SECONDS',
-      300,
-      1,
-      86400,
-      errors,
-    ),
-    REFRESH_REUSE_GRACE_SECONDS: readBoundedInt(
-      raw,
-      'REFRESH_REUSE_GRACE_SECONDS',
-      10,
-      0,
-      300,
-      errors,
-    ),
-  };
-  if (config.REFRESH_TOKEN_TTL_DAYS > config.SESSION_MAX_LIFETIME_DAYS) {
-    errors.push(
-      'SESSION_MAX_LIFETIME_DAYS must be greater than or equal to REFRESH_TOKEN_TTL_DAYS',
-    );
-  }
-  if (
-    config.ENCRYPTION_KEY !== '' &&
-    config.ENCRYPTION_KEY === config.BLIND_INDEX_KEY
-  ) {
-    errors.push('ENCRYPTION_KEY and BLIND_INDEX_KEY must differ');
-  }
-  const redisPassword = asText(raw['REDIS_PASSWORD']);
-  if (redisPassword !== '') {
-    config.REDIS_PASSWORD = redisPassword;
-  }
-  if (errors.length > 0) {
+export function validateEnv(raw: Record<string, unknown>): EnvConfig {
+  const result = envSchema.safeParse(raw);
+  if (!result.success) {
+    const issues = result.error.issues.map(i => i.message);
     throw new Error(
-      `Invalid environment configuration:\n- ${errors.join('\n- ')}`,
+      `Invalid environment configuration:\n- ${issues.join('\n- ')}`,
     );
+  }
+  const config = result.data;
+  // Remove REDIS_PASSWORD when not provided so callers using `in` / `hasOwnProperty`
+  // see no property rather than a property with value undefined.
+  if (config.REDIS_PASSWORD === undefined) {
+    Reflect.deleteProperty(config, 'REDIS_PASSWORD');
   }
   return config;
 }

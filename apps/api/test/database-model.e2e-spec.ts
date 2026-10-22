@@ -141,7 +141,7 @@ describe('Database model (integration)', () => {
 
   async function servicio(precio = '100.00') {
     return one(
-      `INSERT INTO servicio (nombre, precio) VALUES ($1, $2) RETURNING id`,
+      `INSERT INTO servicio (nombre, slug, precio) VALUES ($1, $1, $2) RETURNING id`,
       [`s-${uniq()}`, precio],
     );
   }
@@ -340,7 +340,7 @@ describe('Database model (integration)', () => {
     it('rejects a negative precio', async () => {
       expect(
         await failCode(
-          `INSERT INTO servicio (nombre, precio) VALUES ('neg', -1)`,
+          `INSERT INTO servicio (nombre, slug, precio) VALUES ('neg', 'neg', -1)`,
         ),
       ).toBe(CHECK);
     });

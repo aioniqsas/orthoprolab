@@ -14,11 +14,26 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui", "@repo/api-client"],
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com" }],
+  },
+  experimental: {
+    // Catalog images are up to 5 MB; server actions default to 1 MB.
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   async redirects() {
     return [{ source: "/", destination: "/ordenes", permanent: false }];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The dashboard preview frames this response itself, so it allows
+      // same-origin framing instead of DENY.
+      {
+        source: "/api/catalogo/pdf",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
+    ];
   },
   turbopack: {
     rules: {

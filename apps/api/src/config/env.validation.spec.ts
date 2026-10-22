@@ -24,6 +24,7 @@ describe('validateEnv', () => {
       REDIS_PORT: 6380,
       ENCRYPTION_KEY,
       BLIND_INDEX_KEY,
+      CLOUDINARY_FOLDER: 'orthopro/catalogo',
       BCRYPT_COST: 12,
       NODE_ENV: 'development',
       CORS_ORIGINS: [
@@ -286,5 +287,59 @@ describe('validateEnv', () => {
         /BCRYPT_COST/,
       );
     });
+  });
+  describe('Cloudinary', () => {
+    const creds = {
+      CLOUDINARY_CLOUD_NAME: 'demo',
+      CLOUDINARY_API_KEY: '123',
+      CLOUDINARY_API_SECRET: 'super-secret-value',
+    };
+
+    it('is optional and defaults the folder', () => {
+      const env = validateEnv(base);
+      expect(env.CLOUDINARY_CLOUD_NAME).toBeUndefined();
+      expect(env.CLOUDINARY_API_KEY).toBeUndefined();
+      expect(env.CLOUDINARY_API_SECRET).toBeUndefined();
+      expect(env.CLOUDINARY_FOLDER).toBe('orthopro/catalogo');
+    });
+
+    it('accepts all three credentials and a custom folder', () => {
+      const env = validateEnv({
+        ...base,
+        ...creds,
+        CLOUDINARY_FOLDER: 'otra/carpeta',
+      });
+      expect(env.CLOUDINARY_CLOUD_NAME).toBe('demo');
+      expect(env.CLOUDINARY_FOLDER).toBe('otra/carpeta');
+    });
+
+    it.each([
+      'CLOUDINARY_CLOUD_NAME',
+      'CLOUDINARY_API_KEY',
+      'CLOUDINARY_API_SECRET',
+    ])(
+      'rejects partial credentials (missing %s) naming variables, never values',
+      (missing) => {
+        const partial = { ...creds, [missing]: '' };
+        let message = '';
+        try {
+          validateEnv({ ...base, ...partial });
+        } catch (e) {
+          message = (e as Error).message;
+        }
+        expect(message).toMatch(/CLOUDINARY_CLOUD_NAME/);
+        expect(message).toMatch(/CLOUDINARY_API_SECRET/);
+        expect(message).not.toContain('super-secret-value');
+      },
+    );
+
+    it.each(['a b', '../x', '/abs', 'x'.repeat(101)])(
+      'rejects an unsafe folder %j',
+      (CLOUDINARY_FOLDER) => {
+        expect(() => validateEnv({ ...base, CLOUDINARY_FOLDER })).toThrow(
+          /CLOUDINARY_FOLDER/,
+        );
+      },
+    );
   });
 });

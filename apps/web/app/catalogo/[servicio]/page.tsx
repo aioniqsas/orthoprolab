@@ -2,25 +2,31 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+
+// params access inside the component body requires blocking navigation.
+export const instant = false;
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
-import { SERVICES, SERVICE_IMAGES, getService } from "@/lib/catalog";
+import { fetchServices, resolveImage } from "@/lib/api-catalog";
+import { fetchContenido, texto } from "@/lib/content";
 import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial } from "@/lib/site";
 
 type Props = { params: Promise<{ servicio: string }> };
 
 const RADIUS = "rounded-xl";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ servicio: s.slug }));
+export async function generateStaticParams() {
+  const services = await fetchServices();
+  return services.map((s) => ({ servicio: s.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { servicio } = await params;
-  const service = getService(servicio);
+  const services = await fetchServices();
+  const service = services.find((s) => s.slug === servicio);
   if (!service) return {};
   const title = `${service.name} en Medellín | Catálogo`;
   const description = `${service.name} en Medellín: ${service.description}`;
@@ -33,14 +39,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ServicePage({ params }: Props) {
   const { servicio } = await params;
-  const service = getService(servicio);
+  const services = await fetchServices();
+  const service = services.find((s) => s.slug === servicio);
   if (!service) notFound();
 
+  const contenido = await fetchContenido();
+  const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
+
   const details = [
-    { label: "Qué es", key: "summary" },
-    { label: "Cuándo se indica", key: "indication" },
+    { label: t("catalogo.detalle.label_que_es", "Qué es"), key: "summary" },
+    { label: t("catalogo.detalle.label_cuando", "Cuándo se indica"), key: "indication" },
   ] as const;
-  const related = SERVICES.filter((s) => s.slug !== service.slug);
+  const related = services.filter((s) => s.slug !== service.slug);
+  const heroImage = await resolveImage(service);
+  const relatedImages = await Promise.all(related.map(resolveImage));
 
   const url = `${SITE_URL}/catalogo/${service.slug}`;
   const jsonLd = {
@@ -71,7 +83,7 @@ export default async function ServicePage({ params }: Props) {
       {/* Hero: service image under a vertical gray-to-black mask */}
       <section className="relative isolate flex min-h-[calc(78dvh-4rem)] items-end overflow-hidden pt-16 pb-14 lg:pb-20">
         <Image
-          src={SERVICE_IMAGES[service.slug]!}
+          src={heroImage}
           alt={`${service.name} fabricado en OrthoPro Lab`}
           fill
           preload
@@ -90,7 +102,7 @@ export default async function ServicePage({ params }: Props) {
             className="mb-8 inline-flex items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
           >
             <ArrowLeftIcon className="size-4" aria-hidden />
-            Volver al catálogo
+            {t("catalogo.detalle.volver", "Volver al catálogo")}
           </Link>
           <Reveal className="flex max-w-3xl flex-col gap-6">
             <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
@@ -98,7 +110,7 @@ export default async function ServicePage({ params }: Props) {
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">{service.description}</p>
             <div>
-              <PriceDownloadButton />
+              <PriceDownloadButton label={t("catalogo.boton_precios", "Ver precios")} />
             </div>
           </Reveal>
         </div>
@@ -109,7 +121,7 @@ export default async function ServicePage({ params }: Props) {
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Productos de esta línea
+              {t("catalogo.detalle.productos_titulo", "Productos de esta línea")}
             </h2>
           </Reveal>
           <ul className="divide-y divide-border border-y border-border">
@@ -140,11 +152,11 @@ export default async function ServicePage({ params }: Props) {
         <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
             <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Otras líneas del laboratorio
+              {t("catalogo.detalle.relacionados_titulo", "Otras líneas del laboratorio")}
             </h2>
           </Reveal>
           <ul className="divide-y divide-border lg:col-span-8">
-            {related.map((s) => (
+            {related.map((s, ri) => (
               <li key={s.slug}>
                 <Link
                   href={`/catalogo/${s.slug}`}
@@ -153,7 +165,7 @@ export default async function ServicePage({ params }: Props) {
                 >
                   <span className={cn("relative h-16 w-24 shrink-0 overflow-hidden ring-1 ring-border", RADIUS)}>
                     <Image
-                      src={SERVICE_IMAGES[s.slug]!}
+                      src={relatedImages[ri]!}
                       alt=""
                       fill
                       sizes="96px"

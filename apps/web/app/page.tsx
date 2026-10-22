@@ -9,13 +9,13 @@ import {
   LandmarkIcon,
   PackageCheckIcon,
   PencilRulerIcon,
-  type LucideIcon,
 } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { LocationMap } from "@/components/location-map";
+import { fetchContenido, texto } from "@/lib/content";
 import { SERVICES, SERVICE_IMAGES } from "@/lib/catalog";
 import {
   BRAND_NAME,
@@ -72,49 +72,27 @@ const RADIUS = "rounded-xl";
 const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold transition-transform active:scale-[0.98]`;
 
-const STEPS: { title: string; text: string; icon: LucideIcon }[] = [
-  {
-    title: "Envías el caso",
-    text: "Recibimos las impresiones físicas de tu paciente.",
-    icon: BoxIcon,
-  },
-  {
-    title: "Diseñamos",
-    text: "Planificamos el aparato o la prótesis a partir de lo que enviaste.",
-    icon: PencilRulerIcon,
-  },
-  {
-    title: "Fabricamos",
-    text: "Elaboramos el trabajo en el laboratorio, línea por línea.",
-    icon: CpuIcon,
-  },
-  {
-    title: "Entregamos",
-    text: "El trabajo terminado vuelve a tu consultorio.",
-    icon: PackageCheckIcon,
-  },
-];
+// The page body awaits the cached content before rendering anything, so the
+// navigation cannot produce an instant shell without that data.
+export const instant = false;
 
-const BEFORE_FIRST_CASE: { title: string; text: string; icon: LucideIcon }[] = [
-  {
-    title: "Impresiones físicas",
-    text: "Recibimos las impresiones del caso para trabajar sobre ellas.",
-    icon: BoxIcon,
-  },
-  {
-    title: "Precios en el catálogo",
-    text: "Descarga el catálogo en PDF para ver el precio de cada línea.",
-    icon: FileDownIcon,
-  },
-  {
-    title: "Pago por transferencia",
-    text: "Pagas en la cuenta bancaria oficial y luego confirmas el pago.",
-    icon: LandmarkIcon,
-  },
-];
-
-export default function Home() {
+export default async function Home() {
+  const contenido = await fetchContenido();
+  const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
   const [featured, ...others] = SERVICES;
+
+  const steps = [
+    { title: t("home.proceso.paso1.titulo", "Envías el caso"), text: t("home.proceso.paso1.texto", "Recibimos las impresiones físicas de tu paciente."), icon: BoxIcon },
+    { title: t("home.proceso.paso2.titulo", "Diseñamos"), text: t("home.proceso.paso2.texto", "Planificamos el aparato o la prótesis a partir de lo que enviaste."), icon: PencilRulerIcon },
+    { title: t("home.proceso.paso3.titulo", "Fabricamos"), text: t("home.proceso.paso3.texto", "Elaboramos el trabajo en el laboratorio, línea por línea."), icon: CpuIcon },
+    { title: t("home.proceso.paso4.titulo", "Entregamos"), text: t("home.proceso.paso4.texto", "El trabajo terminado vuelve a tu consultorio."), icon: PackageCheckIcon },
+  ];
+
+  const beforeFirstCase = [
+    { title: t("home.antes.item1.titulo", "Impresiones físicas"), text: t("home.antes.item1.texto", "Recibimos las impresiones del caso para trabajar sobre ellas."), icon: BoxIcon },
+    { title: t("home.antes.item2.titulo", "Precios en el catálogo"), text: t("home.antes.item2.texto", "Descarga el catálogo en PDF para ver el precio de cada línea."), icon: FileDownIcon },
+    { title: t("home.antes.item3.titulo", "Pago por transferencia"), text: t("home.antes.item3.texto", "Pagas en la cuenta bancaria oficial y luego confirmas el pago."), icon: LandmarkIcon },
+  ];
 
   return (
     <>
@@ -123,8 +101,8 @@ export default function Home() {
           in the lower, darker part of the mask so body text keeps AA contrast. */}
       <section className="relative isolate flex min-h-[70dvh] items-end overflow-hidden pt-24 pb-16 lg:min-h-[80dvh] lg:pb-20">
         <Image
-          src="/images/hero.jpg"
-          alt="Alineador transparente sobre una base de obsidiana en el laboratorio"
+          src={t("home.hero.imagen", "/images/hero.jpg")}
+          alt={t("home.hero.imagen_alt", "Alineador transparente sobre una base de obsidiana en el laboratorio")}
           fill
           preload
           fetchPriority="high"
@@ -139,17 +117,17 @@ export default function Home() {
           <div className="flex max-w-4xl flex-col gap-7">
             <Reveal>
               <h1 className="text-5xl font-bold leading-[1.05] tracking-tighter text-body md:text-6xl lg:text-7xl">
-                Laboratorio dental en <span className="text-highlight">Medellín</span>
+                {t("home.hero.titulo", "Laboratorio dental en")} <span className="text-highlight">{t("home.hero.titulo_destacado", "Medellín")}</span>
               </h1>
             </Reveal>
             <Reveal delay={0.1}>
               <p className="max-w-[60ch] text-lg text-body/90 md:text-xl">
-                Fabricamos aparatos de ortodoncia y prótesis a partir de las impresiones de tu caso.
+                {t("home.hero.subtitulo", "Fabricamos aparatos de ortodoncia y prótesis a partir de las impresiones de tu caso.")}
               </p>
             </Reveal>
             <Reveal delay={0.2} className="flex flex-wrap items-center gap-4 pt-2">
               <Link href="#servicios" className={cn(buttonVariants(), CTA_BASE)}>
-                Ver servicios
+                {t("home.hero.boton_servicios", "Ver servicios")}
                 <ArrowRightIcon className="size-4" aria-hidden />
               </Link>
               <Link
@@ -161,7 +139,7 @@ export default function Home() {
                   "border-body/40 bg-background/60 text-body hover:bg-background/80",
                 )}
               >
-                Ver catálogo
+                {t("home.hero.boton_catalogo", "Ver catálogo")}
               </Link>
             </Reveal>
           </div>
@@ -173,7 +151,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Cuatro líneas de trabajo para ortodoncia
+              {t("home.servicios.titulo", "Cuatro líneas de trabajo para ortodoncia")}
             </h2>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
@@ -211,7 +189,7 @@ export default function Home() {
                     {s.description}
                   </p>
                   <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-highlight">
-                    Ver servicio
+                    {t("home.servicios.boton", "Ver servicio")}
                     <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
                   </span>
                 </Link>
@@ -226,11 +204,11 @@ export default function Home() {
         <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
           <Reveal>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              Del caso que envías al trabajo que recibes
+              {t("home.proceso.titulo", "Del caso que envías al trabajo que recibes")}
             </h2>
           </Reveal>
           <ol className="grid gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-            {STEPS.map(({ icon: Icon, ...s }, i) => (
+            {steps.map(({ icon: Icon, ...s }, i) => (
               <li key={s.title}>
                 <Reveal delay={i * 0.08} className="relative flex flex-col gap-4 border-t border-border pt-6 lg:border-highlight/40">
                   <Icon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
@@ -249,8 +227,8 @@ export default function Home() {
           <Reveal className="lg:col-span-6">
             <div className={cn("relative aspect-[4/3] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
-                src="/images/tecnico-laboratorio-dental-ajustando-protesis.webp"
-                alt="Técnico del laboratorio dental de Medellín ajustando una prótesis dental en el articulador"
+                src={t("home.antes.imagen", "/images/tecnico-laboratorio-dental-ajustando-protesis.webp")}
+                alt={t("home.antes.imagen_alt", "Técnico del laboratorio dental de Medellín ajustando una prótesis dental en el articulador")}
                 fill
                 sizes="(min-width: 1024px) 50vw, 100vw"
                 className="object-cover"
@@ -260,11 +238,11 @@ export default function Home() {
           <div className="flex flex-col gap-8 lg:col-span-6">
             <Reveal>
               <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-                Antes de enviar tu primer caso
+                {t("home.antes.titulo", "Antes de enviar tu primer caso")}
               </h2>
             </Reveal>
             <ul className="divide-y divide-border">
-              {BEFORE_FIRST_CASE.map(({ icon: Icon, ...p }, i) => (
+              {beforeFirstCase.map(({ icon: Icon, ...p }, i) => (
                 <li key={p.title}>
                   <Reveal delay={i * 0.08} className="flex items-start gap-4 py-5">
                     <Icon className="mt-0.5 size-6 shrink-0 text-highlight" strokeWidth={1.5} aria-hidden />
@@ -285,7 +263,7 @@ export default function Home() {
       {/* Closing CTA: full-width band over the milling image */}
       <section className="relative isolate overflow-hidden py-20 lg:py-28">
         <Image
-          src="/images/protesis-dental-completa-laboratorio-medellin.webp"
+          src={t("home.cierre.imagen", "/images/protesis-dental-completa-laboratorio-medellin.webp")}
           alt=""
           fill
           sizes="100vw"
@@ -294,13 +272,13 @@ export default function Home() {
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
           <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-            Consulta el catálogo completo
+            {t("home.cierre.titulo", "Consulta el catálogo completo")}
           </h2>
           <p className="max-w-[60ch] text-body/80">
-            Cada línea de trabajo tiene su página, y el catálogo en PDF trae los precios.
+            {t("home.cierre.texto", "Cada línea de trabajo tiene su página, y el catálogo en PDF trae los precios.")}
           </p>
           <Link href="/catalogo" prefetch className={cn(buttonVariants(), CTA_BASE)}>
-            Ver catálogo
+            {t("home.cierre.boton", "Ver catálogo")}
             <ArrowRightIcon className="size-4" aria-hidden />
           </Link>
         </Reveal>

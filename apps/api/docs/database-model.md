@@ -6,7 +6,7 @@ Status: provisional until the open questions in section 6 are answered by the cl
 
 ## 1. Overview and design principles
 
-13 application tables (plus TypeORM's `migrations` bookkeeping table) in the `public` schema.
+14 application tables (plus TypeORM's `migrations` bookkeeping table) in the `public` schema.
 
 - **Mixed identifiers.** `usuario.id` is a UUID (`gen_random_uuid()`, built in since PG 13) because it will appear in tokens and URLs and must not be guessable. Every other table uses `bigint GENERATED ALWAYS AS IDENTITY`. Catalog tables (`rol`, `estado_orden`) also use bigint ids and expose a stable business key (`nombre`, `codigo`).
 - **One role per user.** `usuario.rol_id` is a single FK to `rol`. There is no user-role join table.
@@ -144,7 +144,14 @@ erDiagram
         timestamptz fecha_cambio
         text observaciones "encrypted"
     }
+    contenido_web {
+        varchar clave PK "<pagina>.<seccion>.<campo>"
+        text valor
+        timestamptz fecha_actualizacion
+    }
 ```
+
+`contenido_web` is a standalone key/value table: no FKs.
 
 `orden` carries two FKs touching the patient and the doctor: the composite `(paciente_id, doctor_id) -> paciente_doctor` (the one that matters) plus the single-column FKs to `paciente` and `doctor`.
 
@@ -229,12 +236,17 @@ Refresh-token sessions (see [auth.md](./auth.md)). Only the SHA-256 hash of the 
 | fecha_asignacion | timestamptz | no | Default `now()` |
 
 ### servicio
+Catalog of lab services. Migration `AddCatalogFieldsToServicio` added `slug`, `imagen_url` and `imagen_public_id` (existing rows get a slug backfilled before `NOT NULL`); migration `SeedCatalogServices` inserts the four website lines (Ortodoncia Fija, Ortodoncia Removible, Alineadores Invisibles, Retenedores y Ferulas) with a PROVISIONAL `precio = 0.00`, idempotently. **Exposure rule:** the public endpoints (`GET /catalogo/servicios[/:slug]`) return only `id, slug, nombre, descripcion, imagenUrl` of active services, never `precio`, `activo`, `imagen_public_id` or timestamps; the admin endpoints (`/admin/catalogo/servicios`, role `administrador`) return everything except `imagen_public_id`. A service referenced by `detalle_orden` is deactivated instead of deleted.
+
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | id | bigint identity | no | PK |
+| slug | varchar | no | Unique index `uq_servicio_slug`; generated from `nombre` at creation and never regenerated (stable public URLs) |
 | nombre | varchar | no | Unique |
 | descripcion | text | yes | |
 | precio | numeric(12,2) | no | CHECK >= 0 |
+| imagen_url | text | yes | Cloudinary URL; CHECK `ck_servicio_imagen_url_cloudinary` (null or starts with `https://res.cloudinary.com/`) |
+| imagen_public_id | text | yes | Cloudinary asset id, internal: needed to replace or delete the image; never returned by the API |
 | activo | boolean | no | Default true |
 | fecha_creacion | timestamptz | no | Default `now()` |
 | fecha_actualizacion | timestamptz | no | Default `now()` |
@@ -282,12 +294,21 @@ Refresh-token sessions (see [auth.md](./auth.md)). Only the SHA-256 hash of the 
 | fecha_cambio | timestamptz | no | Default `now()` |
 | observaciones | text | yes | Enc |
 
+### contenido_web
+Editable copy of the public site (see [contenido.md](./contenido.md)). Key/value: one row per field an administrator changed. A missing row means "the site uses its own default text"; saving an empty value deletes the row. The field schema (groups, labels, types, limits) lives in code (`src/contenido/contenido.schema.ts`), not in the database.
+
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| clave | varchar(120) | no | PK `pk_contenido_web`; follows `<pagina>.<seccion>.<campo>`, e.g. `home.hero.titulo` |
+| valor | text | no | Text, `/images/...` path for image fields, or opaque string for the account number; never empty |
+| fecha_actualizacion | timestamptz | no | Default `now()`, updated by TypeORM on each write |
+
 ## 4. Integrity rules
 
 ### Enforced by the database
 - **Composite FK** `orden (paciente_id, doctor_id) -> paciente_doctor (paciente_id, doctor_id)`: an order can only exist for a patient assigned to that doctor.
-- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or >= `fecha_creacion`), `ck_servicio_precio_no_negativo` (>= 0).
-- **Unique constraints**: `rol.nombre`, `servicio.nombre`, `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
+- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or >= `fecha_creacion`), `ck_servicio_precio_no_negativo` (>= 0), `ck_servicio_imagen_url_cloudinary` (image URL is null or a Cloudinary https URL).
+- **Unique constraints**: `rol.nombre`, `servicio.nombre`, `servicio.slug` (`uq_servicio_slug`), `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
 - **Functional unique index** `uq_usuario_correo_lower` on `lower(correo)`: case-insensitive unique email.
 - **Unique index** `uq_sesion_refresco_token_hash` on `sesion_refresco.token_hash`; support indexes `idx_sesion_refresco_usuario`, `idx_sesion_refresco_familia`, `idx_sesion_refresco_expira`.
 - **Unique index** `uq_usuario_cedula_hash` on `usuario.cedula_hash`.

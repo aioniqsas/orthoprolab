@@ -1,6 +1,6 @@
 // Catalog data. Prices are intentionally NOT part of this model: they are
 // distributed only through the downloadable PDF (see CATALOG_PDF_HREF).
-export const CATALOG_PDF_HREF = "/catalogo-orthopro-lab.pdf";
+export const CATALOG_PDF_HREF = "/api/catalogo/pdf";
 
 export type CatalogItem = {
   code: string;

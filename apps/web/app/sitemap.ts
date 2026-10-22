@@ -1,14 +1,15 @@
 import type { MetadataRoute } from "next";
-import { SERVICES } from "@/lib/catalog";
+import { fetchServices } from "@/lib/api-catalog";
 import { SITE_URL } from "@/lib/site";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const services = await fetchServices();
   const paths = [
     "/",
     "/nosotros",
     "/catalogo",
     "/pagos",
-    ...SERVICES.map((s) => `/catalogo/${s.slug}`),
+    ...services.map((s) => `/catalogo/${s.slug}`),
   ];
   return paths.map((path) => ({ url: `${SITE_URL}${path === "/" ? "" : path}` }));
 }
