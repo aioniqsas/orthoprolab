@@ -59,28 +59,6 @@ export const IMAGENES_DISPONIBLES: string[] = [
  */
 export const CONTENIDO_GRUPOS: ContenidoGrupo[] = [
   {
-    grupo: 'General: marca y dirección',
-    campos: [
-      {
-        clave: 'site.marca',
-        etiqueta: 'Nombre de la marca',
-        tipo: 'texto',
-        ayuda: 'Aparece en el encabezado, el pie y los datos estructurados.',
-      },
-      {
-        clave: 'site.direccion',
-        etiqueta: 'Dirección del laboratorio',
-        tipo: 'texto',
-      },
-      {
-        clave: 'site.og_imagen',
-        etiqueta: 'Imagen para compartir (Open Graph)',
-        tipo: 'imagen',
-        ayuda: 'Se usa al compartir el sitio en redes y buscadores.',
-      },
-    ],
-  },
-  {
     grupo: 'Landing: hero',
     campos: [
       {

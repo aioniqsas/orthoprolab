@@ -11,7 +11,6 @@ import { ContenidoService } from './contenido.service.js';
 
 /** Image each `imagen` field holds today on the public site. */
 const IMAGEN_ACTUAL: Record<string, string> = {
-  'site.og_imagen': '/images/hero.jpg',
   'home.hero.imagen': '/images/hero.jpg',
   'home.antes.imagen':
     '/images/tecnico-laboratorio-dental-ajustando-protesis.webp',
