@@ -9,6 +9,10 @@ import { Reveal } from "@/components/reveal";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
+// The page body awaits the cached catalog before rendering anything, so the
+// navigation cannot produce an instant shell without that data.
+export const instant = false;
+
 const CATALOG_TITLE = "Catálogo de ortodoncia y prótesis dental en Medellín";
 const CATALOG_DESCRIPTION =
   "Ortodoncia fija y removible, alineadores, retenedores y férulas de OrthoPro Lab. Descarga el catálogo con precios en PDF.";
