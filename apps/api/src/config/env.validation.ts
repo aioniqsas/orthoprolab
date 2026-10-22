@@ -81,6 +81,18 @@ const envSchema = z
       z.string().optional().transform(v => v ?? 'orthopro'),
     ),
 
+    DATABASE_SSL: z.preprocess(
+      fromEnv,
+      z
+        .string()
+        .optional()
+        .transform((v): boolean => {
+          if (v === undefined || v === '') return false;
+          const lv = v.toLowerCase();
+          return lv === 'true' || lv === '1' || lv === 'yes';
+        }),
+    ),
+
     // ── Redis ─────────────────────────────────────────────────────────────────
     REDIS_HOST: z.preprocess(
       fromEnv,
