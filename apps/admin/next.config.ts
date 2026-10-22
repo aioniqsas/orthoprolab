@@ -25,7 +25,15 @@ const nextConfig: NextConfig = {
     return [{ source: "/", destination: "/ordenes", permanent: false }];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The dashboard preview frames this response itself, so it allows
+      // same-origin framing instead of DENY.
+      {
+        source: "/api/catalogo/pdf",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
+    ];
   },
   turbopack: {
     rules: {

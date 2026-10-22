@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
 import { isAdmin } from "@/lib/auth-guard";
 import { listServicios } from "@/lib/data/repository";
@@ -18,9 +18,17 @@ export default function CatalogoPage() {
         title="Catálogo y aranceles"
         description="Servicios que ofrece el laboratorio y el precio de cada uno en pesos colombianos."
         actions={
-          <Link href="/catalogo/nuevo" className={buttonVariants()}>
-            <Plus aria-hidden /> Nuevo servicio
-          </Link>
+          <>
+            <Link
+              href="/catalogo/pdf"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Eye aria-hidden /> Vista previa del PDF
+            </Link>
+            <Link href="/catalogo/nuevo" className={buttonVariants()}>
+              <Plus aria-hidden /> Nuevo servicio
+            </Link>
+          </>
         }
       />
       <Suspense fallback={<ListSkeleton />}>
