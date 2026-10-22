@@ -101,14 +101,6 @@ export interface Servicio {
   fechaActualizacion?: string;
 }
 
-/** Editable page of the public site (read from `apps/web`, no CMS tables exist). */
-export interface PaginaWeb {
-  ruta: string;
-  nombre: string;
-  titulo: string;
-  descripcion: string;
-}
-
 export type NivelPermiso = "si" | "no" | "delegado" | "por_definir";
 
 export interface PermisoRol {

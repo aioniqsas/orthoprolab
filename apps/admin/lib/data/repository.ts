@@ -13,14 +13,9 @@
  * `fetchSessionOnServer` in `@repo/api-client`), then set `SAMPLE_DATA` to
  * false so the "Datos de ejemplo" notice disappears.
  */
-import {
-  SAMPLE_CLINICAS,
-  SAMPLE_ORDENES,
-  SAMPLE_PAGINAS_WEB,
-  SAMPLE_USUARIOS,
-} from "./sample";
+import { SAMPLE_CLINICAS, SAMPLE_ORDENES, SAMPLE_USUARIOS } from "./sample";
 import { listCatalogoServicios, getCatalogoServicio } from "../catalogo-api";
-import type { Clinica, Orden, PaginaWeb, Servicio, Usuario, UsuarioDetalle } from "./types";
+import type { Clinica, Orden, Servicio, Usuario, UsuarioDetalle } from "./types";
 
 /** When true, screens show the "Datos de ejemplo" notice. */
 export const SAMPLE_DATA = true;
@@ -64,8 +59,4 @@ export async function listServicios(): Promise<Servicio[]> {
 
 export async function getServicio(id: string): Promise<Servicio | null> {
   return getCatalogoServicio(id);
-}
-
-export async function listPaginasWeb(): Promise<PaginaWeb[]> {
-  return SAMPLE_PAGINAS_WEB;
 }

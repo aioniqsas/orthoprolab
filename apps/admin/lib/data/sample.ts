@@ -12,7 +12,6 @@ import type {
   HistorialEstado,
   Orden,
   Paciente,
-  PaginaWeb,
   UsuarioDetalle,
 } from "./types";
 
@@ -175,10 +174,3 @@ export const SAMPLE_USUARIOS: UsuarioDetalle[] = [
   { ...base(13, "Rosa", "Auxiliar Prueba", "asistente", false), doctoresAsignados: [] },
 ];
 
-/** Titles and descriptions copied from the metadata of `apps/web` (as published). */
-export const SAMPLE_PAGINAS_WEB: PaginaWeb[] = [
-  { ruta: "/", nombre: "Inicio", titulo: "Laboratorio dental en Medellín | OrthoPro Lab", descripcion: "Laboratorio dental en Medellín: ortodoncia fija y removible, alineadores y retenedores para tu consultorio." },
-  { ruta: "/nosotros", nombre: "Nosotros", titulo: "Sobre nosotros: laboratorio dental en Medellín", descripcion: "Conoce la misión y la visión de OrthoPro Lab, laboratorio dental en Medellín para ortodoncia." },
-  { ruta: "/catalogo", nombre: "Catálogo", titulo: "Catálogo de ortodoncia y prótesis dental en Medellín", descripcion: "Ortodoncia fija y removible, alineadores, retenedores y férulas de OrthoPro Lab. Descarga el catálogo con precios en PDF." },
-  { ruta: "/pagos", nombre: "Pagos", titulo: "Pagos y cuentas bancarias", descripcion: "Cuenta bancaria oficial de OrthoPro Lab para pagar por transferencia o consignación y confirmar tu pago." },
-];
