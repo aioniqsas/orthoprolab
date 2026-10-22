@@ -146,7 +146,9 @@ Antes de guardar, la URL devuelta debe empezar con `https://res.cloudinary.com/<
 ## 7. PDF
 
 - Generado con `pdfkit` y las fuentes de `apps/api/assets/fonts` (Outfit y Poppins, licencia OFL).
-- Incluye portada, un bloque por servicio activo (imagen, nombre, descripción y precio en COP; `Consultar valor` cuando el precio es 0) y pie con numeración.
+- Incluye portada, una línea de tiempo vertical por servicio activo y pie con numeración.
+- La línea de tiempo tiene un eje central: cada servicio es una tarjeta que alterna lado (izquierda, derecha, izquierda...) y se escalona, porque cada tarjeta empieza antes de que termine la anterior pero nunca se monta sobre otra tarjeta del mismo lado. Cada tarjeta lleva imagen recortada, nombre, descripción (máximo 4 líneas) y precio en COP (`Consultar valor` cuando el precio es 0); el eje y el punto de cada tarjeta los conectan.
+- El panel muestra el mismo PDF embebido en `/catalogo/pdf` (pantalla "Vista previa del PDF"), servido por un proxy propio con `Content-Disposition: inline` para no forzar la descarga.
 - Las imágenes se descargan de Cloudinary con transformación JPEG, timeout, tope de tamaño y allow-list de host; si fallan, el bloque se genera sin imagen.
 - Se cachea en Redis (`orthopro:pdf:catalog:*`) con una clave derivada del estado del catálogo. Cada mutación invalida el cache; si Redis falla, el PDF se regenera y la mutación no falla.
 
@@ -156,7 +158,7 @@ Antes de guardar, la URL devuelta debe empezar con `https://res.cloudinary.com/<
 - `apps/web/app/api/catalogo/eventos/route.ts` es un puente SSE: se conecta a la API y reenvía `event: catalogo` al navegador.
 - La invalidación del cache la hace `POST /api/catalogo/revalidar` (`revalidateTag("catalog", { expire: 0 })` + `revalidatePath`), y el puente la llama al recibir un evento. Tiene que ser una request aparte: `revalidateTag` solo registra el tag en las revalidaciones pendientes de la request actual, que se aplican cuando la respuesta termina, y la del puente es un stream que nunca termina.
 - `apps/web/components/catalog-live.tsx` escucha el evento en el navegador y hace `router.refresh()`.
-- El componente está montado en `/catalogo` y `/catalogo/[servicio]`.
+- El componente está montado una sola vez en `apps/web/app/layout.tsx`, así todas las páginas reaccionan a un cambio de catálogo o de contenido.
 - `apps/web/app/api/catalogo/pdf/route.ts` sirve el PDF desde el origen del sitio ("Ver precios") reenviando `GET /catalogo/pdf` de la API; así la descarga no depende de que la API sea pública.
 
 Sin la API, el sitio sigue mostrando el catálogo de respaldo (`apps/web/lib/catalog.ts`) y el PDF devuelve 502: el sitio no depende de la API para renderizar.

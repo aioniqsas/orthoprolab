@@ -14,7 +14,7 @@ export { PDF_REDIS } from './pdf-cache.js';
 
 // Bump the suffix whenever the layout changes: the key only fingerprints the
 // catalog state, so a deploy would otherwise keep serving the cached old PDF.
-const CACHE_KEY = 'orthopro:pdf:catalog:v2';
+const CACHE_KEY = 'orthopro:pdf:catalog:v3';
 const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24 h safety net
 
 // Path to bundled font files relative to this file's location.
@@ -47,9 +47,42 @@ const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 // Fetch timeout for service images
 const IMAGE_FETCH_TIMEOUT_MS = 5_000;
 
+// Timeline geometry (points)
+const SIDE_GAP = 22; // spine → card inner edge
+const CARD_PAD = 14;
+const CARD_RADIUS = 10;
+const ITEM_GAP = 10; // extra space between consecutive cards
+// Each card starts before the previous one ends: sides alternate, so the step
+// overlap is what turns the list into a staircase instead of a wide column.
+const NEXT_STEP_RATIO = 0.58; // share of the card height the next card skips
+const IMG_H = 78;
+const DOT_OFFSET = 18; // dot Y, measured from the card top
+
+// Timeline typography
+const NAME_SIZE = 12.5;
+const DESC_SIZE = 8.5;
+const PRICE_SIZE = 10;
+const PRICE_H = 14;
+const MAX_DESC_LINES = 4;
+
 @Injectable()
 export class PdfService {
   private readonly logger = new Logger(PdfService.name);
+
+  // Y of the last dot drawn, used to connect the spine between cards. Reset on
+  // every page break. Generation is synchronous once the images are fetched.
+  private timelinePrevDotY: number | null = null;
+
+  // Layout cursors: the last card drawn, and the bottom of each column. The
+  // step keeps the staircase tight; the columns keep two cards on the same
+  // side from touching when their heights differ a lot.
+  private timelineLastTop: number | null = null;
+  private timelineLastH = 0;
+  private timelineColumnBottom: [number, number] = [0, 0];
+
+  // True once the first card was drawn: after a page break the spine gets a
+  // short stub from the top edge, but the very first card starts it instead.
+  private timelineDrawn = false;
 
   constructor(
     @Inject(PDF_REDIS) private readonly redis: Redis,
@@ -122,14 +155,24 @@ export class PdfService {
       // Cover page
       this.writeCover(doc);
 
-      // Menu-style listing: multiple services per page
+      // Timeline: one centered spine, cards alternating left/right.
       if (services.length > 0) {
         doc.addPage();
-        this.writeMenuSectionHeader(doc);
-        let cursorY = doc.page.margins.top + 44; // below section header
+        this.timelinePrevDotY = null;
+        this.timelineDrawn = false;
+        this.timelineLastTop = null;
+        this.timelineLastH = 0;
+        this.timelineColumnBottom = [0, 0];
+        let cursorY = this.writeSectionHeader(doc);
 
         services.forEach((service, i) => {
-          cursorY = this.writeMenuEntry(doc, service, imageBuffers[i] ?? null, cursorY);
+          cursorY = this.writeTimelineEntry(
+            doc,
+            service,
+            imageBuffers[i] ?? null,
+            i,
+            cursorY,
+          );
         });
       }
 
@@ -191,7 +234,8 @@ export class PdfService {
       });
   }
 
-  private writeMenuSectionHeader(doc: InstanceType<typeof PDFDocument>): void {
+  /** Draws the "Nuestros Servicios" header and returns the Y for the first card. */
+  private writeSectionHeader(doc: InstanceType<typeof PDFDocument>): number {
     const margin = doc.page.margins.left;
     const contentWidth = doc.page.width - margin * 2;
     const y = doc.page.margins.top;
@@ -201,105 +245,165 @@ export class PdfService {
       .fontSize(20)
       .fillColor(C.highlight)
       .text('Nuestros Servicios', margin, y, { width: contentWidth });
+
+    return doc.y + 26;
   }
 
   /**
-   * Draws one menu entry (restaurant-menu style) at the given Y position.
-   * Returns the Y position after the entry so the caller can stack entries.
-   * Adds a new page automatically when there is not enough room.
+   * Draws one timeline card at `cardTop`, alternating sides around the spine.
+   * Returns the Y where the next card may start. Adds a page automatically when
+   * the card does not fit.
    */
-  private writeMenuEntry(
+  private writeTimelineEntry(
     doc: InstanceType<typeof PDFDocument>,
     service: ServicioParaPdf,
     imageBuffer: Buffer | null,
-    startY: number,
+    index: number,
+    cardTop: number,
   ): number {
     const margin = doc.page.margins.left;
     const pageWidth = doc.page.width;
-    const pageHeight = doc.page.height;
     const contentWidth = pageWidth - margin * 2;
-    const bottomBoundary = pageHeight - doc.page.margins.bottom - 20;
+    const cardW = (contentWidth - SIDE_GAP * 2) / 2;
+    const innerW = cardW - CARD_PAD * 2;
+    const isLeft = index % 2 === 0;
+    const cardX = isLeft ? margin : pageWidth - margin - cardW;
+    const bottomBoundary = doc.page.height - doc.page.margins.bottom - 20;
 
-    // Thumbnail dimensions
-    const THUMB_W = 90;
-    const THUMB_H = 70;
-    const THUMB_GAP = 14; // gap between thumbnail and text column
+    // Measure first: pdfkit's text calls move doc.y, so every Y below is absolute.
+    doc.font('Outfit-Bold').fontSize(NAME_SIZE);
+    const nameH = doc.heightOfString(service.nombre, {
+      width: innerW,
+      lineGap: 1,
+    });
 
-    // Text column
-    const textX = imageBuffer ? margin + THUMB_W + THUMB_GAP : margin;
-    const textW = imageBuffer ? contentWidth - THUMB_W - THUMB_GAP : contentWidth;
+    doc.font('Poppins').fontSize(DESC_SIZE);
+    const lineH = doc.currentLineHeight(true) + 1; // + lineGap: 1
+    let descH = service.descripcion
+      ? doc.heightOfString(service.descripcion, { width: innerW, lineGap: 1 })
+      : 0;
 
-    // Estimate entry height so we can trigger a page break before drawing
-    const ENTRY_MIN_H = Math.max(THUMB_H, 72) + 20; // thumb or text block + separator
-    if (startY + ENTRY_MIN_H > bottomBoundary) {
+    const imageH = imageBuffer ? IMG_H + 10 : 0;
+    const gapBeforePrice = descH > 0 ? 10 : 0;
+    const fixedH = CARD_PAD * 2 + imageH + nameH + 6 + gapBeforePrice + PRICE_H;
+
+    // Clamp the description so a single card can never outgrow a full page.
+    const pageSpace = bottomBoundary - (doc.page.margins.top + 6);
+    const maxDescH = Math.max(
+      lineH,
+      Math.min(lineH * MAX_DESC_LINES, pageSpace - fixedH),
+    );
+    descH = Math.min(descH, maxDescH);
+
+    const cardH = fixedH + descH;
+    const side = index % 2;
+
+    // Staircase step: start the card before the previous one ends, but never
+    // inside a card from the same column.
+    const stepTop =
+      this.timelineLastTop === null
+        ? cardTop
+        : this.timelineLastTop + this.timelineLastH * NEXT_STEP_RATIO + ITEM_GAP;
+    cardTop = Math.max(cardTop, stepTop, this.timelineColumnBottom[side]);
+
+    if (cardTop + cardH > bottomBoundary) {
       doc.addPage();
-      startY = doc.page.margins.top;
+      this.timelinePrevDotY = null;
+      this.timelineLastTop = null;
+      this.timelineLastH = 0;
+      this.timelineColumnBottom = [0, 0];
+      cardTop = doc.page.margins.top + 6;
     }
 
-    const entryY = startY;
+    const spineX = pageWidth / 2;
+    const dotY = cardTop + DOT_OFFSET;
+    const innerX = isLeft ? cardX + cardW : cardX;
 
-    // Thumbnail
+    // Spine + connector, behind the card.
+    doc.save();
+    doc.opacity(0.35).lineWidth(1).strokeColor(C.muted);
+    if (this.timelinePrevDotY !== null) {
+      doc.moveTo(spineX, this.timelinePrevDotY).lineTo(spineX, dotY).stroke();
+    } else if (this.timelineDrawn) {
+      // Continuation of the spine after a page break.
+      doc
+        .moveTo(spineX, doc.page.margins.top - 6)
+        .lineTo(spineX, dotY)
+        .stroke();
+    }
+    doc.moveTo(spineX, dotY).lineTo(innerX, dotY).stroke();
+    doc.restore();
+
+    // Card
+    doc.save();
+    doc.roundedRect(cardX, cardTop, cardW, cardH, CARD_RADIUS).fill(C.raised);
+    doc.restore();
+
+    let textY = cardTop + CARD_PAD;
+
     if (imageBuffer) {
       try {
-        doc.image(imageBuffer, margin, entryY, {
-          width: THUMB_W,
-          height: THUMB_H,
-          cover: [THUMB_W, THUMB_H],
+        // pdfkit's `cover` ignores width/height and does not clip, so clip the
+        // box ourselves to keep the image inside the card.
+        doc.save();
+        doc.rect(cardX + CARD_PAD, textY, innerW, IMG_H).clip();
+        doc.image(imageBuffer, cardX + CARD_PAD, textY, {
+          cover: [innerW, IMG_H],
           align: 'center',
           valign: 'center',
         });
+        doc.restore();
       } catch {
         this.logger.warn(`Failed to embed thumbnail for service ${service.id}`);
       }
+      textY += IMG_H + 10;
     }
 
-    // Service name
     doc
       .font('Outfit-Bold')
-      .fontSize(13)
+      .fontSize(NAME_SIZE)
       .fillColor(C.title)
-      .text(service.nombre, textX, entryY, { width: textW, lineGap: 1 });
+      .text(service.nombre, cardX + CARD_PAD, textY, {
+        width: innerW,
+        lineGap: 1,
+      });
 
-    const afterName = doc.y + 4;
-
-    // Description (up to 3 lines, then truncated by pdfkit)
-    if (service.descripcion) {
+    if (descH > 0 && service.descripcion) {
       doc
         .font('Poppins')
-        .fontSize(9)
+        .fontSize(DESC_SIZE)
         .fillColor(C.body)
-        .text(service.descripcion, textX, afterName, {
-          width: textW,
-          height: 38, // ~3 lines at 9pt
+        .text(service.descripcion, cardX + CARD_PAD, textY + nameH + 6, {
+          width: innerW,
+          height: descH,
           ellipsis: true,
           lineGap: 1,
         });
     }
 
-    const afterDesc = Math.max(doc.y, entryY + THUMB_H) + 8;
-
-    // Price row: label on the left, value right-aligned
-    const precioStr = this.formatPrecio(service.precio);
     doc
       .font('Poppins-SemiBold')
-      .fontSize(10)
+      .fontSize(PRICE_SIZE)
       .fillColor(C.highlight)
-      .text(precioStr, textX, afterDesc, { width: textW, align: 'right' });
+      .text(
+        this.formatPrecio(service.precio),
+        cardX + CARD_PAD,
+        textY + nameH + 6 + descH + gapBeforePrice,
+        { width: innerW, align: 'right' },
+      );
 
-    const afterPrice = doc.y + 14;
+    // Dot on the spine, above the card edge.
+    doc.save();
+    doc.circle(spineX, dotY, 7).fill(C.raised);
+    doc.circle(spineX, dotY, 3.2).fill(C.highlight);
+    doc.restore();
 
-    // Separator line
-    const sepY = afterPrice;
-    doc
-      .save()
-      .moveTo(margin, sepY)
-      .lineTo(margin + contentWidth, sepY)
-      .lineWidth(0.4)
-      .strokeColor(C.raised)
-      .stroke()
-      .restore();
-
-    return sepY + 16;
+    this.timelinePrevDotY = dotY;
+    this.timelineDrawn = true;
+    this.timelineLastTop = cardTop;
+    this.timelineLastH = cardH;
+    this.timelineColumnBottom[side] = cardTop + cardH + ITEM_GAP;
+    return cardTop + cardH * NEXT_STEP_RATIO + ITEM_GAP;
   }
 
   private writePageNumber(
