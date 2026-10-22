@@ -40,6 +40,6 @@ import { ServiciosService } from './servicios.service.js';
         }),
     },
   ],
-  exports: [TypeOrmModule, ServiciosService],
+  exports: [TypeOrmModule, ServiciosService, CatalogoEventosService],
 })
 export class CatalogoModule {}

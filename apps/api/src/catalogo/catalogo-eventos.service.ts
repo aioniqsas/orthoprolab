@@ -5,11 +5,13 @@ export type CatalogoCambio =
   | 'creado'
   | 'actualizado'
   | 'eliminado'
-  | 'imagen';
+  | 'imagen'
+  | 'contenido';
 
 /**
- * In-memory bus for catalog mutations. The public SSE endpoint streams it and
- * the web app revalidates its cache on every event.
+ * In-memory bus for catalog and content mutations (the content module imports
+ * it from CatalogoModule, so both share one stream). The public SSE endpoint
+ * streams it and the web app revalidates its cache on every event.
  *
  * shortcut: one process only — with several API replicas use Redis pub/sub.
  */
