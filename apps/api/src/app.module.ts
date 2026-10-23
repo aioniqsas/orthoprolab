@@ -5,7 +5,7 @@ import { AppService } from './app.service.js';
 import { validateEnv } from './config/env.validation.js';
 import { CryptoModule } from './crypto/crypto.module.js';
 import { DatabaseModule } from './database/database.module.js';
-import { UsuariosModule } from './usuarios/usuarios.module.js';
+import { UsuariosApiModule } from './usuarios/usuarios-api.module.js';
 import { PacientesModule } from './pacientes/pacientes.module.js';
 import { CatalogoModule } from './catalogo/catalogo.module.js';
 import { ContenidoModule } from './contenido/contenido.module.js';
@@ -28,7 +28,7 @@ import { AuthModule } from './auth/auth.module.js';
     SecurityModule,
     DatabaseModule,
     AuthModule,
-    UsuariosModule,
+    UsuariosApiModule,
     ClinicasModule,
     PacientesModule,
     CatalogoModule,
