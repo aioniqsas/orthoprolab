@@ -132,6 +132,77 @@ export interface PacienteOpcion {
   nombre: string;
 }
 
+// ---------------------------------------------------------------------------
+// Cuentas de cobro
+// ---------------------------------------------------------------------------
+
+export type EstadoCuentaCobro =
+  | "borrador"
+  | "emitida"
+  | "pagada_parcial"
+  | "pagada"
+  | "anulada";
+
+export interface CuentaCobroOrdenItem {
+  cuentaCobroId: string;
+  ordenId: string;
+  valorSnapshot: string;
+  orden: Orden;
+}
+
+export interface PagoItem {
+  id: string;
+  cuentaCobroId: string;
+  monto: string;
+  fechaPago: string;
+  metodo: string;
+  referencia: string | null;
+  notas: string | null;
+  anulado: boolean;
+  creadoEn: string;
+}
+
+export interface EnvioItem {
+  id: string;
+  enviadoA: string;
+  estado: string;
+  error: string | null;
+  creadoEn: string;
+}
+
+export interface CuentaCobro {
+  id: string;
+  numero: string;
+  doctorId: string;
+  doctorNombre: string;
+  doctorCorreo: string;
+  estado: EstadoCuentaCobro;
+  fechaEmision: string;
+  fechaVencimiento: string | null;
+  total: string;
+  pdfUrl: string | null;
+  pdfHash: string | null;
+  observaciones: string | null;
+  creadaEn: string;
+  ordenes: CuentaCobroOrdenItem[];
+  pagos: PagoItem[];
+  envios: EnvioItem[];
+}
+
+export interface OrdenDisponible {
+  id: string;
+  doctorId: string;
+  estado: { codigo: string; nombre: string };
+  asignacion: {
+    paciente: { id: string; nombre: string };
+  } | null;
+  valor: string;
+  fechaCreacion: string;
+  urgente: boolean;
+}
+
+// ---------------------------------------------------------------------------
+
 export type NivelPermiso = "si" | "no" | "delegado" | "por_definir";
 
 export interface PermisoRol {

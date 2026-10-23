@@ -15,10 +15,16 @@ import { listCatalogoServicios, getCatalogoServicio } from "../catalogo-api";
 import { API_URL } from "../api";
 import type {
   Clinica,
+  CuentaCobro,
+  CuentaCobroOrdenItem,
   DoctorOpcion,
+  EnvioItem,
+  EstadoCuentaCobro,
   EstadoOrdenItem,
   Orden,
+  OrdenDisponible,
   PacienteOpcion,
+  PagoItem,
   Servicio,
   Usuario,
   UsuarioDetalle,
@@ -278,4 +284,156 @@ export async function listServicios(): Promise<Servicio[]> {
 
 export async function getServicio(id: string): Promise<Servicio | null> {
   return getCatalogoServicio(id);
+}
+
+// ---------------------------------------------------------------------------
+// Raw API shapes — Cuentas de cobro
+// ---------------------------------------------------------------------------
+
+interface RawPago {
+  id: string;
+  cuentaCobroId: string;
+  monto: string;
+  fechaPago: string;
+  metodo: string;
+  referencia: string | null;
+  notas: string | null;
+  anulado: boolean;
+  creadoEn: string;
+}
+
+interface RawEnvio {
+  id: string;
+  enviadoA: string;
+  estado: string;
+  error: string | null;
+  creadoEn: string;
+}
+
+interface RawCuentaCobroOrden {
+  cuentaCobroId: string;
+  ordenId: string;
+  valorSnapshot: string;
+  orden: RawOrden;
+}
+
+interface RawCuentaCobro {
+  id: string;
+  numero: string;
+  doctor: {
+    usuarioId: string;
+    usuario: { id: string; nombres: string; apellidos: string; correo: string };
+  };
+  estado: string;
+  fechaEmision: string;
+  fechaVencimiento: string | null;
+  total: string;
+  pdfUrl: string | null;
+  pdfHash: string | null;
+  observaciones: string | null;
+  creadaEn: string;
+  ordenes: RawCuentaCobroOrden[];
+  pagos: RawPago[];
+  envios: RawEnvio[];
+}
+
+function mapPago(raw: RawPago): PagoItem {
+  return {
+    id: raw.id,
+    cuentaCobroId: raw.cuentaCobroId,
+    monto: raw.monto,
+    fechaPago: raw.fechaPago,
+    metodo: raw.metodo,
+    referencia: raw.referencia,
+    notas: raw.notas,
+    anulado: raw.anulado,
+    creadoEn: raw.creadoEn,
+  };
+}
+
+function mapEnvio(raw: RawEnvio): EnvioItem {
+  return {
+    id: raw.id,
+    enviadoA: raw.enviadoA,
+    estado: raw.estado,
+    error: raw.error,
+    creadoEn: raw.creadoEn,
+  };
+}
+
+function mapCuentaCobroOrden(raw: RawCuentaCobroOrden): CuentaCobroOrdenItem {
+  return {
+    cuentaCobroId: raw.cuentaCobroId,
+    ordenId: raw.ordenId,
+    valorSnapshot: raw.valorSnapshot,
+    orden: mapOrden(raw.orden),
+  };
+}
+
+function mapCuentaCobro(raw: RawCuentaCobro): CuentaCobro {
+  return {
+    id: raw.id,
+    numero: raw.numero,
+    doctorId: raw.doctor.usuarioId,
+    doctorNombre: `${raw.doctor.usuario.nombres} ${raw.doctor.usuario.apellidos}`,
+    doctorCorreo: raw.doctor.usuario.correo,
+    estado: raw.estado as EstadoCuentaCobro,
+    fechaEmision: raw.fechaEmision,
+    fechaVencimiento: raw.fechaVencimiento,
+    total: raw.total,
+    pdfUrl: raw.pdfUrl,
+    pdfHash: raw.pdfHash,
+    observaciones: raw.observaciones,
+    creadaEn: raw.creadaEn,
+    ordenes: raw.ordenes.map(mapCuentaCobroOrden),
+    pagos: raw.pagos.map(mapPago),
+    envios: raw.envios.map(mapEnvio),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Cuentas de cobro
+// ---------------------------------------------------------------------------
+
+export async function listCuentasCobro(): Promise<CuentaCobro[]> {
+  try {
+    const res = await fetch(`${API_URL}/cuentas-cobro`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as RawCuentaCobro[];
+    return raw.map(mapCuentaCobro);
+  } catch {
+    return [];
+  }
+}
+
+export async function getCuentaCobro(id: string): Promise<CuentaCobro | null> {
+  try {
+    const res = await fetch(`${API_URL}/cuentas-cobro/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as RawCuentaCobro;
+    return mapCuentaCobro(raw);
+  } catch {
+    return null;
+  }
+}
+
+export async function getOrdenesDisponibles(
+  cuentaCobroId: string,
+): Promise<OrdenDisponible[]> {
+  try {
+    const res = await fetch(
+      `${API_URL}/cuentas-cobro/${cuentaCobroId}/ordenes-disponibles`,
+      { headers: await authHeader(), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    return (await res.json()) as OrdenDisponible[];
+  } catch {
+    return [];
+  }
 }
