@@ -10,11 +10,12 @@
  */
 import "server-only";
 import { cookies } from "next/headers";
-import { SAMPLE_CLINICAS, SAMPLE_ORDENES, SAMPLE_USUARIOS } from "./sample";
+import { SAMPLE_ORDENES } from "./sample";
 import { listCatalogoServicios, getCatalogoServicio } from "../catalogo-api";
 import { API_URL } from "../api";
 import type {
   Clinica,
+  ClinicaDetalle,
   CuentaCobro,
   CuentaCobroOrdenItem,
   DoctorOpcion,
@@ -25,6 +26,7 @@ import type {
   OrdenDisponible,
   PacienteOpcion,
   PagoItem,
+  RolNombre,
   Servicio,
   Usuario,
   UsuarioDetalle,
@@ -242,36 +244,145 @@ export async function listPacientesOrden(
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Clinics (still sample data)
+// Raw API shapes — Clinics
+// ---------------------------------------------------------------------------
+
+interface RawClinicaListItem {
+  id: string;
+  nombre: string;
+  direccion: string | null;
+  fechaCreacion: string;
+  doctorCount: number;
+}
+
+interface RawClinicaDetalle extends RawClinicaListItem {
+  doctores: {
+    id: string;
+    nombres: string;
+    apellidos: string;
+    correo: string;
+    clinicaId: string | null;
+  }[];
+}
+
+// ---------------------------------------------------------------------------
+// Raw API shapes — Users
+// ---------------------------------------------------------------------------
+
+interface RawUsuarioItem {
+  id: string;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  activo: boolean;
+  fechaCreacion: string;
+  rol: { id: number; nombre: string };
+  clinica: { id: string; nombre: string } | null;
+  cedulaEnmascarada?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Clinics
 // ---------------------------------------------------------------------------
 
 export async function listClinicas(): Promise<Clinica[]> {
-  return SAMPLE_CLINICAS;
+  try {
+    const res = await fetch(`${API_URL}/clinicas`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as RawClinicaListItem[];
+    return raw.map((c) => ({
+      id: Number(c.id),
+      nombre: c.nombre,
+      direccion: c.direccion,
+      doctores: [],
+      doctorCount: c.doctorCount,
+    }));
+  } catch {
+    return [];
+  }
 }
 
-export async function getClinica(id: number): Promise<Clinica | null> {
-  return SAMPLE_CLINICAS.find((c) => c.id === id) ?? null;
+export async function getClinica(id: number | string): Promise<ClinicaDetalle | null> {
+  try {
+    const res = await fetch(`${API_URL}/clinicas/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    const raw = (await res.json()) as RawClinicaDetalle;
+    return {
+      id: Number(raw.id),
+      nombre: raw.nombre,
+      direccion: raw.direccion,
+      doctorCount: raw.doctorCount,
+      doctores: raw.doctores.map((d) => ({
+        id: d.id,
+        nombres: d.nombres,
+        apellidos: d.apellidos,
+        correo: d.correo,
+        clinicaId: d.clinicaId != null ? Number(d.clinicaId) : null,
+      })),
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Users (still sample data)
+// Public API — Users
 // ---------------------------------------------------------------------------
 
-/** List rows never expose detail-only fields. */
 export async function listUsuarios(): Promise<Usuario[]> {
-  return SAMPLE_USUARIOS.map((u) => ({
-    id: u.id,
-    nombres: u.nombres,
-    apellidos: u.apellidos,
-    correo: u.correo,
-    rol: u.rol,
-    activo: u.activo,
-    cedulaEnmascarada: u.cedulaEnmascarada,
-  }));
+  try {
+    const res = await fetch(`${API_URL}/usuarios`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as RawUsuarioItem[];
+    return raw.map((u) => ({
+      id: u.id,
+      nombres: u.nombres,
+      apellidos: u.apellidos,
+      correo: u.correo,
+      rol: u.rol.nombre as RolNombre,
+      activo: u.activo,
+      cedulaEnmascarada: u.cedulaEnmascarada ?? "",
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getUsuario(id: string): Promise<UsuarioDetalle | null> {
-  return SAMPLE_USUARIOS.find((u) => u.id === id) ?? null;
+  try {
+    const res = await fetch(`${API_URL}/usuarios/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    const raw = (await res.json()) as RawUsuarioItem;
+    return {
+      id: raw.id,
+      nombres: raw.nombres,
+      apellidos: raw.apellidos,
+      correo: raw.correo,
+      rol: raw.rol.nombre as RolNombre,
+      activo: raw.activo,
+      cedulaEnmascarada: raw.cedulaEnmascarada ?? "",
+      clinica: raw.clinica
+        ? { id: Number(raw.clinica.id), nombre: raw.clinica.nombre }
+        : null,
+      doctoresAsignados: [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

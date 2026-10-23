@@ -78,7 +78,12 @@ export interface Clinica {
   nombre: string;
   direccion: string | null;
   doctores: Doctor[];
+  /** Populated from the list endpoint (GET /clinicas); undefined when loaded via detail. */
+  doctorCount?: number;
 }
+
+/** Clinic row when loaded with its full doctor list (GET /clinicas/:id). */
+export interface ClinicaDetalle extends Clinica {}
 
 export const ROLES = ["administrador", "odontologo", "asistente"] as const;
 export type RolNombre = (typeof ROLES)[number];
