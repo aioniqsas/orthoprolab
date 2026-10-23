@@ -8,6 +8,8 @@ import { Orden } from '../pedidos/orden.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import { CuentasCobroService } from './cuentas-cobro.service.js';
 import { CuentasCobroController } from './cuentas-cobro.controller.js';
+import { PdfCuentaCobroService } from './pdf-cuenta-cobro.service.js';
+import { MailerCuentaCobroService } from './mailer-cuenta-cobro.service.js';
 
 @Module({
   imports: [
@@ -20,7 +22,7 @@ import { CuentasCobroController } from './cuentas-cobro.controller.js';
       Usuario,
     ]),
   ],
-  providers: [CuentasCobroService],
+  providers: [CuentasCobroService, PdfCuentaCobroService, MailerCuentaCobroService],
   controllers: [CuentasCobroController],
 })
 export class CuentasCobroModule {}

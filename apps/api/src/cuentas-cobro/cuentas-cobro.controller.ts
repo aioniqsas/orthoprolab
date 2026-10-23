@@ -17,6 +17,7 @@ import { Roles, RolesGuard } from '../auth/index.js';
 import { CuentasCobroService } from './cuentas-cobro.service.js';
 import { CreateCuentaCobroDto } from './dto/create-cuenta-cobro.dto.js';
 import { AdjuntarOrdenesDto } from './dto/adjuntar-ordenes.dto.js';
+import { EnviarCuentaCobroDto } from './dto/enviar-cuenta-cobro.dto.js';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto.js';
 import { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
 
@@ -83,5 +84,21 @@ export class CuentasCobroController {
     @Param('pagoId') pagoId: string,
   ) {
     return this.service.anularPago(id, pagoId);
+  }
+
+  @Post(':id/pdf')
+  @HttpCode(HttpStatus.OK)
+  generarPdf(@Param('id') id: string) {
+    return this.service.generarYGuardarPdf(id);
+  }
+
+  @Post(':id/enviar')
+  @HttpCode(HttpStatus.CREATED)
+  enviarPorEmail(
+    @Param('id') id: string,
+    @Body() dto: EnviarCuentaCobroDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.service.enviarPorEmail(id, dto, req.user.id);
   }
 }

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -8,11 +9,15 @@ import type { Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
 import { CuentaCobro } from './cuenta-cobro.entity.js';
 import { CuentaCobroOrden } from './cuenta-cobro-orden.entity.js';
+import { EnvioCuentaCobro } from './envio-cuenta-cobro.entity.js';
 import { Pago } from './pago.entity.js';
+import { PdfCuentaCobroService } from './pdf-cuenta-cobro.service.js';
+import { MailerCuentaCobroService } from './mailer-cuenta-cobro.service.js';
 import { Orden } from '../pedidos/orden.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateCuentaCobroDto } from './dto/create-cuenta-cobro.dto.js';
 import type { AdjuntarOrdenesDto } from './dto/adjuntar-ordenes.dto.js';
+import type { EnviarCuentaCobroDto } from './dto/enviar-cuenta-cobro.dto.js';
 import type { RegistrarPagoDto } from './dto/registrar-pago.dto.js';
 import type { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
 
@@ -29,7 +34,11 @@ export class CuentasCobroService {
     private readonly ordenRepo: Repository<Orden>,
     @InjectRepository(Usuario)
     private readonly usuarioRepo: Repository<Usuario>,
+    @InjectRepository(EnvioCuentaCobro)
+    private readonly envioCuentaCobroRepo: Repository<EnvioCuentaCobro>,
     private readonly dataSource: DataSource,
+    private readonly pdfService: PdfCuentaCobroService,
+    private readonly mailerService: MailerCuentaCobroService,
   ) {}
 
   findAll(doctorId?: string): Promise<CuentaCobro[]> {
@@ -55,6 +64,7 @@ export class CuentasCobroService {
           orden: {
             estado: true,
             asignacion: { paciente: true, doctor: { usuario: true } },
+            detalles: true,
           },
         },
         pagos: true,
@@ -274,5 +284,60 @@ export class CuentasCobroService {
 
       return (await this.findOne(cuentaCobroId))!;
     });
+  }
+
+  /**
+   * Generates a PDF for the given billing account, uploads it to Cloudinary,
+   * and persists the resulting URL and hash on the entity.
+   */
+  async generarYGuardarPdf(id: string): Promise<CuentaCobro> {
+    const cuenta = await this.findOne(id);
+    if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
+
+    const buffer = await this.pdfService.generate(cuenta);
+    const { url, hash } = await this.pdfService.uploadToCloudinary(buffer, cuenta.numero);
+
+    await this.cuentaCobroRepo.update({ id }, { pdfUrl: url, pdfHash: hash });
+    return (await this.findOne(id))!;
+  }
+
+  /**
+   * Sends the billing account PDF by email and records the attempt.
+   * Generates the PDF first when no pdfUrl is stored yet.
+   */
+  async enviarPorEmail(
+    id: string,
+    dto: EnviarCuentaCobroDto,
+    usuarioId: string,
+  ): Promise<EnvioCuentaCobro> {
+    let cuenta = await this.findOne(id);
+    if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
+
+    if (!cuenta.pdfUrl) {
+      cuenta = await this.generarYGuardarPdf(id);
+    }
+
+    // cuenta.pdfUrl is now set (generarYGuardarPdf either found or generated it)
+    const pdfUrl = cuenta.pdfUrl;
+    if (!pdfUrl) {
+      throw new InternalServerErrorException('PDF URL unavailable after generation.');
+    }
+
+    const pdfRes = await fetch(pdfUrl);
+    if (!pdfRes.ok) {
+      throw new InternalServerErrorException('Could not fetch PDF for email attachment.');
+    }
+    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+
+    const result = await this.mailerService.sendCuentaCobro(cuenta, pdfBuffer, dto.email);
+
+    const envio = this.envioCuentaCobroRepo.create({
+      cuentaCobroId: cuenta.id,
+      enviadoA: dto.email,
+      estado: result.sent ? 'enviado' : 'fallido',
+      error: result.error ?? null,
+      enviadoPor: usuarioId,
+    });
+    return this.envioCuentaCobroRepo.save(envio);
   }
 }
