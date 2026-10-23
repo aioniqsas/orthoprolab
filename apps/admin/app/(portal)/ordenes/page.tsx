@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Plus } from "lucide-react";
-import { DisabledAction, ORDENES_REASON } from "../../_components/disabled-action";
+import { buttonVariants } from "@repo/ui/components/button";
 import { ListSkeleton } from "../../_components/list-skeleton";
 import { PageHeader } from "../../_components/page-header";
 import { OrdersView } from "./orders-view";
@@ -15,9 +16,9 @@ export default function OrdenesPage() {
         title="Gestión de órdenes de laboratorio"
         description="Consulta el estado de las órdenes recibidas de las clínicas."
         actions={
-          <DisabledAction id="nueva-orden-reason" variant="default" reason={ORDENES_REASON}>
+          <Link href="/ordenes/nueva" className={buttonVariants()}>
             <Plus aria-hidden /> Nueva orden
-          </DisabledAction>
+          </Link>
         }
       />
       <Suspense fallback={<ListSkeleton />}>

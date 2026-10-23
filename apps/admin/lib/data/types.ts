@@ -118,6 +118,20 @@ export interface Servicio {
   fechaActualizacion?: string;
 }
 
+/** Lightweight doctor option for the "nueva orden" form. */
+export interface DoctorOpcion {
+  id: string;       // usuarioId (UUID)
+  nombres: string;
+  apellidos: string;
+  correo: string;
+}
+
+/** Lightweight patient option for the "nueva orden" form. */
+export interface PacienteOpcion {
+  id: string;       // bigint string
+  nombre: string;
+}
+
 export type NivelPermiso = "si" | "no" | "delegado" | "por_definir";
 
 export interface PermisoRol {

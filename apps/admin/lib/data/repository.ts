@@ -15,8 +15,10 @@ import { listCatalogoServicios, getCatalogoServicio } from "../catalogo-api";
 import { API_URL } from "../api";
 import type {
   Clinica,
+  DoctorOpcion,
   EstadoOrdenItem,
   Orden,
+  PacienteOpcion,
   Servicio,
   Usuario,
   UsuarioDetalle,
@@ -196,6 +198,38 @@ export async function getEstadosOrden(): Promise<EstadoOrdenItem[]> {
     });
     if (!res.ok) return [];
     return (await res.json()) as EstadoOrdenItem[];
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Nueva orden helpers
+// ---------------------------------------------------------------------------
+
+export async function listDoctoresOrden(): Promise<DoctorOpcion[]> {
+  try {
+    const res = await fetch(`${API_URL}/ordenes/doctores`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return (await res.json()) as DoctorOpcion[];
+  } catch {
+    return [];
+  }
+}
+
+export async function listPacientesOrden(
+  doctorId: string,
+): Promise<PacienteOpcion[]> {
+  try {
+    const res = await fetch(
+      `${API_URL}/ordenes/doctores/${doctorId}/pacientes`,
+      { headers: await authHeader(), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    return (await res.json()) as PacienteOpcion[];
   } catch {
     return [];
   }

@@ -2,9 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -12,6 +15,7 @@ import {
 import type { AuthenticatedRequest } from '../auth/index.js';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto.js';
+import { CreateOrdenDto } from './dto/create-orden.dto.js';
 import { PedidosService } from './pedidos.service.js';
 import type { Orden } from './orden.entity.js';
 
@@ -41,6 +45,25 @@ export class PedidosController {
   @Get('estados')
   listEstados() {
     return this.pedidos.listEstados();
+  }
+
+  @Get('doctores')
+  listDoctores() {
+    return this.pedidos.listDoctores();
+  }
+
+  @Get('doctores/:doctorId/pacientes')
+  listPacientesPorDoctor(@Param('doctorId') doctorId: string) {
+    return this.pedidos.listPacientesPorDoctor(doctorId);
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(
+    @Body() dto: CreateOrdenDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<Orden> {
+    return this.pedidos.create(dto, req.user.id);
   }
 
   @Get(':id')
