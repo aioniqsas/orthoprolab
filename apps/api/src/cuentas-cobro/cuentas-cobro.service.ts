@@ -141,6 +141,13 @@ export class CuentasCobroService {
           throw new NotFoundException(`Orden ${ordenId} no encontrada.`);
         }
 
+        // Ownership check: the order must belong to the doctor on this billing account
+        if (orden.doctorId !== cuenta.doctorId) {
+          throw new BadRequestException(
+            `La orden ${ordenId} no pertenece al doctor de esta cuenta de cobro.`,
+          );
+        }
+
         // Prevent double-billing: check attachment to another active cuenta
         const conflicting = await em
           .createQueryBuilder(CuentaCobroOrden, 'cco')
@@ -284,6 +291,34 @@ export class CuentasCobroService {
 
       return (await this.findOne(cuentaCobroId))!;
     });
+  }
+
+  /**
+   * Returns orders that belong to this billing account's doctor and are not
+   * yet attached to any active (non-anulada) billing account.
+   */
+  async findOrdenesDisponibles(cuentaCobroId: string): Promise<Orden[]> {
+    const cuenta = await this.cuentaCobroRepo.findOne({ where: { id: cuentaCobroId } });
+    if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
+
+    // Subquery: orden IDs already in an active billing account (excluding the current one)
+    const subQb = this.cuentaCobroOrdenRepo
+      .createQueryBuilder('cco')
+      .select('cco.ordenId')
+      .innerJoin('cco.cuentaCobro', 'cc')
+      .where('cc.estado != :anulada', { anulada: 'anulada' })
+      .andWhere('cco.cuentaCobroId != :cuentaCobroId', { cuentaCobroId });
+
+    return this.ordenRepo
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.estado', 'estado')
+      .leftJoinAndSelect('o.asignacion', 'asignacion')
+      .leftJoinAndSelect('asignacion.paciente', 'paciente')
+      .where('o.doctorId = :doctorId', { doctorId: cuenta.doctorId })
+      .andWhere(`o.id NOT IN (${subQb.getQuery()})`)
+      .setParameters(subQb.getParameters())
+      .orderBy('o.fechaCreacion', 'DESC')
+      .getMany();
   }
 
   /**

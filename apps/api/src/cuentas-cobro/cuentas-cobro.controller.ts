@@ -48,6 +48,11 @@ export class CuentasCobroController {
     return this.service.update(id, dto);
   }
 
+  @Get(':id/ordenes-disponibles')
+  findOrdenesDisponibles(@Param('id') id: string) {
+    return this.service.findOrdenesDisponibles(id);
+  }
+
   @Post(':id/ordenes')
   @HttpCode(HttpStatus.OK)
   adjuntarOrdenes(@Param('id') id: string, @Body() dto: AdjuntarOrdenesDto) {
