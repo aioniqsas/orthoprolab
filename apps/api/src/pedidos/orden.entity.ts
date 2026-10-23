@@ -6,9 +6,12 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { DetalleOrden } from './detalle-orden.entity.js';
+import type { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 
@@ -66,4 +69,10 @@ export class Orden {
 
   @UpdateDateColumn({ name: 'fecha_actualizacion', type: 'timestamptz' })
   fechaActualizacion: Date;
+
+  @OneToMany('DetalleOrden', 'orden')
+  detalles: DetalleOrden[];
+
+  @OneToMany('HistorialEstadoOrden', 'orden')
+  historial: HistorialEstadoOrden[];
 }
