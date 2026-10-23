@@ -118,6 +118,9 @@ const envSchema = z
     /** Optional; omitted when Redis has no auth (local dev). */
     REDIS_PASSWORD: z.preprocess(fromEnv, z.string().optional()),
 
+    /** Optional; used for Redis ACL AUTH (Redis 7+, e.g. Render Key Value). */
+    REDIS_USERNAME: z.preprocess(fromEnv, z.string().optional()),
+
     /** Set to "true" / "1" / "yes" when Redis requires TLS (e.g. Render Key Value). */
     REDIS_TLS: z.preprocess(
       fromEnv,
@@ -534,10 +537,13 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     );
   }
   const config = result.data;
-  // Remove REDIS_PASSWORD when not provided so callers using `in` / `hasOwnProperty`
-  // see no property rather than a property with value undefined.
+  // Remove REDIS_PASSWORD / REDIS_USERNAME when not provided so callers using
+  // `in` / `hasOwnProperty` see no property rather than a property with value undefined.
   if (config.REDIS_PASSWORD === undefined) {
     Reflect.deleteProperty(config, 'REDIS_PASSWORD');
+  }
+  if (config.REDIS_USERNAME === undefined) {
+    Reflect.deleteProperty(config, 'REDIS_USERNAME');
   }
   return config;
 }

@@ -16,7 +16,8 @@ import { SystemProcessor } from './system.processor.js';
           host: config.get('REDIS_HOST', { infer: true }),
           port: config.get('REDIS_PORT', { infer: true }),
           password: config.get('REDIS_PASSWORD', { infer: true }),
-          tls: config.get('REDIS_TLS', { infer: true }) ? {} : undefined,
+          username: config.get('REDIS_USERNAME', { infer: true }),
+          tls: config.get('REDIS_TLS', { infer: true }) ? { rejectUnauthorized: false } : undefined,
         },
         defaultJobOptions: {
           attempts: 3,
