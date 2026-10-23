@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronLeftIcon, ChevronRightIcon, SearchIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronsUpDownIcon, SearchIcon } from "lucide-react"
 
 import { Button } from "@repo/ui/components/button"
 import { Input } from "@repo/ui/components/input"
@@ -21,6 +21,8 @@ export type DataTableColumn<T> = {
   render: (row: T) => React.ReactNode
   /** Plain text the global search matches against. */
   searchValue?: (row: T) => string
+  /** Return a string or number to enable click-to-sort on this column. */
+  sortValue?: (row: T) => string | number
   align?: "left" | "right"
   /** Cell classes; the header keeps its own typography. */
   className?: string
@@ -115,9 +117,35 @@ function DataTable<T>({
   const [filterValues, setFilterValues] = React.useState<Record<string, string>>({})
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(initialPageSize)
+  const [sort, setSort] = React.useState<{ id: string; dir: "asc" | "desc" } | null>(null)
+
+  function toggleSort(columnId: string) {
+    setSort((prev) => {
+      if (!prev || prev.id !== columnId) return { id: columnId, dir: "asc" }
+      if (prev.dir === "asc") return { id: columnId, dir: "desc" }
+      return null
+    })
+    setPage(0)
+  }
 
   const filtered = filterRows(rows, columns, filters, filterValues, query)
-  const { visible, pageCount, currentPage, first } = paginate(filtered, page, pageSize)
+
+  const sorted = React.useMemo(() => {
+    if (!sort) return filtered
+    const col = columns.find((c) => c.id === sort.id)
+    if (!col?.sortValue) return filtered
+    return [...filtered].sort((a, b) => {
+      const av = col.sortValue!(a)
+      const bv = col.sortValue!(b)
+      const cmp =
+        typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av).localeCompare(String(bv), undefined, { sensitivity: "base" })
+      return sort.dir === "asc" ? cmp : -cmp
+    })
+  }, [filtered, sort, columns])
+
+  const { visible, pageCount, currentPage, first } = paginate(sorted, page, pageSize)
 
   const hasFilters =
     normalize(query).length > 0 ||
@@ -187,14 +215,33 @@ function DataTable<T>({
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columns.map((column) => (
-                    <TableHead
-                      key={column.id}
-                      className={cn(column.align === "right" && "text-end")}
-                    >
-                      {column.header}
-                    </TableHead>
-                  ))}
+                  {columns.map((column) => {
+                    const isSorted = sort?.id === column.id
+                    const SortIcon = isSorted
+                      ? sort!.dir === "asc"
+                        ? ChevronUpIcon
+                        : ChevronDownIcon
+                      : ChevronsUpDownIcon
+                    return (
+                      <TableHead
+                        key={column.id}
+                        className={cn(column.align === "right" && "text-end")}
+                      >
+                        {column.sortValue ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(column.id)}
+                            className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
+                          >
+                            {column.header}
+                            <SortIcon className={cn("size-3.5 shrink-0", isSorted ? "text-foreground" : "text-muted-foreground/50")} aria-hidden />
+                          </button>
+                        ) : (
+                          column.header
+                        )}
+                      </TableHead>
+                    )
+                  })}
                 </TableRow>
               </TableHeader>
               <TableBody>

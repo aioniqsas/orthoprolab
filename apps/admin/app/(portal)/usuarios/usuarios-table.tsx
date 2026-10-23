@@ -13,6 +13,7 @@ const columns: DataTableColumn<Usuario>[] = [
   {
     id: "usuario",
     header: "Usuario",
+    sortValue: (u) => fullName(u),
     render: (u) => (
       <Link
         href={`/usuarios/${u.id}`}
@@ -26,6 +27,7 @@ const columns: DataTableColumn<Usuario>[] = [
   {
     id: "correo",
     header: "Correo",
+    sortValue: (u) => u.correo,
     render: (u) => u.correo,
     searchValue: (u) => u.correo,
   },

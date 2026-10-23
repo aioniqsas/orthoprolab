@@ -38,6 +38,7 @@ const columns: DataTableColumn<Servicio>[] = [
   {
     id: "servicio",
     header: "Servicio",
+    sortValue: (s) => s.nombre,
     render: (s) => (
       <Link
         href={`/catalogo/${s.id}`}
@@ -59,6 +60,7 @@ const columns: DataTableColumn<Servicio>[] = [
     id: "precio",
     header: "Precio (COP)",
     align: "right",
+    sortValue: (s) => Number(s.precio),
     render: (s) => formatCop(s.precio),
   },
   {

@@ -10,6 +10,7 @@ const columns: DataTableColumn<Clinica>[] = [
   {
     id: "clinica",
     header: "Clínica",
+    sortValue: (c) => c.nombre,
     render: (c) => (
       <Link
         href={`/clinicas/${c.id}`}
@@ -30,6 +31,7 @@ const columns: DataTableColumn<Clinica>[] = [
     id: "doctores",
     header: "Doctores",
     align: "right",
+    sortValue: (c) => c.doctores.length,
     render: (c) => c.doctores.length,
     // La búsqueda por nombre de doctor vive en esta columna.
     searchValue: (c) => c.doctores.map((d) => fullName(d)).join(" "),

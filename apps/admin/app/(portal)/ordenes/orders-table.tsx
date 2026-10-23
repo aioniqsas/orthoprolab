@@ -12,6 +12,7 @@ const columns: DataTableColumn<Orden>[] = [
   {
     id: "orden",
     header: "Orden",
+    sortValue: (o) => o.id,
     render: (o) => (
       <div className="flex flex-wrap items-center gap-2">
         <Link
@@ -28,12 +29,14 @@ const columns: DataTableColumn<Orden>[] = [
   {
     id: "doctor",
     header: "Doctor",
+    sortValue: (o) => fullName(o.doctor),
     render: (o) => fullName(o.doctor),
     searchValue: (o) => fullName(o.doctor),
   },
   {
     id: "paciente",
     header: "Paciente",
+    sortValue: (o) => o.paciente.nombre,
     render: (o) => o.paciente.nombre,
     searchValue: (o) => o.paciente.nombre,
   },
@@ -46,16 +49,19 @@ const columns: DataTableColumn<Orden>[] = [
     id: "total",
     header: "Total",
     align: "right",
+    sortValue: (o) => Number(o.valor),
     render: (o) => formatCop(o.valor),
   },
   {
     id: "creada",
     header: "Creada",
+    sortValue: (o) => o.fechaCreacion,
     render: (o) => formatDate(o.fechaCreacion),
   },
   {
     id: "entrega",
     header: "Entrega",
+    sortValue: (o) => o.fechaEntrega ?? "",
     render: (o) => formatDate(o.fechaEntrega),
   },
 ];
