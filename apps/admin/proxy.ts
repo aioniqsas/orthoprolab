@@ -27,5 +27,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Skip Next internals and any path with a file extension (static assets).
-  matcher: ["/((?!_next/|.*\\..*).*)"],
+  matcher: ["/((?!_next/|api-proxy/|.*\\..*).*)"],
 };
