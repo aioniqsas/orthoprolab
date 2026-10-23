@@ -30,7 +30,7 @@ export class Pago {
   @Column({ length: 30 })
   metodo: string;
 
-  @Column({ nullable: true, length: 100 })
+  @Column({ type: 'varchar', nullable: true, length: 100 })
   referencia: string | null;
 
   @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
