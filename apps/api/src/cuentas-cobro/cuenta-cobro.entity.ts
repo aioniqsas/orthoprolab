@@ -40,10 +40,10 @@ export class CuentaCobro {
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
   total: string;
 
-  @Column({ name: 'pdf_url', nullable: true })
+  @Column({ name: 'pdf_url', type: 'varchar', length: 500, nullable: true })
   pdfUrl: string | null;
 
-  @Column({ name: 'pdf_hash', nullable: true })
+  @Column({ name: 'pdf_hash', type: 'varchar', length: 64, nullable: true })
   pdfHash: string | null;
 
   @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
