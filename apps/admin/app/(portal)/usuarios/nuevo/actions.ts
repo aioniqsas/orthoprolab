@@ -25,7 +25,8 @@ export async function crearUsuario(
   const cedula = (formData.get("cedula") as string | null)?.trim();
   const password = (formData.get("password") as string | null) ?? "";
   const rol = (formData.get("rol") as string | null)?.trim();
-  const clinicaId = (formData.get("clinicaId") as string | null)?.trim() || undefined;
+  const clinicaIdRaw = (formData.get("clinicaId") as string | null)?.trim();
+  const clinicaId = clinicaIdRaw ? parseInt(clinicaIdRaw, 10) : undefined;
 
   if (!nombres) return { ok: false, error: "El campo nombres es obligatorio." };
   if (!apellidos) return { ok: false, error: "El campo apellidos es obligatorio." };
