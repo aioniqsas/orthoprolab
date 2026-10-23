@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
     // Catalog images are up to 5 MB; server actions default to 1 MB.
     serverActions: { bodySizeLimit: "6mb" },
   },
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3003";
+    return [{ source: "/api-proxy/:path*", destination: `${apiUrl}/:path*` }];
+  },
   async redirects() {
     return [{ source: "/", destination: "/ordenes", permanent: false }];
   },
