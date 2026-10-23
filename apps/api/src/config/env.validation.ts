@@ -261,13 +261,13 @@ const envSchema = z
       z
         .string()
         .optional()
-        .transform((v, ctx): 'strict' | 'lax' => {
+        .transform((v, ctx): 'strict' | 'lax' | 'none' => {
           if (v === undefined) return 'strict';
           const lv = v.toLowerCase();
-          if (lv === 'strict' || lv === 'lax') return lv as 'strict' | 'lax';
+          if (lv === 'strict' || lv === 'lax' || lv === 'none') return lv as 'strict' | 'lax' | 'none';
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'COOKIE_SAMESITE must be "strict" or "lax"',
+            message: 'COOKIE_SAMESITE must be "strict", "lax", or "none"',
           });
           return 'strict';
         }),

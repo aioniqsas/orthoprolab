@@ -3,7 +3,7 @@ import { AUTH_COOKIE, REFRESH_COOKIE } from './auth.constants.js';
 
 export interface CookieSettings {
   secure: boolean;
-  sameSite: 'strict' | 'lax';
+  sameSite: 'strict' | 'lax' | 'none';
   accessTtlSeconds: number;
   refreshTtlDays: number;
 }
