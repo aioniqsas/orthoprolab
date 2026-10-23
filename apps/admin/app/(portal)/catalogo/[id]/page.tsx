@@ -11,7 +11,6 @@ import { getServicio } from "@/lib/data/repository";
 import { ListSkeleton } from "../../../_components/list-skeleton";
 import { PageHeader } from "../../../_components/page-header";
 import { ActivoBadge } from "../../../_components/status-badges";
-import { PrecioHistoricoNote } from "../aranceles-info";
 import { ServicioAcciones } from "../servicio-acciones";
 import { ServicioImagenForm } from "../servicio-imagen-form";
 
@@ -72,9 +71,6 @@ async function ServicioDetail({ params }: { params: Promise<{ id: string }> }) {
               </dd>
             </div>
           </dl>
-          <div className="mt-4">
-            <PrecioHistoricoNote />
-          </div>
         </section>
 
         <section aria-labelledby="imagen" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">

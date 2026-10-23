@@ -9,7 +9,6 @@ import { Input } from "@repo/ui/components/input";
 import { createServicio, updateServicio } from "./actions";
 import type { Servicio } from "@/lib/data/types";
 import { ActivoBadge } from "../../_components/status-badges";
-import { PrecioHistoricoNote } from "./aranceles-info";
 
 type Props = { mode: "create" } | { mode: "edit"; servicio: Servicio };
 
@@ -100,9 +99,6 @@ export function ServicioForm(props: Props) {
                 </div>
               </div>
             ) : null}
-          </div>
-          <div className="mt-4">
-            <PrecioHistoricoNote />
           </div>
         </section>
       </div>
