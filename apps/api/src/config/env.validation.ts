@@ -118,6 +118,19 @@ const envSchema = z
     /** Optional; omitted when Redis has no auth (local dev). */
     REDIS_PASSWORD: z.preprocess(fromEnv, z.string().optional()),
 
+    /** Set to "true" / "1" / "yes" when Redis requires TLS (e.g. Render Key Value). */
+    REDIS_TLS: z.preprocess(
+      fromEnv,
+      z
+        .string()
+        .optional()
+        .transform((v): boolean => {
+          if (v === undefined || v === '') return false;
+          const lv = v.toLowerCase();
+          return lv === 'true' || lv === '1' || lv === 'yes';
+        }),
+    ),
+
     // ── Data-protection keys ──────────────────────────────────────────────────
     /** base64 of 32 bytes. Losing it makes encrypted personal data unrecoverable. */
     ENCRYPTION_KEY: z.preprocess(

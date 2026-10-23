@@ -36,6 +36,7 @@ import { ServiciosService } from './servicios.service.js';
           host: config.get('REDIS_HOST', { infer: true }),
           port: config.get('REDIS_PORT', { infer: true }),
           password: config.get('REDIS_PASSWORD', { infer: true }),
+          tls: config.get('REDIS_TLS', { infer: true }) ? {} : undefined,
           maxRetriesPerRequest: 2,
         }),
     },
