@@ -71,6 +71,9 @@ async function ServicioDetail({ params }: { params: Promise<{ id: string }> }) {
               </dd>
             </div>
           </dl>
+          {servicio.descripcion && (
+            <p className="mt-4 text-sm text-muted-foreground">{servicio.descripcion}</p>
+          )}
         </section>
 
         <section aria-labelledby="imagen" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
