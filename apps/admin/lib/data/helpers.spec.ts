@@ -24,6 +24,7 @@ const orden = (over: Partial<Orden>): Orden => ({
   doctor: doctor("Ana", "Ramírez"),
   paciente: { id: 1, nombre: "Pedro Pérez" },
   estado: "recibida",
+  estadoDbId: "1",
   valor: "0.00",
   urgente: false,
   fechaCreacion: "2025-10-01T15:00:00.000Z",
@@ -61,8 +62,10 @@ describe("money helpers", () => {
 describe("labels and dates", () => {
   it("labels order states in Spanish", () => {
     expect(estadoLabel("recibida")).toBe("Recibida");
-    expect(estadoLabel("en_produccion")).toBe("En producción");
+    expect(estadoLabel("en_proceso")).toBe("En proceso");
     expect(estadoLabel("terminada")).toBe("Terminada");
+    expect(estadoLabel("cancelada")).toBe("Cancelada");
+    expect(estadoLabel("devuelta_correccion")).toBe("Devuelta");
   });
 
   it("formats dates in the Bogota time zone", () => {
@@ -76,7 +79,7 @@ describe("filterOrdenes", () => {
     orden({ id: 11, estado: "recibida", urgente: true }),
     orden({
       id: 12,
-      estado: "en_produccion",
+      estado: "en_proceso",
       doctor: doctor("Luis", "Gómez"),
       paciente: { id: 2, nombre: "María Núñez" },
     }),
@@ -88,7 +91,7 @@ describe("filterOrdenes", () => {
   });
 
   it("filters by estado and urgente", () => {
-    expect(filterOrdenes(data, { estado: "en_produccion" }).map((o) => o.id)).toEqual([12]);
+    expect(filterOrdenes(data, { estado: "en_proceso" }).map((o) => o.id)).toEqual([12]);
     expect(filterOrdenes(data, { urgente: true }).map((o) => o.id)).toEqual([11]);
   });
 

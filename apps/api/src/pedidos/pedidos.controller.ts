@@ -32,10 +32,15 @@ export class PedidosController {
     });
   }
 
-  // Defined BEFORE /:id so NestJS does not treat 'stats' as an id param.
+  // Defined BEFORE /:id so NestJS does not treat 'stats' / 'estados' as id params.
   @Get('stats')
   getStats(): Promise<Record<string, number>> {
     return this.pedidos.getStats();
+  }
+
+  @Get('estados')
+  listEstados() {
+    return this.pedidos.listEstados();
   }
 
   @Get(':id')

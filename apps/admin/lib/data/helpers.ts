@@ -2,8 +2,12 @@ import { ESTADOS_ORDEN } from "./types";
 import type { Clinica, DetalleOrden, EstadoOrden, Orden } from "./types";
 
 const ESTADO_LABELS: Record<EstadoOrden, string> = {
+  creada: "Creada",
   recibida: "Recibida",
-  en_produccion: "En producción",
+  en_proceso: "En proceso",
+  cancelada: "Cancelada",
+  en_entrega: "En entrega",
+  devuelta_correccion: "Devuelta",
   terminada: "Terminada",
 };
 

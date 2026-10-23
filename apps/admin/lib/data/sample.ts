@@ -71,7 +71,7 @@ function detalles(lineas: Linea[], base: number): DetalleOrden[] {
   }));
 }
 
-const STEPS: EstadoOrden[] = ["recibida", "en_produccion", "terminada"];
+const STEPS: EstadoOrden[] = ["creada", "recibida", "en_proceso", "terminada"];
 
 function historial(id: number, estado: EstadoOrden, creada: string): HistorialEstado[] {
   const start = new Date(creada).getTime();
@@ -102,6 +102,7 @@ function orden(
     doctor: doctorAt(doctorIdx),
     paciente,
     estado,
+    estadoDbId: "0", // placeholder — sample data only, never used when SAMPLE_DATA is false
     valor: orderTotal(items),
     urgente,
     fechaCreacion: creada,
@@ -115,15 +116,15 @@ const P = (id: number, nombre: string): Paciente => ({ id, nombre });
 
 export const SAMPLE_ORDENES: Orden[] = [
   orden(1001, 0, P(1, "Paciente Ejemplo Uno"), "recibida", true, "2025-10-15T14:00:00.000Z", "2025-10-18T20:00:00.000Z", [["corona", 2, "Color A2, preparación en 26 y 27."]]),
-  orden(1002, 2, P(2, "Paciente Ejemplo Dos"), "en_produccion", false, "2025-10-13T15:30:00.000Z", "2025-10-20T20:00:00.000Z", [["carilla", 4], ["modelo", 1]]),
+  orden(1002, 2, P(2, "Paciente Ejemplo Dos"), "en_proceso", false, "2025-10-13T15:30:00.000Z", "2025-10-20T20:00:00.000Z", [["carilla", 4], ["modelo", 1]]),
   orden(1003, 3, P(3, "Paciente Ejemplo Tres"), "terminada", false, "2025-10-06T13:10:00.000Z", "2025-10-12T20:00:00.000Z", [["puente", 1, "Estructura en zirconio, color B1."]]),
-  orden(1004, 1, P(4, "Paciente Ejemplo Cuatro"), "en_produccion", true, "2025-10-16T16:45:00.000Z", "2025-10-19T20:00:00.000Z", [["ferula", 1]]),
+  orden(1004, 1, P(4, "Paciente Ejemplo Cuatro"), "en_proceso", true, "2025-10-16T16:45:00.000Z", "2025-10-19T20:00:00.000Z", [["ferula", 1]]),
   orden(1005, 5, P(5, "Paciente Ejemplo Cinco"), "recibida", false, "2025-10-17T12:20:00.000Z", "2025-10-24T20:00:00.000Z", [["parcial", 1, "Ganchos en piezas 34 y 44."], ["modelo", 2]]),
   orden(1006, 4, P(6, "Paciente Ejemplo Seis"), "terminada", false, "2025-10-02T18:00:00.000Z", "2025-10-09T20:00:00.000Z", [["guia", 1]]),
   orden(1007, 6, P(7, "Paciente Ejemplo Siete"), "recibida", false, "2025-10-18T15:00:00.000Z", null, [["corona", 1]]),
-  orden(1008, 0, P(8, "Paciente Ejemplo Ocho"), "en_produccion", false, "2025-10-14T17:00:00.000Z", "2025-10-21T20:00:00.000Z", [["corona", 3], ["modelo", 1]]),
+  orden(1008, 0, P(8, "Paciente Ejemplo Ocho"), "en_proceso", false, "2025-10-14T17:00:00.000Z", "2025-10-21T20:00:00.000Z", [["corona", 3], ["modelo", 1]]),
   orden(1009, 2, P(9, "Paciente Ejemplo Nueve"), "terminada", true, "2025-10-08T14:30:00.000Z", "2025-10-10T20:00:00.000Z", [["ferula", 2]]),
-  orden(1010, 3, P(10, "Paciente Ejemplo Diez"), "en_produccion", false, "2025-10-12T19:00:00.000Z", "2025-10-22T20:00:00.000Z", [["carilla", 2]]),
+  orden(1010, 3, P(10, "Paciente Ejemplo Diez"), "en_proceso", false, "2025-10-12T19:00:00.000Z", "2025-10-22T20:00:00.000Z", [["carilla", 2]]),
 ];
 
 const uid = (n: number) => `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`;

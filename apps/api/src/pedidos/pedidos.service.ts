@@ -35,19 +35,23 @@ export class PedidosService {
     }
     return this.ordenRepo.find({
       where,
-      relations: { estado: true },
+      relations: {
+        estado: true,
+        asignacion: { doctor: { usuario: true }, paciente: true },
+      },
       order: { fechaCreacion: 'DESC' },
     });
   }
 
-  /** Returns the order with estado, detalles (+ servicio) and historial (+ estados). */
+  /** Returns the order with full nested relations needed by the detail view. */
   async findOne(id: string): Promise<Orden | null> {
     return this.ordenRepo.findOne({
       where: { id },
       relations: {
         estado: true,
+        asignacion: { doctor: { usuario: true }, paciente: true },
         detalles: { servicio: true },
-        historial: { estadoAnterior: true, estadoNuevo: true },
+        historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { historial: { fechaCambio: 'ASC' } },
     });
@@ -67,6 +71,11 @@ export class PedidosService {
       .getRawMany<{ codigo: string; total: number }>();
 
     return Object.fromEntries(rows.map(({ codigo, total }) => [codigo, total]));
+  }
+
+  /** Returns all `estado_orden` rows ordered by their display position. */
+  listEstados(): Promise<EstadoOrden[]> {
+    return this.estadoRepo.find({ order: { posicion: 'ASC' } });
   }
 
   /**

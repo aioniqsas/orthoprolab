@@ -4,8 +4,23 @@
  * `numeric(12,2)` columns serialized by the API. Dates are ISO 8601 strings.
  */
 
-export const ESTADOS_ORDEN = ["recibida", "en_produccion", "terminada"] as const;
+export const ESTADOS_ORDEN = [
+  "creada",
+  "recibida",
+  "en_proceso",
+  "cancelada",
+  "en_entrega",
+  "devuelta_correccion",
+  "terminada",
+] as const;
 export type EstadoOrden = (typeof ESTADOS_ORDEN)[number];
+
+/** Reference row for a `estado_orden` entry (used in the state change form). */
+export interface EstadoOrdenItem {
+  id: string;
+  codigo: string;
+  nombre: string;
+}
 
 /** Reference to a doctor (`doctor` joined with `usuario`). */
 export interface Doctor {
@@ -47,6 +62,8 @@ export interface Orden {
   doctor: Doctor;
   paciente: Paciente;
   estado: EstadoOrden;
+  /** The numeric DB primary key of the current `estado_orden` row (string because the API uses bigint identity). */
+  estadoDbId: string;
   /** Numeric string with 2 decimals; equals the sum of the line subtotals. */
   valor: string;
   urgente: boolean;

@@ -13,12 +13,11 @@ import {
   lineSubtotal,
   orderTotal,
 } from "@/lib/data/helpers";
-import { getOrden, listClinicas } from "@/lib/data/repository";
-import { DisabledAction, ORDENES_REASON } from "../../../_components/disabled-action";
+import { getEstadosOrden, getOrden, listClinicas } from "@/lib/data/repository";
 import { EstadoBadge, UrgenteBadge } from "../../../_components/estado-badge";
 import { ListSkeleton } from "../../../_components/list-skeleton";
 import { PageHeader } from "../../../_components/page-header";
-import { SampleNotice } from "../../../_components/sample-notice";
+import { CambiarEstadoForm } from "./cambiar-estado-form";
 
 export const metadata: Metadata = { title: "Detalle de orden" };
 
@@ -44,29 +43,23 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
   if (!/^\d{1,9}$/.test(id)) notFound();
   const orden = await getOrden(Number(id));
   if (!orden) notFound();
-  const clinica = (await listClinicas()).find((c) => c.id === orden.doctor.clinicaId);
+
+  const [clinica, estados] = await Promise.all([
+    listClinicas().then((cs) => cs.find((c) => c.id === orden.doctor.clinicaId)),
+    getEstadosOrden(),
+  ]);
+
   const total = orderTotal(orden.detalles);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title={`Orden #${orden.id}`}
-        actions={
-          <>
-            <DisabledAction id="editar-orden-reason" reason={ORDENES_REASON}>
-              Editar orden
-            </DisabledAction>
-            <DisabledAction id="cambiar-estado-reason" variant="default" reason={ORDENES_REASON}>
-              Cambiar estado
-            </DisabledAction>
-          </>
-        }
       />
       <div className="flex flex-wrap items-center gap-2">
         <EstadoBadge estado={orden.estado} />
         {orden.urgente ? <UrgenteBadge /> : null}
       </div>
-      <SampleNotice section="órdenes" />
 
       <dl className="grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -112,32 +105,40 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
           </p>
         </section>
 
-        <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">
-          <h2 id="historial" className="font-heading text-lg font-semibold">
-            Historial de estados
-          </h2>
-          <ol className="mt-4 flex flex-col gap-4 border-s border-border ps-4">
-            {orden.historial.map((h) => (
-              <li key={h.id} className="relative">
-                <span
-                  aria-hidden
-                  className="absolute top-1.5 -start-[1.3rem] size-2 rounded-full bg-primary"
-                />
-                <p className="text-sm font-medium">
-                  {h.estadoAnterior
-                    ? `${estadoLabel(h.estadoAnterior)} a ${estadoLabel(h.estadoNuevo)}`
-                    : estadoLabel(h.estadoNuevo)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDateTime(h.fechaCambio)} - {h.usuario}
-                </p>
-                {h.observaciones ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{h.observaciones}</p>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        </section>
+        <div className="flex flex-col gap-6">
+          <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">
+            <h2 id="historial" className="font-heading text-lg font-semibold">
+              Historial de estados
+            </h2>
+            <ol className="mt-4 flex flex-col gap-4 border-s border-border ps-4">
+              {orden.historial.map((h) => (
+                <li key={h.id} className="relative">
+                  <span
+                    aria-hidden
+                    className="absolute top-1.5 -start-[1.3rem] size-2 rounded-full bg-primary"
+                  />
+                  <p className="text-sm font-medium">
+                    {h.estadoAnterior
+                      ? `${estadoLabel(h.estadoAnterior)} → ${estadoLabel(h.estadoNuevo)}`
+                      : estadoLabel(h.estadoNuevo)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateTime(h.fechaCambio)} - {h.usuario}
+                  </p>
+                  {h.observaciones ? (
+                    <p className="mt-1 text-xs text-muted-foreground">{h.observaciones}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <CambiarEstadoForm
+            ordenId={String(orden.id)}
+            estadoDbId={orden.estadoDbId}
+            estados={estados}
+          />
+        </div>
       </div>
     </div>
   );

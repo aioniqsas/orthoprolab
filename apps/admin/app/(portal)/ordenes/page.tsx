@@ -4,7 +4,6 @@ import { Plus } from "lucide-react";
 import { DisabledAction, ORDENES_REASON } from "../../_components/disabled-action";
 import { ListSkeleton } from "../../_components/list-skeleton";
 import { PageHeader } from "../../_components/page-header";
-import { SampleNotice } from "../../_components/sample-notice";
 import { OrdersView } from "./orders-view";
 
 export const metadata: Metadata = { title: "Órdenes" };
@@ -21,7 +20,6 @@ export default function OrdenesPage() {
           </DisabledAction>
         }
       />
-      <SampleNotice section="órdenes" />
       <Suspense fallback={<ListSkeleton />}>
         <OrdersView />
       </Suspense>
