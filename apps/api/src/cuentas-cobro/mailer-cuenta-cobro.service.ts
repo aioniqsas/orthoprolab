@@ -1,22 +1,6 @@
-/**
- * Mailer service for billing accounts.
- *
- * nodemailer is NOT installed. To enable email, run:
- *   bun add nodemailer @types/nodemailer
- * Then replace this stub with a full nodemailer transport using env vars:
- *   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
- *
- * Example email body (inline HTML, no external template engine needed):
- *   <h2>Cuenta de cobro {{numero}}</h2>
- *   <p>Estimado Dr. {{doctorNombre}},</p>
- *   <p>Se adjunta la cuenta de cobro {{numero}} por un valor de ${{total}}.</p>
- *   <p>Fecha de vencimiento: {{fechaVencimiento}}</p>
- *   <p>Saludos,<br>OrthoPro Lab</p>
- *
- * Attach the PDF with:
- *   attachments: [{ filename: `cuenta_${numero}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }]
- */
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import nodemailer from 'nodemailer';
 import type { CuentaCobro } from './cuenta-cobro.entity.js';
 
 export interface EnviarResult {
@@ -28,16 +12,86 @@ export interface EnviarResult {
 export class MailerCuentaCobroService {
   private readonly logger = new Logger(MailerCuentaCobroService.name);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(private readonly config: ConfigService) {}
+
   async sendCuentaCobro(
-    _cuenta: CuentaCobro,
-    _pdfBuffer: Buffer,
+    cuenta: CuentaCobro,
+    pdfBuffer: Buffer,
     toEmail: string,
   ): Promise<EnviarResult> {
-    this.logger.warn(
-      `Email not sent to ${toEmail}: nodemailer is not installed. ` +
-        'Run: bun add nodemailer @types/nodemailer',
-    );
-    return { sent: false, error: 'nodemailer not installed' };
+    const host = this.config.get<string>('SMTP_HOST');
+    const port = this.config.get<number>('SMTP_PORT') ?? 587;
+    const user = this.config.get<string>('SMTP_USER');
+    const pass = this.config.get<string>('SMTP_PASS');
+    const from = this.config.get<string>('SMTP_FROM') ?? 'OrthoPro Lab <no-reply@orthoprolab.com>';
+
+    if (!host || !user || !pass) {
+      this.logger.warn('SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS');
+      return { sent: false, error: 'SMTP not configured' };
+    }
+
+    const transport = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+
+    const doctor = cuenta.doctor;
+    const doctorNombre = doctor
+      ? `${doctor.nombres} ${doctor.apellidos}`
+      : 'Doctor';
+    const total = `$${Number(cuenta.total).toLocaleString('es-CO')}`;
+    const vencimiento = cuenta.fechaVencimiento
+      ? new Date(cuenta.fechaVencimiento).toLocaleDateString('es-CO')
+      : 'Sin vencimiento';
+
+    const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><style>
+  body { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+  h2 { color: #1a1a2e; }
+  .info { background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; }
+  .total { font-size: 1.5rem; font-weight: bold; color: #1a1a2e; }
+  .footer { font-size: 0.8rem; color: #888; margin-top: 32px; border-top: 1px solid #eee; padding-top: 16px; }
+</style></head>
+<body>
+  <h2>Cuenta de cobro ${cuenta.numero}</h2>
+  <p>Estimado Dr. ${doctorNombre},</p>
+  <p>Se adjunta la cuenta de cobro <strong>${cuenta.numero}</strong> emitida por OrthoPro Lab.</p>
+  <div class="info">
+    <p><strong>Número:</strong> ${cuenta.numero}</p>
+    <p><strong>Fecha de emisión:</strong> ${new Date(cuenta.fechaEmision).toLocaleDateString('es-CO')}</p>
+    <p><strong>Fecha de vencimiento:</strong> ${vencimiento}</p>
+    <p class="total">Total: ${total}</p>
+  </div>
+  <p>Por favor, revise el documento adjunto para el detalle completo.</p>
+  <p>Si tiene alguna pregunta, no dude en contactarnos.</p>
+  <p>Saludos,<br><strong>OrthoPro Lab</strong></p>
+  <div class="footer">Este mensaje fue generado automáticamente. Por favor no responda a este correo.</div>
+</body>
+</html>`;
+
+    try {
+      await transport.sendMail({
+        from,
+        to: toEmail,
+        subject: `Cuenta de cobro ${cuenta.numero} — OrthoPro Lab`,
+        html,
+        attachments: [
+          {
+            filename: `cuenta_${cuenta.numero.replace(/-/g, '_')}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+      return { sent: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to send email for ${cuenta.numero}: ${msg}`);
+      return { sent: false, error: msg };
+    }
   }
 }
