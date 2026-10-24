@@ -6,9 +6,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
+import { Servicio } from '../catalogo/servicio.entity.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
+import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
+import { Doctor } from '../usuarios/doctor.entity.js';
+import { DetalleOrden } from './detalle-orden.entity.js';
 import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
 import { Orden } from './orden.entity.js';
+import type { CreateOrdenDto } from './dto/create-orden.dto.js';
 
 @Injectable()
 export class PedidosService {
@@ -19,6 +24,12 @@ export class PedidosService {
     private readonly historialRepo: Repository<HistorialEstadoOrden>,
     @InjectRepository(EstadoOrden)
     private readonly estadoRepo: Repository<EstadoOrden>,
+    @InjectRepository(Doctor)
+    private readonly doctorRepo: Repository<Doctor>,
+    @InjectRepository(PacienteDoctor)
+    private readonly pacienteDoctorRepo: Repository<PacienteDoctor>,
+    @InjectRepository(Servicio)
+    private readonly servicioRepo: Repository<Servicio>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -38,6 +49,8 @@ export class PedidosService {
       relations: {
         estado: true,
         asignacion: { doctor: { usuario: true }, paciente: true },
+        detalles: { servicio: true },
+        historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { fechaCreacion: 'DESC' },
     });
@@ -76,6 +89,146 @@ export class PedidosService {
   /** Returns all `estado_orden` rows ordered by their display position. */
   listEstados(): Promise<EstadoOrden[]> {
     return this.estadoRepo.find({ order: { posicion: 'ASC' } });
+  }
+
+  /** Returns all users that have a Doctor row. */
+  async listDoctores(): Promise<
+    { id: string; nombres: string; apellidos: string; correo: string }[]
+  > {
+    const doctors = await this.doctorRepo.find({
+      relations: { usuario: true },
+      order: { usuario: { apellidos: 'ASC' } },
+    });
+    return doctors.map((d) => ({
+      id: d.usuarioId,
+      nombres: d.usuario.nombres,
+      apellidos: d.usuario.apellidos,
+      correo: d.usuario.correo,
+    }));
+  }
+
+  /** Returns patients assigned to a given doctor. */
+  async listPacientesPorDoctor(
+    doctorId: string,
+  ): Promise<{ id: string; nombre: string }[]> {
+    const rows = await this.pacienteDoctorRepo.find({
+      where: { doctorId },
+      relations: { paciente: true },
+      order: { paciente: { nombre: 'ASC' } },
+    });
+    return rows.map((r) => ({
+      id: r.pacienteId,
+      nombre: r.paciente.nombre,
+    }));
+  }
+
+  /**
+   * Creates a new order inside a single transaction.
+   * Validates doctor–patient assignment, active services, and seeds history.
+   */
+  async create(dto: CreateOrdenDto, usuarioId: string): Promise<Orden> {
+    return this.dataSource.transaction(async (manager) => {
+      // 1. Validate that the patient is assigned to this doctor.
+      const asignacion = await manager.findOne(PacienteDoctor, {
+        where: { doctorId: dto.doctorId, pacienteId: String(dto.pacienteId) },
+      });
+      if (!asignacion) {
+        throw new BadRequestException(
+          'El paciente no está asignado a este doctor.',
+        );
+      }
+
+      // 2. Load the initial state.
+      const estadoCreada = await manager.findOne(EstadoOrden, {
+        where: { codigo: 'creada' },
+      });
+      if (!estadoCreada) {
+        throw new BadRequestException(
+          'Estado inicial "creada" no encontrado.',
+        );
+      }
+
+      // 3. Validate each service and snapshot its price.
+      type DetailSnapshot = {
+        servicioId: string;
+        cantidad: number;
+        precioUnitario: string;
+        observaciones: string | null;
+      };
+      const snapshots: DetailSnapshot[] = [];
+      let total = 0;
+
+      for (const d of dto.detalles) {
+        const servicio = await manager.findOne(Servicio, {
+          where: { id: String(d.servicioId) },
+        });
+        if (!servicio) {
+          throw new BadRequestException(
+            `Servicio ${d.servicioId} no encontrado.`,
+          );
+        }
+        if (!servicio.activo) {
+          throw new BadRequestException(
+            `El servicio "${servicio.nombre}" no está activo.`,
+          );
+        }
+        const precio = Number(servicio.precio);
+        total += d.cantidad * precio;
+        snapshots.push({
+          servicioId: servicio.id,
+          cantidad: d.cantidad,
+          precioUnitario: servicio.precio,
+          observaciones: d.observaciones ?? null,
+        });
+      }
+
+      // 4. Insert Orden.
+      const orden = manager.create(Orden, {
+        doctorId: dto.doctorId,
+        pacienteId: String(dto.pacienteId),
+        estadoId: estadoCreada.id,
+        valor: total.toFixed(2),
+        urgente: dto.urgente ?? false,
+        // Parse at noon UTC so any ±12h timezone still lands on the correct day.
+        fechaEntrega: dto.fechaEntrega ? new Date(`${dto.fechaEntrega}T12:00:00Z`) : null,
+      });
+      const savedOrden = await manager.save(Orden, orden);
+
+      // 5. Insert DetalleOrden rows.
+      for (const snap of snapshots) {
+        const detalle = manager.create(DetalleOrden, {
+          ordenId: savedOrden.id,
+          servicioId: snap.servicioId,
+          cantidad: snap.cantidad,
+          precioUnitario: snap.precioUnitario,
+          observaciones: snap.observaciones,
+        });
+        await manager.save(DetalleOrden, detalle);
+      }
+
+      // 6. Seed first HistorialEstadoOrden entry.
+      const histEntry = manager.create(HistorialEstadoOrden, {
+        ordenId: savedOrden.id,
+        estadoAnteriorId: null,
+        estadoNuevoId: estadoCreada.id,
+        usuarioId,
+        observaciones: null,
+      });
+      await manager.save(HistorialEstadoOrden, histEntry);
+
+      // 7. Return with full relations.
+      const result = await manager.findOne(Orden, {
+        where: { id: savedOrden.id },
+        relations: {
+          estado: true,
+          asignacion: { doctor: { usuario: true }, paciente: true },
+          detalles: { servicio: true },
+          historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
+        },
+      });
+      if (!result) throw new NotFoundException('Orden no encontrada tras creación.');
+      return result;
+    });
   }
 
   /**

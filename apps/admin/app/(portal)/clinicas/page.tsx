@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Plus } from "lucide-react";
+import { buttonVariants } from "@repo/ui/components/button";
 import { isAdmin } from "@/lib/auth-guard";
 import { listClinicas } from "@/lib/data/repository";
-import { CLINICAS_REASON, DisabledAction } from "../../_components/disabled-action";
 import { ListSkeleton } from "../../_components/list-skeleton";
 import { PageHeader } from "../../_components/page-header";
-import { SampleNotice } from "../../_components/sample-notice";
 import { ClinicasTable } from "./clinicas-table";
 
 export const metadata: Metadata = { title: "Clínicas" };
@@ -18,12 +18,11 @@ export default function ClinicasPage() {
         title="Directorio de clínicas odontológicas"
         description="Clínicas registradas y los doctores asociados a cada una."
         actions={
-          <DisabledAction id="nueva-clinica-reason" variant="default" reason={CLINICAS_REASON}>
+          <Link href="/clinicas/nueva" className={buttonVariants()}>
             <Plus aria-hidden /> Registrar clínica
-          </DisabledAction>
+          </Link>
         }
       />
-      <SampleNotice section="clínicas" />
       <Suspense fallback={<ListSkeleton />}>
         <ClinicasView />
       </Suspense>

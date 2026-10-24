@@ -487,6 +487,16 @@ const envSchema = z
         return v;
       }),
     ),
+
+    // ── SMTP (optional — email delivery is disabled when absent) ─────────────
+    SMTP_HOST: z.preprocess(fromEnv, z.string().optional()),
+    SMTP_PORT: z.preprocess(
+      fromEnv,
+      z.string().optional().transform(v => (v !== undefined ? Number(v) : 587)),
+    ),
+    SMTP_USER: z.preprocess(fromEnv, z.string().optional()),
+    SMTP_PASS: z.preprocess(fromEnv, z.string().optional()),
+    SMTP_FROM: z.preprocess(fromEnv, z.string().optional()),
   })
   .superRefine((data, ctx) => {
     // 1. Cloudinary credentials must be all-or-nothing.

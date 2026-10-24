@@ -10,13 +10,23 @@
  */
 import "server-only";
 import { cookies } from "next/headers";
-import { SAMPLE_CLINICAS, SAMPLE_ORDENES, SAMPLE_USUARIOS } from "./sample";
+import { SAMPLE_ORDENES } from "./sample";
 import { listCatalogoServicios, getCatalogoServicio } from "../catalogo-api";
 import { API_URL } from "../api";
 import type {
   Clinica,
+  ClinicaDetalle,
+  CuentaCobro,
+  CuentaCobroOrdenItem,
+  DoctorOpcion,
+  EnvioItem,
+  EstadoCuentaCobro,
   EstadoOrdenItem,
   Orden,
+  OrdenDisponible,
+  PacienteOpcion,
+  PagoItem,
+  RolNombre,
   Servicio,
   Usuario,
   UsuarioDetalle,
@@ -202,36 +212,177 @@ export async function getEstadosOrden(): Promise<EstadoOrdenItem[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Clinics (still sample data)
+// Public API — Nueva orden helpers
+// ---------------------------------------------------------------------------
+
+export async function listDoctoresOrden(): Promise<DoctorOpcion[]> {
+  try {
+    const res = await fetch(`${API_URL}/ordenes/doctores`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return (await res.json()) as DoctorOpcion[];
+  } catch {
+    return [];
+  }
+}
+
+export async function listPacientesOrden(
+  doctorId: string,
+): Promise<PacienteOpcion[]> {
+  try {
+    const res = await fetch(
+      `${API_URL}/ordenes/doctores/${doctorId}/pacientes`,
+      { headers: await authHeader(), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    return (await res.json()) as PacienteOpcion[];
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Raw API shapes — Clinics
+// ---------------------------------------------------------------------------
+
+interface RawClinicaListItem {
+  id: string;
+  nombre: string;
+  direccion: string | null;
+  fechaCreacion: string;
+  doctorCount: number;
+}
+
+interface RawClinicaDetalle extends RawClinicaListItem {
+  doctores: {
+    id: string;
+    nombres: string;
+    apellidos: string;
+    correo: string;
+    clinicaId: string | null;
+  }[];
+}
+
+// ---------------------------------------------------------------------------
+// Raw API shapes — Users
+// ---------------------------------------------------------------------------
+
+interface RawUsuarioItem {
+  id: string;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  activo: boolean;
+  fechaCreacion: string;
+  rol: { id: number; nombre: string };
+  clinica: { id: string; nombre: string } | null;
+  cedulaEnmascarada?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Clinics
 // ---------------------------------------------------------------------------
 
 export async function listClinicas(): Promise<Clinica[]> {
-  return SAMPLE_CLINICAS;
+  try {
+    const res = await fetch(`${API_URL}/clinicas`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as RawClinicaListItem[];
+    return raw.map((c) => ({
+      id: Number(c.id),
+      nombre: c.nombre,
+      direccion: c.direccion,
+      doctores: [],
+      doctorCount: c.doctorCount,
+    }));
+  } catch {
+    return [];
+  }
 }
 
-export async function getClinica(id: number): Promise<Clinica | null> {
-  return SAMPLE_CLINICAS.find((c) => c.id === id) ?? null;
+export async function getClinica(id: number | string): Promise<ClinicaDetalle | null> {
+  try {
+    const res = await fetch(`${API_URL}/clinicas/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    const raw = (await res.json()) as RawClinicaDetalle;
+    return {
+      id: Number(raw.id),
+      nombre: raw.nombre,
+      direccion: raw.direccion,
+      doctorCount: raw.doctorCount,
+      doctores: raw.doctores.map((d) => ({
+        id: d.id,
+        nombres: d.nombres,
+        apellidos: d.apellidos,
+        correo: d.correo,
+        clinicaId: d.clinicaId != null ? Number(d.clinicaId) : null,
+      })),
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Users (still sample data)
+// Public API — Users
 // ---------------------------------------------------------------------------
 
-/** List rows never expose detail-only fields. */
 export async function listUsuarios(): Promise<Usuario[]> {
-  return SAMPLE_USUARIOS.map((u) => ({
-    id: u.id,
-    nombres: u.nombres,
-    apellidos: u.apellidos,
-    correo: u.correo,
-    rol: u.rol,
-    activo: u.activo,
-    cedulaEnmascarada: u.cedulaEnmascarada,
-  }));
+  try {
+    const res = await fetch(`${API_URL}/usuarios`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as RawUsuarioItem[];
+    return raw.map((u) => ({
+      id: u.id,
+      nombres: u.nombres,
+      apellidos: u.apellidos,
+      correo: u.correo,
+      rol: u.rol.nombre as RolNombre,
+      activo: u.activo,
+      cedulaEnmascarada: u.cedulaEnmascarada ?? "",
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getUsuario(id: string): Promise<UsuarioDetalle | null> {
-  return SAMPLE_USUARIOS.find((u) => u.id === id) ?? null;
+  try {
+    const res = await fetch(`${API_URL}/usuarios/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    const raw = (await res.json()) as RawUsuarioItem;
+    return {
+      id: raw.id,
+      nombres: raw.nombres,
+      apellidos: raw.apellidos,
+      correo: raw.correo,
+      rol: raw.rol.nombre as RolNombre,
+      activo: raw.activo,
+      cedulaEnmascarada: raw.cedulaEnmascarada ?? "",
+      clinica: raw.clinica
+        ? { id: Number(raw.clinica.id), nombre: raw.clinica.nombre }
+        : null,
+      doctoresAsignados: [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -244,4 +395,162 @@ export async function listServicios(): Promise<Servicio[]> {
 
 export async function getServicio(id: string): Promise<Servicio | null> {
   return getCatalogoServicio(id);
+}
+
+// ---------------------------------------------------------------------------
+// Raw API shapes — Cuentas de cobro
+// ---------------------------------------------------------------------------
+
+interface RawPago {
+  id: string;
+  cuentaCobroId: string;
+  monto: string;
+  fechaPago: string;
+  metodo: string;
+  referencia: string | null;
+  notas: string | null;
+  anulado: boolean;
+  creadoEn: string;
+}
+
+interface RawEnvio {
+  id: string;
+  enviadoA: string;
+  estado: string;
+  error: string | null;
+  creadoEn: string;
+}
+
+interface RawCuentaCobroOrden {
+  cuentaCobroId: string;
+  ordenId: string;
+  valorSnapshot: string;
+  orden: RawOrden;
+}
+
+interface RawCuentaCobro {
+  id: string;
+  numero: string;
+  doctor: {
+    id: string;
+    nombres: string;
+    apellidos: string;
+    correo: string;
+  };
+  estado: string;
+  fechaEmision: string;
+  fechaVencimiento: string | null;
+  total: string;
+  pdfUrl: string | null;
+  pdfHash: string | null;
+  observaciones: string | null;
+  creadaEn: string;
+  ordenes: RawCuentaCobroOrden[];
+  pagos: RawPago[];
+  envios: RawEnvio[];
+}
+
+function mapPago(raw: RawPago): PagoItem {
+  return {
+    id: raw.id,
+    cuentaCobroId: raw.cuentaCobroId,
+    monto: raw.monto,
+    fechaPago: raw.fechaPago,
+    metodo: raw.metodo,
+    referencia: raw.referencia,
+    notas: raw.notas,
+    anulado: raw.anulado,
+    creadoEn: raw.creadoEn,
+  };
+}
+
+function mapEnvio(raw: RawEnvio): EnvioItem {
+  return {
+    id: raw.id,
+    enviadoA: raw.enviadoA,
+    estado: raw.estado,
+    error: raw.error,
+    creadoEn: raw.creadoEn,
+  };
+}
+
+function mapCuentaCobroOrden(raw: RawCuentaCobroOrden): CuentaCobroOrdenItem {
+  return {
+    cuentaCobroId: raw.cuentaCobroId,
+    ordenId: raw.ordenId,
+    valorSnapshot: raw.valorSnapshot,
+    orden: mapOrden(raw.orden),
+  };
+}
+
+function mapCuentaCobro(raw: RawCuentaCobro): CuentaCobro {
+  return {
+    id: raw.id,
+    numero: raw.numero,
+    doctorId: raw.doctor.id,
+    doctorNombre: `${raw.doctor.nombres} ${raw.doctor.apellidos}`,
+    doctorCorreo: raw.doctor.correo,
+    estado: raw.estado as EstadoCuentaCobro,
+    fechaEmision: raw.fechaEmision,
+    fechaVencimiento: raw.fechaVencimiento,
+    total: raw.total,
+    pdfUrl: raw.pdfUrl,
+    pdfHash: raw.pdfHash,
+    observaciones: raw.observaciones,
+    creadaEn: raw.creadaEn,
+    ordenes: (raw.ordenes ?? []).map(mapCuentaCobroOrden),
+    pagos: (raw.pagos ?? []).map(mapPago),
+    envios: (raw.envios ?? []).map(mapEnvio),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Cuentas de cobro
+// ---------------------------------------------------------------------------
+
+export async function listCuentasCobro(): Promise<CuentaCobro[]> {
+  try {
+    const res = await fetch(`${API_URL}/cuentas-cobro`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as RawCuentaCobro[];
+    return raw.map(mapCuentaCobro);
+  } catch {
+    return [];
+  }
+}
+
+export async function getCuentaCobro(id: string): Promise<CuentaCobro | null> {
+  try {
+    const res = await fetch(`${API_URL}/cuentas-cobro/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error(`[getCuentaCobro] API ${res.status} for id=${id}`);
+      return null;
+    }
+    const raw = (await res.json()) as RawCuentaCobro;
+    return mapCuentaCobro(raw);
+  } catch (err) {
+    console.error(`[getCuentaCobro] mapper error for id=${id}:`, err);
+    return null;
+  }
+}
+
+export async function getOrdenesDisponibles(
+  cuentaCobroId: string,
+): Promise<OrdenDisponible[]> {
+  try {
+    const res = await fetch(
+      `${API_URL}/cuentas-cobro/${cuentaCobroId}/ordenes-disponibles`,
+      { headers: await authHeader(), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    return (await res.json()) as OrdenDisponible[];
+  } catch {
+    return [];
+  }
 }

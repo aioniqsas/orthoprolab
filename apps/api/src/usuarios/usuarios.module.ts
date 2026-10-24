@@ -5,11 +5,14 @@ import { Clinica } from './clinica.entity.js';
 import { Doctor } from './doctor.entity.js';
 import { Rol } from './rol.entity.js';
 import { Usuario } from './usuario.entity.js';
+import { UsuariosService } from './usuarios.service.js';
 
+// Pure data module — imported by AuthModule. No auth imports allowed here.
 @Module({
   imports: [
     TypeOrmModule.forFeature([Rol, Usuario, Clinica, Doctor, AsistenteDoctor]),
   ],
-  exports: [TypeOrmModule],
+  providers: [UsuariosService],
+  exports: [TypeOrmModule, UsuariosService],
 })
 export class UsuariosModule {}

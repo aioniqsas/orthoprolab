@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Servicio } from '../catalogo/servicio.entity.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
+import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
+import { Doctor } from '../usuarios/doctor.entity.js';
 import { DetalleOrden } from './detalle-orden.entity.js';
 import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
 import { Orden } from './orden.entity.js';
@@ -14,6 +17,9 @@ import { PedidosService } from './pedidos.service.js';
       DetalleOrden,
       HistorialEstadoOrden,
       EstadoOrden,
+      Doctor,
+      PacienteDoctor,
+      Servicio,
     ]),
   ],
   controllers: [PedidosController],

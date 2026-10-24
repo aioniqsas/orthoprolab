@@ -1,4 +1,4 @@
-import { Building2, ClipboardList, FileText, Package, Settings2, UsersRound } from "lucide-react";
+import { Building2, ClipboardList, FileText, Package, ReceiptText, Settings2, UsersRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -24,6 +24,7 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
     icon: Settings2,
     children: [
       { href: "/ordenes", label: "Órdenes", icon: ClipboardList },
+      { href: "/cuentas-cobro", label: "Cuentas de cobro", icon: ReceiptText },
       { href: "/clinicas", label: "Clínicas", icon: Building2 },
       { href: "/catalogo", label: "Catálogo", icon: Package },
     ],

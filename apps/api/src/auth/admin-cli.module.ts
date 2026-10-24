@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from '../config/env.validation.js';
 import { CryptoModule } from '../crypto/crypto.module.js';
 import { DatabaseModule } from '../database/database.module.js';
+import { PacientesModule } from '../pacientes/pacientes.module.js';
 import { UsuariosModule } from '../usuarios/usuarios.module.js';
 
 /**
@@ -19,6 +20,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module.js';
     CryptoModule,
     DatabaseModule,
     UsuariosModule,
+    PacientesModule,
   ],
 })
 export class AdminCliModule {}

@@ -31,9 +31,8 @@ const columns: DataTableColumn<Clinica>[] = [
     id: "doctores",
     header: "Doctores",
     align: "right",
-    sortValue: (c) => c.doctores.length,
-    render: (c) => c.doctores.length,
-    // La búsqueda por nombre de doctor vive en esta columna.
+    sortValue: (c) => c.doctorCount ?? c.doctores.length,
+    render: (c) => c.doctorCount ?? c.doctores.length,
     searchValue: (c) => c.doctores.map((d) => fullName(d)).join(" "),
   },
 ];
@@ -58,7 +57,7 @@ export function ClinicasTable({ clinicas }: { clinicas: Clinica[] }) {
           </Link>
           <p className="mt-1 text-sm text-muted-foreground">{c.direccion ?? "Sin dirección"}</p>
           <p className="mt-2 text-xs text-muted-foreground">
-            {c.doctores.length === 1 ? "1 doctor" : `${c.doctores.length} doctores`}
+            {(c.doctorCount ?? c.doctores.length) === 1 ? "1 doctor" : `${c.doctorCount ?? c.doctores.length} doctores`}
           </p>
         </li>
       )}

@@ -29,6 +29,7 @@
     "migration:show": "bun --env-file=.env node_modules/typeorm/cli.js -d src/database/data-source.ts migration:show",
     "keys:generate": "bun scripts/generate-keys.ts",
     "admin:create": "bun --env-file=.env scripts/admin-create.ts",
+    "seed:paciente": "bun --env-file=.env scripts/seed-paciente.ts",
     "db:schema": "podman exec orthopro-postgres pg_dump -U orthopro -d orthopro --schema-only --no-owner --no-privileges | rg -v '^\\\\(un)?restrict' > docs/schema.sql.tmp && (printf -- '-- GENERATED FILE. Do not edit by hand.\\n-- Regenerate with: bun run db:schema (needs infra:up and migrations applied).\\n\\n'; cat docs/schema.sql.tmp) > docs/schema.sql; rm -f docs/schema.sql.tmp",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
@@ -43,6 +44,7 @@
     "@nestjs/terminus": "^12.1.0",
     "@nestjs/throttler": "^6.7.1",
     "@nestjs/typeorm": "^12.0.2",
+    "@types/nodemailer": "^8.0.2",
     "bcrypt": "^6.0.0",
     "bullmq": "^6.3.17",
     "class-transformer": "^0.5.1",
@@ -52,6 +54,7 @@
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
     "multer": "2.4.0",
+    "nodemailer": "^10.2.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.20.2",

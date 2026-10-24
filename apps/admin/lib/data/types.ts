@@ -78,7 +78,12 @@ export interface Clinica {
   nombre: string;
   direccion: string | null;
   doctores: Doctor[];
+  /** Populated from the list endpoint (GET /clinicas); undefined when loaded via detail. */
+  doctorCount?: number;
 }
+
+/** Clinic row when loaded with its full doctor list (GET /clinicas/:id). */
+export interface ClinicaDetalle extends Clinica {}
 
 export const ROLES = ["administrador", "odontologo", "asistente"] as const;
 export type RolNombre = (typeof ROLES)[number];
@@ -117,6 +122,91 @@ export interface Servicio {
   fechaCreacion?: string;
   fechaActualizacion?: string;
 }
+
+/** Lightweight doctor option for the "nueva orden" form. */
+export interface DoctorOpcion {
+  id: string;       // usuarioId (UUID)
+  nombres: string;
+  apellidos: string;
+  correo: string;
+}
+
+/** Lightweight patient option for the "nueva orden" form. */
+export interface PacienteOpcion {
+  id: string;       // bigint string
+  nombre: string;
+}
+
+// ---------------------------------------------------------------------------
+// Cuentas de cobro
+// ---------------------------------------------------------------------------
+
+export type EstadoCuentaCobro =
+  | "borrador"
+  | "emitida"
+  | "pagada_parcial"
+  | "pagada"
+  | "anulada";
+
+export interface CuentaCobroOrdenItem {
+  cuentaCobroId: string;
+  ordenId: string;
+  valorSnapshot: string;
+  orden: Orden;
+}
+
+export interface PagoItem {
+  id: string;
+  cuentaCobroId: string;
+  monto: string;
+  fechaPago: string;
+  metodo: string;
+  referencia: string | null;
+  notas: string | null;
+  anulado: boolean;
+  creadoEn: string;
+}
+
+export interface EnvioItem {
+  id: string;
+  enviadoA: string;
+  estado: string;
+  error: string | null;
+  creadoEn: string;
+}
+
+export interface CuentaCobro {
+  id: string;
+  numero: string;
+  doctorId: string;
+  doctorNombre: string;
+  doctorCorreo: string;
+  estado: EstadoCuentaCobro;
+  fechaEmision: string;
+  fechaVencimiento: string | null;
+  total: string;
+  pdfUrl: string | null;
+  pdfHash: string | null;
+  observaciones: string | null;
+  creadaEn: string;
+  ordenes: CuentaCobroOrdenItem[];
+  pagos: PagoItem[];
+  envios: EnvioItem[];
+}
+
+export interface OrdenDisponible {
+  id: string;
+  doctorId: string;
+  estado: { codigo: string; nombre: string };
+  asignacion: {
+    paciente: { id: string; nombre: string };
+  } | null;
+  valor: string;
+  fechaCreacion: string;
+  urgente: boolean;
+}
+
+// ---------------------------------------------------------------------------
 
 export type NivelPermiso = "si" | "no" | "delegado" | "por_definir";
 
