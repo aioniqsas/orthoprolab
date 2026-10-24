@@ -183,34 +183,48 @@ async function CuentaDetail({
                     Orden
                   </th>
                   <th className="pb-2 pr-4 font-medium text-muted-foreground">
-                    Paciente
+                    Paciente / Servicios
                   </th>
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-right">
+                  <th className="pb-2 font-medium text-muted-foreground text-right">
                     Valor
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {cuenta.ordenes.map((item) => (
-                  <tr
-                    key={item.ordenId}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="py-2 pr-4">
-                      <Link
-                        href={`/ordenes/${item.ordenId}`}
-                        className="text-primary underline-offset-4 hover:underline"
-                      >
-                        #{item.ordenId}
-                      </Link>
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground">
-                      {item.orden.paciente.nombre}
-                    </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {formatCop(item.valorSnapshot)}
-                    </td>
-                  </tr>
+                  <>
+                    <tr
+                      key={item.ordenId}
+                      className="border-t border-border first:border-t-0"
+                    >
+                      <td className="py-2 pr-4 align-top">
+                        <Link
+                          href={`/ordenes/${item.ordenId}`}
+                          className="text-primary underline-offset-4 hover:underline"
+                        >
+                          #{item.ordenId}
+                        </Link>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <p className="font-medium">{item.orden.paciente.nombre}</p>
+                        {item.orden.detalles.length > 0 && (
+                          <ul className="mt-1 space-y-0.5">
+                            {item.orden.detalles.map((d) => (
+                              <li
+                                key={d.id}
+                                className="text-xs text-muted-foreground"
+                              >
+                                {d.servicio} × {d.cantidad}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                      <td className="py-2 text-right tabular-nums align-top">
+                        {formatCop(item.valorSnapshot)}
+                      </td>
+                    </tr>
+                  </>
                 ))}
               </tbody>
             </table>

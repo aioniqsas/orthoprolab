@@ -11,7 +11,8 @@ import { CuentasTable } from "./cuentas-table";
 export const metadata: Metadata = { title: "Cuentas de cobro" };
 
 async function CuentasList() {
-  const cuentas = await listCuentasCobro();
+  const all = await listCuentasCobro();
+  const cuentas = all.filter((c) => c.estado !== "borrador");
   return <CuentasTable cuentas={cuentas} />;
 }
 
