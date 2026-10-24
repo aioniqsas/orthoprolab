@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -192,9 +192,8 @@ async function CuentaDetail({
               </thead>
               <tbody>
                 {cuenta.ordenes.map((item) => (
-                  <>
+                  <Fragment key={item.ordenId}>
                     <tr
-                      key={item.ordenId}
                       className="border-t border-border first:border-t-0"
                     >
                       <td className="py-2 pr-4 align-top">
@@ -224,7 +223,7 @@ async function CuentaDetail({
                         {formatCop(item.valorSnapshot)}
                       </td>
                     </tr>
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
