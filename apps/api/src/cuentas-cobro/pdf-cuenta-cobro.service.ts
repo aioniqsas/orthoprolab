@@ -12,11 +12,14 @@ function fmt(val: string | number): string {
   return `$${Number(val).toLocaleString('es-CO')}`;
 }
 
-// Minimal shape used for deep property access inside the PDF renderer.
-// TypeORM loads these via relations; we only need a few leaf fields.
+interface DeepDetalle {
+  servicio?: { nombre?: string };
+  cantidad?: number;
+}
+
 interface DeepOrden {
   id?: string | number;
-  detalles?: unknown[];
+  detalles?: DeepDetalle[];
   asignacion?: { paciente?: { nombre?: string } };
 }
 
@@ -124,9 +127,11 @@ export class PdfCuentaCobroService {
       ordenes.forEach((co, idx) => {
         const ord = co.orden as unknown as DeepOrden | undefined;
         const patient = ord?.asignacion?.paciente?.nombre ?? '—';
-        const svcCount = String(ord?.detalles?.length ?? 0);
+        const svcLines = (ord?.detalles ?? [])
+          .map((d) => `${d.servicio?.nombre ?? '?'} × ${d.cantidad ?? 1}`)
+          .join(', ');
         const valor = fmt(co.valorSnapshot);
-        const cells = [String(idx + 1), String(ord?.id ?? ''), patient, svcCount, valor];
+        const cells = [String(idx + 1), String(ord?.id ?? ''), patient, svcLines || '—', valor];
 
         doc.rect(M, rowY, W, 16).fill(idx % 2 === 0 ? '#ffffff' : '#f9f9f9');
         xo = M;

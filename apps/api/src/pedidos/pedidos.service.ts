@@ -189,7 +189,8 @@ export class PedidosService {
         estadoId: estadoCreada.id,
         valor: total.toFixed(2),
         urgente: dto.urgente ?? false,
-        fechaEntrega: dto.fechaEntrega ? new Date(dto.fechaEntrega) : null,
+        // Parse at noon UTC so any ±12h timezone still lands on the correct day.
+        fechaEntrega: dto.fechaEntrega ? new Date(`${dto.fechaEntrega}T12:00:00Z`) : null,
       });
       const savedOrden = await manager.save(Orden, orden);
 
