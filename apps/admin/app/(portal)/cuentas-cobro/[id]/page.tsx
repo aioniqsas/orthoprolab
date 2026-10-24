@@ -332,7 +332,7 @@ async function CuentaDetail({
         >
           Enviar por email
         </h2>
-        <EnviarForm cuentaId={cuenta.id} pdfUrl={cuenta.pdfUrl} />
+        <EnviarForm cuentaId={cuenta.id} pdfUrl={cuenta.pdfUrl} doctorCorreo={cuenta.doctorCorreo} />
       </section>
     </div>
   );

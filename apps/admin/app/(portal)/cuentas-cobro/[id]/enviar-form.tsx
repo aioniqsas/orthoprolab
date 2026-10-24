@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useTransition } from "react";
+import { useState, useActionState, useTransition } from "react";
 import { ExternalLink, FileText, Loader2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { generarPdf, enviarEmail } from "./actions";
@@ -7,9 +7,13 @@ import { generarPdf, enviarEmail } from "./actions";
 interface Props {
   cuentaId: string;
   pdfUrl: string | null;
+  doctorCorreo: string;
 }
 
-export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl }: Props) {
+export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, doctorCorreo }: Props) {
+  const [useCustomEmail, setUseCustomEmail] = useState(false);
+  const [customEmail, setCustomEmail] = useState("");
+
   const boundEnviar = enviarEmail.bind(null, cuentaId);
   const [emailState, emailAction, emailPending] = useActionState(
     boundEnviar,
@@ -62,26 +66,53 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl }: Props) {
 
       {/* Email section */}
       <form action={emailAction} className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1 flex-1 min-w-48">
-            <label htmlFor="email" className="text-sm font-medium text-body">
-              Correo electrónico
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-              placeholder="doctor@clinica.com"
-            />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1 flex-1 min-w-48">
+              <label htmlFor="email" className="text-sm font-medium text-body">
+                Correo electrónico
+              </label>
+              {useCustomEmail ? (
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={customEmail}
+                  onChange={(e) => setCustomEmail(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
+                  placeholder="otro@correo.com"
+                />
+              ) : (
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  readOnly
+                  value={doctorCorreo}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight opacity-60 cursor-not-allowed"
+                />
+              )}
+            </div>
+            <Button type="submit" variant="outline" disabled={emailPending}>
+              {emailPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />
+              ) : null}
+              Enviar por email
+            </Button>
           </div>
-          <Button type="submit" variant="outline" disabled={emailPending}>
-            {emailPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />
-            ) : null}
-            Enviar por email
-          </Button>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={useCustomEmail}
+              onChange={(e) => {
+                setUseCustomEmail(e.target.checked);
+                if (!e.target.checked) setCustomEmail("");
+              }}
+              className="rounded border-border"
+            />
+            Enviar a otra dirección
+          </label>
         </div>
 
         {emailState && !emailState.ok ? (
