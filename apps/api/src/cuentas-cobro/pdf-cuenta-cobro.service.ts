@@ -102,16 +102,6 @@ export class PdfCuentaCobroService {
       doc.text(`Doctor: ${doctorNombre}`, M, infoY + lh * 3, { width: colW, lineBreak: false });
       doc.text(`Correo: ${doctorCorreo}`, M, infoY + lh * 4, { width: colW, lineBreak: false });
 
-      // Right column: estado
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(10)
-        .fillColor('#000000')
-        .text(`Estado: ${cuenta.estado.toUpperCase()}`, M + colW, infoY, {
-          width: colW,
-          lineBreak: false,
-        });
-
       // ── Orders table ──────────────────────────────────────────────────────────
       const tableY = infoY + lh * 5 + 18;
       const patientColW = Math.round(W * 0.35);
