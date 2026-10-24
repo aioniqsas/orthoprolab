@@ -432,8 +432,10 @@ interface RawCuentaCobro {
   id: string;
   numero: string;
   doctor: {
-    usuarioId: string;
-    usuario: { id: string; nombres: string; apellidos: string; correo: string };
+    id: string;
+    nombres: string;
+    apellidos: string;
+    correo: string;
   };
   estado: string;
   fechaEmision: string;
@@ -485,9 +487,9 @@ function mapCuentaCobro(raw: RawCuentaCobro): CuentaCobro {
   return {
     id: raw.id,
     numero: raw.numero,
-    doctorId: raw.doctor.usuarioId,
-    doctorNombre: `${raw.doctor.usuario.nombres} ${raw.doctor.usuario.apellidos}`,
-    doctorCorreo: raw.doctor.usuario.correo,
+    doctorId: raw.doctor.id,
+    doctorNombre: `${raw.doctor.nombres} ${raw.doctor.apellidos}`,
+    doctorCorreo: raw.doctor.correo,
     estado: raw.estado as EstadoCuentaCobro,
     fechaEmision: raw.fechaEmision,
     fechaVencimiento: raw.fechaVencimiento,
@@ -496,9 +498,9 @@ function mapCuentaCobro(raw: RawCuentaCobro): CuentaCobro {
     pdfHash: raw.pdfHash,
     observaciones: raw.observaciones,
     creadaEn: raw.creadaEn,
-    ordenes: raw.ordenes.map(mapCuentaCobroOrden),
-    pagos: raw.pagos.map(mapPago),
-    envios: raw.envios.map(mapEnvio),
+    ordenes: (raw.ordenes ?? []).map(mapCuentaCobroOrden),
+    pagos: (raw.pagos ?? []).map(mapPago),
+    envios: (raw.envios ?? []).map(mapEnvio),
   };
 }
 
