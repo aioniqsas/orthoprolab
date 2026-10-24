@@ -528,10 +528,14 @@ export async function getCuentaCobro(id: string): Promise<CuentaCobro | null> {
       headers: await authHeader(),
       cache: "no-store",
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[getCuentaCobro] API ${res.status} for id=${id}`);
+      return null;
+    }
     const raw = (await res.json()) as RawCuentaCobro;
     return mapCuentaCobro(raw);
-  } catch {
+  } catch (err) {
+    console.error(`[getCuentaCobro] mapper error for id=${id}:`, err);
     return null;
   }
 }

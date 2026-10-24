@@ -64,7 +64,8 @@ export class CuentasCobroService {
           orden: {
             estado: true,
             asignacion: { paciente: true, doctor: { usuario: true } },
-            detalles: true,
+            detalles: { servicio: true },
+            historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
           },
         },
         pagos: true,
