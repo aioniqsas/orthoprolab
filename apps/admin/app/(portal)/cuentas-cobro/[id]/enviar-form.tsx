@@ -72,27 +72,19 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, doctorCorreo }: Pr
               <label htmlFor="email" className="text-sm font-medium text-body">
                 Correo electrónico
               </label>
-              {useCustomEmail ? (
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  value={customEmail}
-                  onChange={(e) => setCustomEmail(e.target.value)}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-                  placeholder="otro@correo.com"
-                />
-              ) : (
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  readOnly
-                  value={doctorCorreo}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight opacity-60 cursor-not-allowed"
-                />
-              )}
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={useCustomEmail ? customEmail : doctorCorreo}
+                readOnly={!useCustomEmail}
+                onChange={(e) => {
+                  if (useCustomEmail) setCustomEmail(e.target.value);
+                }}
+                placeholder="otro@correo.com"
+                className={`rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight${!useCustomEmail ? " opacity-60 cursor-not-allowed" : ""}`}
+              />
             </div>
             <Button type="submit" variant="outline" disabled={emailPending}>
               {emailPending ? (
