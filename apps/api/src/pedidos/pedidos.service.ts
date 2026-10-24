@@ -49,6 +49,8 @@ export class PedidosService {
       relations: {
         estado: true,
         asignacion: { doctor: { usuario: true }, paciente: true },
+        detalles: { servicio: true },
+        historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { fechaCreacion: 'DESC' },
     });
