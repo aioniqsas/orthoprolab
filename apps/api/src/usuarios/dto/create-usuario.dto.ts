@@ -36,7 +36,7 @@ export class CreateUsuarioDto {
   @MaxLength(200)
   password!: string;
 
-  @IsIn(['administrador', 'odontologo', 'asistente'])
+  @IsIn(['administrador', 'clinica'])
   rol!: string;
 
   @IsOptional()

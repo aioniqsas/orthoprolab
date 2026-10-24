@@ -24,8 +24,8 @@ const u = (id: string, nombres: string, rol: Usuario["rol"], correo: string): Us
 
 const USUARIOS = [
   u("1", "Ángela", "administrador", "angela@ejemplo.test"),
-  u("2", "Camilo", "odontologo", "camilo@ejemplo.test"),
-  u("3", "Sofía", "asistente", "sofia@ejemplo.test"),
+  u("2", "Camilo", "clinica", "camilo@ejemplo.test"),
+  u("3", "Sofía", "clinica", "sofia@ejemplo.test"),
 ];
 
 const s = (id: string, nombre: string, activo: boolean): Servicio => ({
@@ -52,15 +52,14 @@ describe("maskCedula", () => {
 
 describe("rolLabel", () => {
   it("returns Spanish labels", () => {
-    expect(rolLabel("odontologo")).toBe("Odontólogo");
+    expect(rolLabel("clinica")).toBe("Administrador de clínica");
     expect(rolLabel("administrador")).toBe("Administrador");
-    expect(rolLabel("asistente")).toBe("Asistente");
   });
 });
 
 describe("usuarios filters", () => {
   it("filters by role", () => {
-    expect(filterUsuarios(USUARIOS, { rol: "asistente" }).map((x) => x.id)).toEqual(["3"]);
+    expect(filterUsuarios(USUARIOS, { rol: "clinica" }).map((x) => x.id)).toEqual(["2", "3"]);
   });
   it("searches name or email ignoring accents and case", () => {
     expect(filterUsuarios(USUARIOS, { q: "angela" })).toHaveLength(1);
@@ -70,7 +69,7 @@ describe("usuarios filters", () => {
     expect(filterUsuarios(USUARIOS, {})).toHaveLength(3);
   });
   it("parses params and ignores invalid roles", () => {
-    expect(parseUsuarioFilters({ rol: "asistente", q: " x " })).toEqual({ rol: "asistente", q: "x" });
+    expect(parseUsuarioFilters({ rol: "clinica", q: " x " })).toEqual({ rol: "clinica", q: "x" });
     expect(parseUsuarioFilters({ rol: "root" }).rol).toBeUndefined();
   });
 });
@@ -105,12 +104,11 @@ describe("PERMISOS", () => {
   it("only the administrador enters the admin portal", () => {
     const fila = PERMISOS.find((p) => p.id === "portal-admin")!;
     expect(fila.roles.administrador.nivel).toBe("si");
-    expect(fila.roles.odontologo.nivel).toBe("no");
-    expect(fila.roles.asistente.nivel).toBe("no");
+    expect(fila.roles.clinica.nivel).toBe("no");
   });
-  it("assistants act only through delegation, never directly", () => {
+  it("clinica users can see their own orders", () => {
     const fila = PERMISOS.find((p) => p.id === "ordenes-propias")!;
-    expect(fila.roles.asistente.nivel).toBe("delegado");
+    expect(fila.roles.clinica.nivel).toBe("si");
   });
   it("keeps undecided rules marked as por_definir", () => {
     expect(PERMISOS.some((p) => Object.values(p.roles).some((r) => r.nivel === "por_definir"))).toBe(true);

@@ -31,7 +31,7 @@ export class Orden {
   })
   id: string;
 
-  @Column({ name: 'doctor_id', type: 'uuid' })
+  @Column({ name: 'doctor_id', type: 'bigint' })
   doctorId: string;
 
   @Index('idx_orden_paciente')

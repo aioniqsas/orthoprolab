@@ -10,7 +10,6 @@ import { DataSource, Repository } from 'typeorm';
 import { CryptoService } from '../crypto/crypto.service.js';
 import { cedulaHash } from '../crypto/cedula.js';
 import { PasswordService } from '../crypto/password.service.js';
-import { Doctor } from '../usuarios/doctor.entity.js';
 import { Rol } from '../usuarios/rol.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import {
@@ -83,7 +82,7 @@ export class AuthService {
         const rol = await manager.findOneByOrFail(Rol, {
           nombre: PUBLIC_REGISTRATION_ROLE,
         });
-        const usuario = await manager.save(
+        await manager.save(
           manager.create(Usuario, {
             cedula: dto.cedula,
             nombres: dto.nombres,
@@ -94,10 +93,6 @@ export class AuthService {
             activo: true,
           }),
         );
-        await manager.insert(Doctor, {
-          usuarioId: usuario.id,
-          clinicaId: null,
-        });
       });
     } catch (error) {
       // Never log the error message: unique-violation details carry the

@@ -7,10 +7,10 @@ import { generarPdf, enviarEmail } from "./actions";
 interface Props {
   cuentaId: string;
   pdfUrl: string | null;
-  doctorCorreo: string;
+  clinicaCorreo: string;
 }
 
-export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, doctorCorreo }: Props) {
+export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, clinicaCorreo }: Props) {
   const [useCustomEmail, setUseCustomEmail] = useState(false);
   const [customEmail, setCustomEmail] = useState("");
 
@@ -77,7 +77,7 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, doctorCorreo }: Pr
                 name="email"
                 type="email"
                 required
-                value={useCustomEmail ? customEmail : doctorCorreo}
+                value={useCustomEmail ? customEmail : clinicaCorreo}
                 readOnly={!useCustomEmail}
                 onChange={(e) => {
                   if (useCustomEmail) setCustomEmail(e.target.value);

@@ -48,11 +48,11 @@ const columns: DataTableColumn<CuentaCobro>[] = [
     searchValue: (c) => c.numero,
   },
   {
-    id: "doctor",
-    header: "Doctor",
-    sortValue: (c) => c.doctorNombre,
-    render: (c) => c.doctorNombre,
-    searchValue: (c) => `${c.doctorNombre} ${c.doctorCorreo}`,
+    id: "clinica",
+    header: "Clínica",
+    sortValue: (c) => c.clinicaNombre,
+    render: (c) => c.clinicaNombre,
+    searchValue: (c) => `${c.clinicaNombre} ${c.clinicaCorreo ?? ""}`,
   },
   {
     id: "estado",
@@ -131,7 +131,7 @@ export function CuentasTable({ cuentas }: { cuentas: CuentaCobro[] }) {
                 {c.numero}
               </Link>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                {c.doctorNombre}
+                {c.clinicaNombre}
               </p>
             </div>
             <EstadoCuentaBadge estado={c.estado} />

@@ -1,14 +1,16 @@
 import {
   IsDateString,
+  IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 export class CreateCuentaCobroDto {
-  @IsUUID()
-  doctorId!: string;
+  @IsInt()
+  @Min(1)
+  clinicaId!: number;
 
   @IsOptional()
   @IsDateString()

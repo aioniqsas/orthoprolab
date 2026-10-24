@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { encryptedColumn } from '../crypto/encrypted-column.js';
+import { Clinica } from '../usuarios/clinica.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CuentaCobroOrden } from './cuenta-cobro-orden.entity.js';
 import type { Pago } from './pago.entity.js';
@@ -25,8 +26,8 @@ export class CuentaCobro {
   @Column()
   numero: string;
 
-  @Column({ name: 'doctor_id', type: 'uuid' })
-  doctorId: string;
+  @Column({ name: 'clinica_id', type: 'bigint' })
+  clinicaId: string;
 
   @Column({ default: 'borrador' })
   estado: string;
@@ -59,9 +60,9 @@ export class CuentaCobro {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Usuario)
-  @JoinColumn({ name: 'doctor_id' })
-  doctor: Usuario;
+  @ManyToOne(() => Clinica)
+  @JoinColumn({ name: 'clinica_id' })
+  clinica: Clinica;
 
   @ManyToOne(() => Usuario)
   @JoinColumn({ name: 'creada_por' })

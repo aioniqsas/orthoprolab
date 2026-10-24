@@ -37,10 +37,7 @@ export class MailerCuentaCobroService {
       auth: { user, pass },
     });
 
-    const doctor = cuenta.doctor;
-    const doctorNombre = doctor
-      ? `${doctor.nombres} ${doctor.apellidos}`
-      : 'Doctor';
+    const clinicaNombre = cuenta.clinica?.nombre ?? 'Clínica';
     const total = `$${Number(cuenta.total).toLocaleString('es-CO')}`;
     const vencimiento = cuenta.fechaVencimiento
       ? new Date(cuenta.fechaVencimiento).toLocaleDateString('es-CO')
@@ -58,7 +55,7 @@ export class MailerCuentaCobroService {
 </style></head>
 <body>
   <h2>Cuenta de cobro ${cuenta.numero}</h2>
-  <p>Estimado Dr. ${doctorNombre},</p>
+  <p>Estimado equipo de ${clinicaNombre},</p>
   <p>Se adjunta la cuenta de cobro <strong>${cuenta.numero}</strong> emitida por OrthoPro Lab.</p>
   <div class="info">
     <p><strong>Número:</strong> ${cuenta.numero}</p>

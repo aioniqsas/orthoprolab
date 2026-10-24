@@ -19,34 +19,35 @@ const doctor = (
   n: number,
   nombres: string,
   apellidos: string,
-  clinicaId: number | null,
+  clinicaId: string,
 ): Doctor => ({
-  id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+  id: String(n),
   nombres,
   apellidos,
   correo: `${normalizeText(nombres.split(" ")[0]!)}.${n}@ejemplo.test`,
   clinicaId,
+  activo: true,
 });
 
 const DOCTORES: Doctor[] = [
-  doctor(1, "Camila", "Restrepo Ejemplo", 1),
-  doctor(2, "Andrés", "Villamizar Muestra", 1),
-  doctor(3, "Lucía", "Quintero Prueba", 2),
-  doctor(4, "Julián", "Moncada Ficticio", 3),
-  doctor(5, "Valentina", "Arboleda Demo", 3),
-  doctor(6, "Sebastián", "Pineda Ejemplo", 4),
-  doctor(7, "Mariana", "Cardona Muestra", 5),
+  doctor(1, "Camila", "Restrepo Ejemplo", "1"),
+  doctor(2, "Andrés", "Villamizar Muestra", "1"),
+  doctor(3, "Lucía", "Quintero Prueba", "2"),
+  doctor(4, "Julián", "Moncada Ficticio", "3"),
+  doctor(5, "Valentina", "Arboleda Demo", "3"),
+  doctor(6, "Sebastián", "Pineda Ejemplo", "4"),
+  doctor(7, "Mariana", "Cardona Muestra", "5"),
 ];
 
 const doctorAt = (i: number): Doctor => DOCTORES[i]!;
 
 export const SAMPLE_CLINICAS: Clinica[] = [
-  { id: 1, nombre: "Clínica Dental Aurora (ejemplo)", direccion: "Calle 100 # 00-00, Bogotá", doctores: [doctorAt(0), doctorAt(1)] },
-  { id: 2, nombre: "Odontología Montaña Verde (ejemplo)", direccion: "Carrera 00 # 00-00, Medellín", doctores: [doctorAt(2)] },
-  { id: 3, nombre: "Centro Sonrisa del Valle (ejemplo)", direccion: "Avenida 0 # 00-00, Cali", doctores: [doctorAt(3), doctorAt(4)] },
-  { id: 4, nombre: "Consultorio Brisa Caribe (ejemplo)", direccion: "Calle 00 # 0-00, Barranquilla", doctores: [doctorAt(5)] },
-  { id: 5, nombre: "Estudio Odontológico Andino (ejemplo)", direccion: null, doctores: [doctorAt(6)] },
-  { id: 6, nombre: "Clínica Nueva sin doctores (ejemplo)", direccion: "Carrera 0 # 00-00, Bucaramanga", doctores: [] },
+  { id: 1, nombre: "Clínica Dental Aurora (ejemplo)", correo: "aurora@ejemplo.test", direccion: "Calle 100 # 00-00, Bogotá", doctores: [doctorAt(0), doctorAt(1)] },
+  { id: 2, nombre: "Odontología Montaña Verde (ejemplo)", correo: null, direccion: "Carrera 00 # 00-00, Medellín", doctores: [doctorAt(2)] },
+  { id: 3, nombre: "Centro Sonrisa del Valle (ejemplo)", correo: "sonrisa@ejemplo.test", direccion: "Avenida 0 # 00-00, Cali", doctores: [doctorAt(3), doctorAt(4)] },
+  { id: 4, nombre: "Consultorio Brisa Caribe (ejemplo)", correo: null, direccion: "Calle 00 # 0-00, Barranquilla", doctores: [doctorAt(5)] },
+  { id: 5, nombre: "Estudio Odontológico Andino (ejemplo)", correo: "andino@ejemplo.test", direccion: null, doctores: [doctorAt(6)] },
+  { id: 6, nombre: "Clínica Nueva sin doctores (ejemplo)", correo: null, direccion: "Carrera 0 # 00-00, Bucaramanga", doctores: [] },
 ];
 
 const PRECIOS = {
@@ -151,27 +152,18 @@ const base = (
   doctoresAsignados: [],
 });
 
-const DOCTORES_USUARIO: UsuarioDetalle[] = SAMPLE_CLINICAS.flatMap((c) =>
-  c.doctores.map((d) => ({
-    ...base(100, d.nombres, d.apellidos, "odontologo"),
-    id: d.id,
-    correo: d.correo,
-    cedulaEnmascarada: maskCedula(CEDULAS_FICTICIAS[Number(d.id.slice(-2)) % 4]! + d.id.slice(-2)),
-    clinica: { id: c.id, nombre: clinicaPorId.get(c.id)! },
-  })),
-);
-
-const docRef = (i: number) => {
-  const d = DOCTORES_USUARIO[i]!;
-  return { id: d.id, nombres: d.nombres, apellidos: d.apellidos };
-};
+const CLINICA_USUARIOS: UsuarioDetalle[] = SAMPLE_CLINICAS.filter((c) => c.doctores.length > 0).map((c) => ({
+  ...base(100 + c.id, c.nombre.split(" ")[0]!, "Administrador", "clinica"),
+  id: uid(100 + c.id),
+  correo: c.correo ?? `clinica${c.id}@ejemplo.test`,
+  cedulaEnmascarada: maskCedula(`100000000${c.id}`),
+  clinica: { id: c.id, nombre: c.nombre },
+  doctoresAsignados: [],
+}));
 
 export const SAMPLE_USUARIOS: UsuarioDetalle[] = [
   base(1, "Administrador", "Ejemplo Uno", "administrador"),
   base(2, "Administradora", "Ejemplo Dos", "administrador", false),
-  ...DOCTORES_USUARIO,
-  { ...base(11, "Paula", "Asistente Ejemplo", "asistente"), doctoresAsignados: [docRef(0), docRef(1)] },
-  { ...base(12, "Tomás", "Apoyo Muestra", "asistente"), doctoresAsignados: [docRef(3)] },
-  { ...base(13, "Rosa", "Auxiliar Prueba", "asistente", false), doctoresAsignados: [] },
+  ...CLINICA_USUARIOS,
 ];
 

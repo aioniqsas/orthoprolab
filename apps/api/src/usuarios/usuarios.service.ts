@@ -8,10 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { cedulaHash } from '../crypto/cedula.js';
 import { PasswordService } from '../crypto/password.service.js';
+import { Clinica } from './clinica.entity.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
-import { Doctor } from './doctor.entity.js';
 import { Rol } from './rol.entity.js';
 import { Usuario } from './usuario.entity.js';
 
@@ -34,60 +34,14 @@ export class UsuariosService {
     private readonly usuarioRepo: Repository<Usuario>,
     @InjectRepository(Rol)
     private readonly rolRepo: Repository<Rol>,
-    @InjectRepository(Doctor)
-    private readonly doctorRepo: Repository<Doctor>,
     private readonly passwordService: PasswordService,
   ) {}
 
   async findAll(): Promise<UsuarioPublico[]> {
-    const [usuarios, doctores] = await Promise.all([
-      this.usuarioRepo
-        .createQueryBuilder('u')
-        .innerJoinAndSelect('u.rol', 'rol')
-        .select([
-          'u.id',
-          'u.nombres',
-          'u.apellidos',
-          'u.correo',
-          'u.activo',
-          'u.fechaCreacion',
-          'rol.id',
-          'rol.nombre',
-        ])
-        .orderBy('u.apellidos', 'ASC')
-        .addOrderBy('u.nombres', 'ASC')
-        .getMany(),
-      this.doctorRepo
-        .createQueryBuilder('d')
-        .leftJoinAndSelect('d.clinica', 'clinica')
-        .select(['d.usuarioId', 'clinica.id', 'clinica.nombre'])
-        .getMany(),
-    ]);
-
-    const clinicaMap = new Map(
-      doctores
-        .filter((d) => d.clinica !== null && d.clinica !== undefined)
-        .map((d) => [d.usuarioId, d.clinica!]),
-    );
-
-    return usuarios.map((u) => ({
-      id: u.id,
-      nombres: u.nombres,
-      apellidos: u.apellidos,
-      correo: u.correo,
-      activo: u.activo,
-      fechaCreacion: u.fechaCreacion,
-      rol: { id: u.rol.id, nombre: u.rol.nombre },
-      clinica: clinicaMap.has(u.id)
-        ? { id: clinicaMap.get(u.id)!.id, nombre: clinicaMap.get(u.id)!.nombre }
-        : null,
-    }));
-  }
-
-  async findOne(id: string): Promise<UsuarioPublico> {
-    const usuario = await this.usuarioRepo
+    const usuarios = await this.usuarioRepo
       .createQueryBuilder('u')
       .innerJoinAndSelect('u.rol', 'rol')
+      .leftJoinAndSelect('u.clinica', 'clinica')
       .select([
         'u.id',
         'u.nombres',
@@ -97,23 +51,46 @@ export class UsuariosService {
         'u.fechaCreacion',
         'rol.id',
         'rol.nombre',
+        'clinica.id',
+        'clinica.nombre',
+      ])
+      .orderBy('u.apellidos', 'ASC')
+      .addOrderBy('u.nombres', 'ASC')
+      .getMany();
+
+    return usuarios.map((u) => ({
+      id: u.id,
+      nombres: u.nombres,
+      apellidos: u.apellidos,
+      correo: u.correo,
+      activo: u.activo,
+      fechaCreacion: u.fechaCreacion,
+      rol: { id: u.rol.id, nombre: u.rol.nombre },
+      clinica: u.clinica ? { id: u.clinica.id, nombre: u.clinica.nombre } : null,
+    }));
+  }
+
+  async findOne(id: string): Promise<UsuarioPublico> {
+    const usuario = await this.usuarioRepo
+      .createQueryBuilder('u')
+      .innerJoinAndSelect('u.rol', 'rol')
+      .leftJoinAndSelect('u.clinica', 'clinica')
+      .select([
+        'u.id',
+        'u.nombres',
+        'u.apellidos',
+        'u.correo',
+        'u.activo',
+        'u.fechaCreacion',
+        'rol.id',
+        'rol.nombre',
+        'clinica.id',
+        'clinica.nombre',
       ])
       .where('u.id = :id', { id })
       .getOne();
 
     if (!usuario) throw new NotFoundException(`Usuario ${id} no encontrado`);
-
-    const doctor = await this.doctorRepo
-      .createQueryBuilder('d')
-      .leftJoinAndSelect('d.clinica', 'clinica')
-      .select(['d.usuarioId', 'clinica.id', 'clinica.nombre'])
-      .where('d.usuarioId = :id', { id })
-      .getOne();
-
-    const clinica =
-      doctor?.clinica != null
-        ? { id: doctor.clinica.id, nombre: doctor.clinica.nombre }
-        : null;
 
     return {
       id: usuario.id,
@@ -123,7 +100,9 @@ export class UsuariosService {
       activo: usuario.activo,
       fechaCreacion: usuario.fechaCreacion,
       rol: { id: usuario.rol.id, nombre: usuario.rol.nombre },
-      clinica,
+      clinica: usuario.clinica
+        ? { id: usuario.clinica.id, nombre: usuario.clinica.nombre }
+        : null,
     };
   }
 
@@ -149,6 +128,11 @@ export class UsuariosService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      const clinicaId =
+        dto.rol === 'clinica' && dto.clinicaId !== undefined
+          ? String(dto.clinicaId)
+          : null;
+
       const usuario = await manager.save(
         manager.create(Usuario, {
           cedula: dto.cedula,
@@ -157,16 +141,15 @@ export class UsuariosService {
           correo: dto.correo,
           passwordHash,
           rolId: rol.id,
+          clinicaId,
           activo: true,
         }),
       );
 
-      if (dto.rol === 'odontologo' || dto.rol === 'asistente') {
-        await manager.insert(Doctor, {
-          usuarioId: usuario.id,
-          clinicaId:
-            dto.clinicaId !== undefined ? String(dto.clinicaId) : null,
-        });
+      let clinica: { id: string; nombre: string } | null = null;
+      if (clinicaId) {
+        const cli = await manager.findOneBy(Clinica, { id: clinicaId });
+        clinica = cli ? { id: cli.id, nombre: cli.nombre } : null;
       }
 
       return {
@@ -177,7 +160,7 @@ export class UsuariosService {
         activo: usuario.activo,
         fechaCreacion: usuario.fechaCreacion,
         rol: { id: rol.id, nombre: rol.nombre },
-        clinica: null,
+        clinica,
       };
     });
   }
@@ -189,17 +172,13 @@ export class UsuariosService {
     if (dto.nombres !== undefined) usuario.nombres = dto.nombres;
     if (dto.apellidos !== undefined) usuario.apellidos = dto.apellidos;
     if (dto.activo !== undefined) usuario.activo = dto.activo;
-    await this.usuarioRepo.save(usuario);
 
     if ('clinicaId' in dto) {
-      const doctor = await this.doctorRepo.findOneBy({ usuarioId: id });
-      if (doctor) {
-        doctor.clinicaId =
-          dto.clinicaId != null ? String(dto.clinicaId) : null;
-        await this.doctorRepo.save(doctor);
-      }
+      usuario.clinicaId =
+        dto.clinicaId != null ? String(dto.clinicaId) : null;
     }
 
+    await this.usuarioRepo.save(usuario);
     return this.findOne(id);
   }
 

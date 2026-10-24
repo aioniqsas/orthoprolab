@@ -4,8 +4,7 @@ import type { RolNombre } from "@/lib/data/types";
 
 const ROL_VARIANT = {
   administrador: "default",
-  odontologo: "secondary",
-  asistente: "outline",
+  clinica: "secondary",
 } as const;
 
 export function RolBadge({ rol }: { rol: RolNombre }) {

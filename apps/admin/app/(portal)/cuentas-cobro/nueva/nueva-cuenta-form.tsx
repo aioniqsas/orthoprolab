@@ -2,34 +2,34 @@
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
-import type { DoctorOpcion } from "@/lib/data/types";
+import type { Clinica } from "@/lib/data/types";
 import { crearCuentaCobro } from "./actions";
 
 interface Props {
-  doctores: DoctorOpcion[];
+  clinicas: Pick<Clinica, "id" | "nombre">[];
 }
 
-export function NuevaCuentaForm({ doctores }: Props) {
+export function NuevaCuentaForm({ clinicas }: Props) {
   const [state, formAction, isPending] = useActionState(crearCuentaCobro, null);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
       <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
-        <h2 className="font-semibold text-title">Doctor</h2>
+        <h2 className="font-semibold text-title">Clínica</h2>
         <div className="flex flex-col gap-1">
-          <label htmlFor="doctorId" className="text-sm font-medium text-body">
-            Doctor responsable <span className="text-destructive">*</span>
+          <label htmlFor="clinicaId" className="text-sm font-medium text-body">
+            Clínica responsable <span className="text-destructive">*</span>
           </label>
           <select
-            id="doctorId"
-            name="doctorId"
+            id="clinicaId"
+            name="clinicaId"
             required
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
           >
-            <option value="">Selecciona un doctor</option>
-            {doctores.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.apellidos}, {d.nombres} — {d.correo}
+            <option value="">Selecciona una clínica</option>
+            {clinicas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
               </option>
             ))}
           </select>

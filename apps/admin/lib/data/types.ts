@@ -22,13 +22,14 @@ export interface EstadoOrdenItem {
   nombre: string;
 }
 
-/** Reference to a doctor (`doctor` joined with `usuario`). */
+/** Standalone doctor (no login; belongs to a clinic). */
 export interface Doctor {
   id: string;
   nombres: string;
   apellidos: string;
-  correo: string;
-  clinicaId: number | null;
+  correo: string | null;
+  clinicaId: string;
+  activo: boolean;
 }
 
 /** Reference to a patient (`paciente`). */
@@ -76,6 +77,7 @@ export interface Orden {
 export interface Clinica {
   id: number;
   nombre: string;
+  correo: string | null;
   direccion: string | null;
   doctores: Doctor[];
   /** Populated from the list endpoint (GET /clinicas); undefined when loaded via detail. */
@@ -85,7 +87,7 @@ export interface Clinica {
 /** Clinic row when loaded with its full doctor list (GET /clinicas/:id). */
 export interface ClinicaDetalle extends Clinica {}
 
-export const ROLES = ["administrador", "odontologo", "asistente"] as const;
+export const ROLES = ["administrador", "clinica"] as const;
 export type RolNombre = (typeof ROLES)[number];
 
 /**
@@ -104,9 +106,9 @@ export interface Usuario {
 }
 
 export interface UsuarioDetalle extends Usuario {
-  /** Doctors only: the clinic they belong to (`doctor.clinica_id`). */
+  /** Clinica role only: the clinic they manage. */
   clinica: { id: number; nombre: string } | null;
-  /** Assistants only: doctors linked through `asistente_doctor`. */
+  /** Kept for compatibility; always empty after the refactor. */
   doctoresAsignados: Pick<Doctor, "id" | "nombres" | "apellidos">[];
 }
 
@@ -125,10 +127,10 @@ export interface Servicio {
 
 /** Lightweight doctor option for the "nueva orden" form. */
 export interface DoctorOpcion {
-  id: string;       // usuarioId (UUID)
+  id: string;       // bigint string
   nombres: string;
   apellidos: string;
-  correo: string;
+  correo: string | null;
 }
 
 /** Lightweight patient option for the "nueva orden" form. */
@@ -178,9 +180,9 @@ export interface EnvioItem {
 export interface CuentaCobro {
   id: string;
   numero: string;
-  doctorId: string;
-  doctorNombre: string;
-  doctorCorreo: string;
+  clinicaId: string;
+  clinicaNombre: string;
+  clinicaCorreo: string | null;
   estado: EstadoCuentaCobro;
   fechaEmision: string;
   fechaVencimiento: string | null;

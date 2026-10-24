@@ -88,7 +88,7 @@ async function UsuarioDetail({ params }: { params: Promise<{ id: string }> }) {
           no se almacenan ni se muestran.
         </p>
       </section>
-      {usuario.rol === "odontologo" ? (
+      {usuario.rol === "clinica" ? (
         <section aria-labelledby="clinica" className="rounded-xl border border-border bg-card p-5">
           <h2 id="clinica" className="font-heading text-lg font-semibold">
             Clínica
@@ -102,26 +102,6 @@ async function UsuarioDetail({ params }: { params: Promise<{ id: string }> }) {
             </Link>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">Sin clínica asociada.</p>
-          )}
-        </section>
-      ) : null}
-      {usuario.rol === "asistente" ? (
-        <section aria-labelledby="doctores" className="rounded-xl border border-border bg-card p-5">
-          <h2 id="doctores" className="font-heading text-lg font-semibold">
-            Odontólogos asignados ({usuario.doctoresAsignados.length})
-          </h2>
-          {usuario.doctoresAsignados.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">Todavía no tiene odontólogos asignados.</p>
-          ) : (
-            <ul className="mt-4 flex flex-col divide-y divide-border">
-              {usuario.doctoresAsignados.map((d) => (
-                <li key={d.id} className="py-3 text-sm font-medium">
-                  <Link href={`/usuarios/${d.id}`} className="text-primary underline-offset-4 hover:underline">
-                    {fullName(d)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
           )}
         </section>
       ) : null}

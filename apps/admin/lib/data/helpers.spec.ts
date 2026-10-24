@@ -15,8 +15,9 @@ const doctor = (nombres: string, apellidos: string) => ({
   id: "d",
   nombres,
   apellidos,
-  correo: "x@example.test",
-  clinicaId: 1,
+  correo: "x@example.test" as string | null,
+  clinicaId: "1",
+  activo: true,
 });
 
 const orden = (over: Partial<Orden>): Orden => ({
@@ -128,8 +129,8 @@ describe("parseOrdenFilters", () => {
 
 describe("filterClinicas", () => {
   const clinicas: Clinica[] = [
-    { id: 1, nombre: "Sonrisa Norte", direccion: "Calle 1 # 2-3, Bogotá", doctores: [doctor("Ana", "Ramírez")] },
-    { id: 2, nombre: "Clínica Sur", direccion: null, doctores: [] },
+    { id: 1, nombre: "Sonrisa Norte", correo: null, direccion: "Calle 1 # 2-3, Bogotá", doctores: [doctor("Ana", "Ramírez")] },
+    { id: 2, nombre: "Clínica Sur", correo: null, direccion: null, doctores: [] },
   ];
 
   it("matches name, address and doctor names", () => {

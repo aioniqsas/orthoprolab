@@ -115,8 +115,8 @@ async function CuentaDetail({
             </div>
             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                ["Doctor", cuenta.doctorNombre],
-                ["Correo", cuenta.doctorCorreo],
+                ["Clínica", cuenta.clinicaNombre],
+                ["Correo", cuenta.clinicaCorreo ?? "—"],
                 ["Fecha de emisión", formatDate(cuenta.fechaEmision)],
                 ["Fecha de vencimiento", formatDate(cuenta.fechaVencimiento)],
               ].map(([label, value]) => (
@@ -332,7 +332,7 @@ async function CuentaDetail({
         >
           Enviar por email
         </h2>
-        <EnviarForm cuentaId={cuenta.id} pdfUrl={cuenta.pdfUrl} doctorCorreo={cuenta.doctorCorreo ?? ""} />
+        <EnviarForm cuentaId={cuenta.id} pdfUrl={cuenta.pdfUrl} clinicaCorreo={cuenta.clinicaCorreo ?? ""} />
       </section>
     </div>
   );

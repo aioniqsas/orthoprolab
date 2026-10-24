@@ -25,7 +25,7 @@ function parseArgs(): { nombre: string; cedula: string | null; doctorId: string 
   const nombre = get('--nombre');
   if (!nombre) {
     console.error('Error: --nombre is required.\n');
-    console.error('Usage: bun run seed:paciente -- --nombre "Nombre Completo" [--cedula 123456789] [--doctor <uuid>]');
+    console.error('Usage: bun run seed:paciente -- --nombre "Nombre Completo" [--cedula 123456789] [--doctor <id>]');
     process.exit(2);
   }
 
@@ -48,8 +48,8 @@ async function main(): Promise<void> {
     // Resolve doctor
     const doctorRepo = ds.getRepository(Doctor);
     const doctor = argDoctorId
-      ? await doctorRepo.findOne({ where: { usuarioId: argDoctorId } })
-      : await doctorRepo.findOne({ where: {}, order: { usuarioId: 'ASC' } });
+      ? await doctorRepo.findOne({ where: { id: argDoctorId } })
+      : await doctorRepo.findOne({ where: {}, order: { id: 'ASC' } });
 
     if (!doctor) {
       console.error(argDoctorId
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
       // Link to doctor
       const link = em.create(PacienteDoctor, {
         pacienteId: saved.id,
-        doctorId: doctor.usuarioId,
+        doctorId: doctor.id,
       });
       await em.save(link);
 
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
         id: saved.id,
         nombre: saved.nombre,
         cedula: cedula ?? null,
-        doctorId: doctor.usuarioId,
+        doctorId: doctor.id,
       }, null, 2));
     });
   } finally {

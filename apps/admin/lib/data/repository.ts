@@ -18,6 +18,7 @@ import type {
   ClinicaDetalle,
   CuentaCobro,
   CuentaCobroOrdenItem,
+  Doctor,
   DoctorOpcion,
   EnvioItem,
   EstadoCuentaCobro,
@@ -56,9 +57,12 @@ interface RawEstado {
 }
 
 interface RawDoctor {
-  usuarioId: string;
-  usuario: { id: string; nombres: string; apellidos: string; correo: string };
-  clinicaId: string | null;
+  id: string;
+  nombres: string;
+  apellidos: string;
+  correo: string | null;
+  clinicaId: string;
+  activo: boolean;
 }
 
 interface RawPaciente {
@@ -106,14 +110,12 @@ function mapOrden(raw: RawOrden): Orden {
   return {
     id: Number(raw.id),
     doctor: {
-      id: raw.asignacion.doctor.usuarioId,
-      nombres: raw.asignacion.doctor.usuario.nombres,
-      apellidos: raw.asignacion.doctor.usuario.apellidos,
-      correo: raw.asignacion.doctor.usuario.correo,
-      clinicaId:
-        raw.asignacion.doctor.clinicaId != null
-          ? Number(raw.asignacion.doctor.clinicaId)
-          : null,
+      id: raw.asignacion.doctor.id,
+      nombres: raw.asignacion.doctor.nombres,
+      apellidos: raw.asignacion.doctor.apellidos,
+      correo: raw.asignacion.doctor.correo,
+      clinicaId: raw.asignacion.doctor.clinicaId,
+      activo: raw.asignacion.doctor.activo,
     },
     paciente: {
       id: Number(raw.asignacion.paciente.id),
@@ -228,6 +230,23 @@ export async function listDoctoresOrden(): Promise<DoctorOpcion[]> {
   }
 }
 
+/** Returns all standalone doctor records (optionally filtered by clinicaId). */
+export async function listDoctores(clinicaId?: string): Promise<Doctor[]> {
+  try {
+    const url = clinicaId
+      ? `${API_URL}/doctores?clinicaId=${encodeURIComponent(clinicaId)}`
+      : `${API_URL}/doctores`;
+    const res = await fetch(url, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return (await res.json()) as Doctor[];
+  } catch {
+    return [];
+  }
+}
+
 export async function listPacientesOrden(
   doctorId: string,
 ): Promise<PacienteOpcion[]> {
@@ -250,6 +269,7 @@ export async function listPacientesOrden(
 interface RawClinicaListItem {
   id: string;
   nombre: string;
+  correo: string | null;
   direccion: string | null;
   fechaCreacion: string;
   doctorCount: number;
@@ -260,8 +280,9 @@ interface RawClinicaDetalle extends RawClinicaListItem {
     id: string;
     nombres: string;
     apellidos: string;
-    correo: string;
-    clinicaId: string | null;
+    correo: string | null;
+    clinicaId: string;
+    activo: boolean;
   }[];
 }
 
@@ -296,6 +317,7 @@ export async function listClinicas(): Promise<Clinica[]> {
     return raw.map((c) => ({
       id: Number(c.id),
       nombre: c.nombre,
+      correo: c.correo,
       direccion: c.direccion,
       doctores: [],
       doctorCount: c.doctorCount,
@@ -317,6 +339,7 @@ export async function getClinica(id: number | string): Promise<ClinicaDetalle | 
     return {
       id: Number(raw.id),
       nombre: raw.nombre,
+      correo: raw.correo,
       direccion: raw.direccion,
       doctorCount: raw.doctorCount,
       doctores: raw.doctores.map((d) => ({
@@ -324,7 +347,8 @@ export async function getClinica(id: number | string): Promise<ClinicaDetalle | 
         nombres: d.nombres,
         apellidos: d.apellidos,
         correo: d.correo,
-        clinicaId: d.clinicaId != null ? Number(d.clinicaId) : null,
+        clinicaId: d.clinicaId,
+        activo: d.activo,
       })),
     };
   } catch {
@@ -431,11 +455,10 @@ interface RawCuentaCobroOrden {
 interface RawCuentaCobro {
   id: string;
   numero: string;
-  doctor: {
+  clinica: {
     id: string;
-    nombres: string;
-    apellidos: string;
-    correo: string;
+    nombre: string;
+    correo: string | null;
   };
   estado: string;
   fechaEmision: string;
@@ -487,9 +510,9 @@ function mapCuentaCobro(raw: RawCuentaCobro): CuentaCobro {
   return {
     id: raw.id,
     numero: raw.numero,
-    doctorId: raw.doctor.id,
-    doctorNombre: `${raw.doctor.nombres} ${raw.doctor.apellidos}`,
-    doctorCorreo: raw.doctor.correo,
+    clinicaId: raw.clinica.id,
+    clinicaNombre: raw.clinica.nombre,
+    clinicaCorreo: raw.clinica.correo,
     estado: raw.estado as EstadoCuentaCobro,
     fechaEmision: raw.fechaEmision,
     fechaVencimiento: raw.fechaVencimiento,

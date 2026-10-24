@@ -11,6 +11,7 @@ import { CatalogoModule } from './catalogo/catalogo.module.js';
 import { ContenidoModule } from './contenido/contenido.module.js';
 import { ClinicasModule } from './clinicas/clinicas.module.js';
 import { CuentasCobroModule } from './cuentas-cobro/cuentas-cobro.module.js';
+import { DoctoresModule } from './doctores/doctores.module.js';
 import { PedidosModule } from './pedidos/pedidos.module.js';
 import { QueuesModule } from './queues/queues.module.js';
 import { HealthModule } from './health/health.module.js';
@@ -34,6 +35,7 @@ import { AuthModule } from './auth/auth.module.js';
     CatalogoModule,
     ContenidoModule,
     PedidosModule,
+    DoctoresModule,
     CuentasCobroModule,
     QueuesModule,
     HealthModule,

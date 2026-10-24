@@ -39,6 +39,9 @@ export async function crearUsuario(
     return { ok: false, error: "La contraseña debe tener al menos 12 caracteres." };
   }
   if (!rol) return { ok: false, error: "Selecciona un rol." };
+  if (!["administrador", "clinica"].includes(rol)) {
+    return { ok: false, error: "Rol no válido." };
+  }
 
   const payload: Record<string, unknown> = { nombres, apellidos, correo, cedula, password, rol };
   if (clinicaId) payload.clinicaId = clinicaId;

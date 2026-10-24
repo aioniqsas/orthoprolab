@@ -17,8 +17,8 @@ export type ClinicaDetail = Clinica & {
     id: string;
     nombres: string;
     apellidos: string;
-    correo: string;
-    clinicaId: string | null;
+    correo: string | null;
+    clinicaId: string;
   }>;
 };
 
@@ -55,18 +55,17 @@ export class ClinicasService {
 
     const doctores = await this.doctorRepo
       .createQueryBuilder('d')
-      .innerJoinAndSelect('d.usuario', 'u')
-      .select(['d.usuarioId', 'd.clinicaId', 'u.nombres', 'u.apellidos', 'u.correo'])
+      .select(['d.id', 'd.clinicaId', 'd.nombres', 'd.apellidos', 'd.correo'])
       .where('d.clinicaId = :id', { id })
       .getMany();
 
     return {
       ...clinica,
       doctores: doctores.map((d) => ({
-        id: d.usuarioId,
-        nombres: d.usuario.nombres,
-        apellidos: d.usuario.apellidos,
-        correo: d.usuario.correo,
+        id: d.id,
+        nombres: d.nombres,
+        apellidos: d.apellidos,
+        correo: d.correo,
         clinicaId: d.clinicaId,
       })),
     };

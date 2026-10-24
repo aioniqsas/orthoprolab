@@ -14,7 +14,7 @@ export class PacienteDoctor {
   @PrimaryColumn({ name: 'paciente_id', type: 'bigint' })
   pacienteId: string;
 
-  @PrimaryColumn({ name: 'doctor_id', type: 'uuid' })
+  @PrimaryColumn({ name: 'doctor_id', type: 'bigint' })
   doctorId: string;
 
   @ManyToOne(() => Paciente, { nullable: false, onDelete: 'RESTRICT' })
@@ -22,7 +22,7 @@ export class PacienteDoctor {
   paciente: Paciente;
 
   @ManyToOne(() => Doctor, { nullable: false, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'doctor_id', referencedColumnName: 'usuarioId' })
+  @JoinColumn({ name: 'doctor_id' })
   doctor: Doctor;
 
   @CreateDateColumn({ name: 'fecha_asignacion', type: 'timestamptz' })

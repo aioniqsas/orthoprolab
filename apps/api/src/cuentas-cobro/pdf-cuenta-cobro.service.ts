@@ -20,7 +20,10 @@ interface DeepDetalle {
 interface DeepOrden {
   id?: string | number;
   detalles?: DeepDetalle[];
-  asignacion?: { paciente?: { nombre?: string } };
+  asignacion?: {
+    paciente?: { nombre?: string };
+    doctor?: { nombres?: string; apellidos?: string };
+  };
 }
 
 @Injectable()
@@ -89,10 +92,8 @@ export class PdfCuentaCobroService {
             year: 'numeric',
           })
         : 'Sin vencimiento';
-      const doctorNombre = cuenta.doctor
-        ? `${cuenta.doctor.nombres} ${cuenta.doctor.apellidos}`.trim()
-        : '—';
-      const doctorCorreo = cuenta.doctor?.correo ?? '—';
+      const clinicaNombre = cuenta.clinica?.nombre ?? '—';
+      const clinicaCorreo = cuenta.clinica?.correo ?? '—';
 
       // Left column: billing identifiers
       doc.font('Helvetica').fontSize(10).fillColor('#333333');
@@ -102,8 +103,8 @@ export class PdfCuentaCobroService {
         width: colW,
         lineBreak: false,
       });
-      doc.text(`Doctor: ${doctorNombre}`, M, infoY + lh * 3, { width: colW, lineBreak: false });
-      doc.text(`Correo: ${doctorCorreo}`, M, infoY + lh * 4, { width: colW, lineBreak: false });
+      doc.text(`Clínica: ${clinicaNombre}`, M, infoY + lh * 3, { width: colW, lineBreak: false });
+      doc.text(`Correo: ${clinicaCorreo}`, M, infoY + lh * 4, { width: colW, lineBreak: false });
 
       // ── Orders table ──────────────────────────────────────────────────────────
       const tableY = infoY + lh * 5 + 18;
@@ -135,6 +136,10 @@ export class PdfCuentaCobroService {
       ordenes.forEach((co, idx) => {
         const ord = co.orden as unknown as DeepOrden | undefined;
         const patient = ord?.asignacion?.paciente?.nombre ?? '—';
+        const doctorOrd = ord?.asignacion?.doctor;
+        const doctorLabel = doctorOrd
+          ? `${doctorOrd.nombres ?? ''} ${doctorOrd.apellidos ?? ''}`.trim()
+          : '';
         const svcItems = (ord?.detalles ?? []).map(
           (d) => `${d.servicio?.nombre ?? '?'} × ${d.cantidad ?? 1}`,
         );
@@ -153,7 +158,16 @@ export class PdfCuentaCobroService {
         xo += cw[0];
         doc.text(String(ord?.id ?? ''), xo + 4, vY, { width: cw[1] - 8, lineBreak: false });
         xo += cw[1];
+        // Patient cell: name on first line, doctor name smaller below
         doc.text(patient, xo + 4, vY, { width: cw[2] - 8, lineBreak: false, ellipsis: true });
+        if (doctorLabel) {
+          doc
+            .font('Helvetica')
+            .fontSize(8)
+            .fillColor('#666666')
+            .text(doctorLabel, xo + 4, vY + 10, { width: cw[2] - 8, lineBreak: false, ellipsis: true });
+          doc.font('Helvetica').fontSize(9).fillColor('#333333');
+        }
         xo += cw[2];
 
         // Servicios: stacked lines

@@ -4,8 +4,7 @@ import type { RolNombre, Servicio, Usuario } from "./types";
 
 const ROL_LABELS: Record<RolNombre, string> = {
   administrador: "Administrador",
-  odontologo: "Odontólogo",
-  asistente: "Asistente",
+  clinica: "Administrador de clínica",
 };
 
 export function rolLabel(rol: RolNombre): string {

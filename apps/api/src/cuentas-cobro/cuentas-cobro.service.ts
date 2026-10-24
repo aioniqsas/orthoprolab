@@ -41,14 +41,14 @@ export class CuentasCobroService {
     private readonly mailerService: MailerCuentaCobroService,
   ) {}
 
-  findAll(doctorId?: string): Promise<CuentaCobro[]> {
+  findAll(clinicaId?: string): Promise<CuentaCobro[]> {
     const qb = this.cuentaCobroRepo
       .createQueryBuilder('cc')
-      .leftJoinAndSelect('cc.doctor', 'doctor')
+      .leftJoinAndSelect('cc.clinica', 'clinica')
       .orderBy('cc.createdAt', 'DESC');
 
-    if (doctorId) {
-      qb.where('cc.doctorId = :doctorId', { doctorId });
+    if (clinicaId) {
+      qb.where('cc.clinicaId = :clinicaId', { clinicaId });
     }
 
     return qb.getMany();
@@ -58,12 +58,12 @@ export class CuentasCobroService {
     return this.cuentaCobroRepo.findOne({
       where: { id },
       relations: {
-        doctor: true,
+        clinica: true,
         creadaPorUsuario: true,
         ordenes: {
           orden: {
             estado: true,
-            asignacion: { paciente: true, doctor: { usuario: true } },
+            asignacion: { paciente: true, doctor: true },
             detalles: { servicio: true },
             historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
           },
@@ -87,7 +87,7 @@ export class CuentasCobroService {
 
       const cuenta = em.create(CuentaCobro, {
         numero,
-        doctorId: dto.doctorId,
+        clinicaId: String(dto.clinicaId),
         creadaPor: usuarioId,
         fechaEmision: new Date(),
         fechaVencimiento: dto.fechaVencimiento ? new Date(dto.fechaVencimiento) : null,
@@ -142,10 +142,17 @@ export class CuentasCobroService {
           throw new NotFoundException(`Orden ${ordenId} no encontrada.`);
         }
 
-        // Ownership check: the order must belong to the doctor on this billing account
-        if (orden.doctorId !== cuenta.doctorId) {
+        // Ownership check: verify order's doctor belongs to this clinic
+        const [ownership] = await em.query<{ belongs: boolean }[]>(
+          `SELECT EXISTS(
+            SELECT 1 FROM doctor d
+            WHERE d.id = $1 AND d.clinica_id = $2
+          ) AS belongs`,
+          [orden.doctorId, cuenta.clinicaId],
+        );
+        if (!ownership?.belongs) {
           throw new BadRequestException(
-            `La orden ${ordenId} no pertenece al doctor de esta cuenta de cobro.`,
+            `La orden ${ordenId} no pertenece a la clínica de esta cuenta de cobro.`,
           );
         }
 
@@ -282,7 +289,6 @@ export class CuentasCobroService {
       } else if (totalPagado > 0) {
         nuevoEstado = 'pagada_parcial';
       } else {
-        // All payments annulled; revert to emitida if it was in a payment state
         nuevoEstado = ['pagada', 'pagada_parcial'].includes(cuenta.estado)
           ? 'emitida'
           : cuenta.estado;
@@ -295,8 +301,8 @@ export class CuentasCobroService {
   }
 
   /**
-   * Returns orders that belong to this billing account's doctor and are not
-   * yet attached to any active (non-anulada) billing account.
+   * Returns orders whose doctor belongs to this billing account's clinic and
+   * are not yet attached to any active (non-anulada) billing account.
    */
   async findOrdenesDisponibles(cuentaCobroId: string): Promise<Orden[]> {
     const cuenta = await this.cuentaCobroRepo.findOne({ where: { id: cuentaCobroId } });
@@ -315,7 +321,10 @@ export class CuentasCobroService {
       .leftJoinAndSelect('o.estado', 'estado')
       .leftJoinAndSelect('o.asignacion', 'asignacion')
       .leftJoinAndSelect('asignacion.paciente', 'paciente')
-      .where('o.doctorId = :doctorId', { doctorId: cuenta.doctorId })
+      .where(
+        `o.doctor_id IN (SELECT d.id FROM doctor d WHERE d.clinica_id = :clinicaId)`,
+        { clinicaId: cuenta.clinicaId },
+      )
       .andWhere(`o.id NOT IN (${subQb.getQuery()})`)
       .setParameters(subQb.getParameters())
       .orderBy('o.fechaCreacion', 'DESC')
@@ -353,7 +362,6 @@ export class CuentasCobroService {
       cuenta = await this.generarYGuardarPdf(id);
     }
 
-    // cuenta.pdfUrl is now set (generarYGuardarPdf either found or generated it)
     const pdfUrl = cuenta.pdfUrl;
     if (!pdfUrl) {
       throw new InternalServerErrorException('PDF URL unavailable after generation.');

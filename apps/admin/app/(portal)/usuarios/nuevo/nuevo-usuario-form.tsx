@@ -11,15 +11,14 @@ interface Props {
 
 const ROLES = [
   { value: "administrador", label: "Administrador" },
-  { value: "odontologo", label: "Odontólogo" },
-  { value: "asistente", label: "Asistente" },
+  { value: "clinica", label: "Administrador de clínica" },
 ] as const;
 
 export function NuevoUsuarioForm({ clinicas }: Props) {
   const [state, formAction, isPending] = useActionState(crearUsuario, null);
   const [rol, setRol] = useState("");
 
-  const showClinica = rol === "odontologo" || rol === "asistente";
+  const showClinica = rol === "clinica";
 
   return (
     <form action={formAction} className="flex flex-col gap-6">

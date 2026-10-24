@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { cedulaHash } from '../crypto/cedula.js';
 import { encryptedColumn } from '../crypto/encrypted-column.js';
+import { Clinica } from './clinica.entity.js';
 import { Rol } from './rol.entity.js';
 
 // The case-insensitive unique index on lower(correo) cannot be expressed with
@@ -54,6 +55,14 @@ export class Usuario {
   @ManyToOne(() => Rol, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'rol_id' })
   rol: Rol;
+
+  // Only populated for users with the 'clinica' role.
+  @Column({ name: 'clinica_id', type: 'bigint', nullable: true })
+  clinicaId: string | null;
+
+  @ManyToOne(() => Clinica, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'clinica_id' })
+  clinica: Clinica | null;
 
   @Column({ type: 'boolean', default: true })
   activo: boolean;

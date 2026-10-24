@@ -45,7 +45,7 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
   if (!orden) notFound();
 
   const [clinica, estados] = await Promise.all([
-    listClinicas().then((cs) => cs.find((c) => c.id === orden.doctor.clinicaId)),
+    listClinicas().then((cs) => cs.find((c) => String(c.id) === orden.doctor.clinicaId)),
     getEstadosOrden(),
   ]);
 

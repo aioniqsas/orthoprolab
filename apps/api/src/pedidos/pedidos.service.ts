@@ -48,7 +48,7 @@ export class PedidosService {
       where,
       relations: {
         estado: true,
-        asignacion: { doctor: { usuario: true }, paciente: true },
+        asignacion: { doctor: true, paciente: true },
         detalles: { servicio: true },
         historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
@@ -62,7 +62,7 @@ export class PedidosService {
       where: { id },
       relations: {
         estado: true,
-        asignacion: { doctor: { usuario: true }, paciente: true },
+        asignacion: { doctor: true, paciente: true },
         detalles: { servicio: true },
         historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
@@ -91,19 +91,19 @@ export class PedidosService {
     return this.estadoRepo.find({ order: { posicion: 'ASC' } });
   }
 
-  /** Returns all users that have a Doctor row. */
+  /** Returns all active doctors (standalone entity). */
   async listDoctores(): Promise<
-    { id: string; nombres: string; apellidos: string; correo: string }[]
+    { id: string; nombres: string; apellidos: string; correo: string | null }[]
   > {
     const doctors = await this.doctorRepo.find({
-      relations: { usuario: true },
-      order: { usuario: { apellidos: 'ASC' } },
+      where: { activo: true },
+      order: { apellidos: 'ASC', nombres: 'ASC' },
     });
     return doctors.map((d) => ({
-      id: d.usuarioId,
-      nombres: d.usuario.nombres,
-      apellidos: d.usuario.apellidos,
-      correo: d.usuario.correo,
+      id: d.id,
+      nombres: d.nombres,
+      apellidos: d.apellidos,
+      correo: d.correo,
     }));
   }
 
@@ -221,7 +221,7 @@ export class PedidosService {
         where: { id: savedOrden.id },
         relations: {
           estado: true,
-          asignacion: { doctor: { usuario: true }, paciente: true },
+          asignacion: { doctor: true, paciente: true },
           detalles: { servicio: true },
           historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
         },

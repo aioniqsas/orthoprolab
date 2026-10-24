@@ -1,28 +1,46 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
-  OneToOne,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Clinica } from './clinica.entity.js';
-import { Usuario } from './usuario.entity.js';
 
-// 1:1 extension of usuario: the primary key is the usuario id.
+// Standalone doctor entity — no longer a 1:1 extension of usuario.
+// Primary key is a bigint identity; the doctor has no login credentials.
 @Entity('doctor')
 export class Doctor {
-  @PrimaryColumn({ name: 'usuario_id', type: 'uuid' })
-  usuarioId: string;
+  @PrimaryGeneratedColumn('identity', {
+    type: 'bigint',
+    generatedIdentity: 'ALWAYS',
+  })
+  id: string;
 
-  @OneToOne(() => Usuario, { nullable: false, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'usuario_id' })
-  usuario: Usuario;
+  @Column({ name: 'clinica_id', type: 'bigint' })
+  clinicaId: string;
 
-  @Column({ name: 'clinica_id', type: 'bigint', nullable: true })
-  clinicaId: string | null;
-
-  @ManyToOne(() => Clinica, { nullable: true, onDelete: 'RESTRICT' })
+  @ManyToOne(() => Clinica, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'clinica_id' })
-  clinica: Clinica | null;
+  clinica: Clinica;
+
+  @Column({ type: 'varchar' })
+  nombres: string;
+
+  @Column({ type: 'varchar' })
+  apellidos: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  correo: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
+
+  @CreateDateColumn({ name: 'fecha_creacion', type: 'timestamptz' })
+  fechaCreacion: Date;
+
+  @UpdateDateColumn({ name: 'fecha_actualizacion', type: 'timestamptz' })
+  fechaActualizacion: Date;
 }

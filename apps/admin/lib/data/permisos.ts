@@ -1,13 +1,9 @@
 import type { PermisoFila } from "./types";
 
 /**
- * Permission matrix, limited to what the product has decided or what follows
- * from the schema/portal gating. Anything else is `por_definir`: do NOT invent
- * a permission model here.
- *
- * Sources: portal gating (admin portal = `administrador`; clientes portal =
- * `odontologo` and `asistente`), `docs/database-model.md` (`asistente_doctor`,
- * one role per user).
+ * Permission matrix for the two active roles post-refactor.
+ * Sources: portal gating (admin portal = `administrador`; clientes portal = `clinica`),
+ * `docs/database-model.md`.
  */
 export const PERMISOS: PermisoFila[] = [
   {
@@ -15,8 +11,7 @@ export const PERMISOS: PermisoFila[] = [
     capacidad: "Entrar al portal de administración",
     roles: {
       administrador: { nivel: "si" },
-      odontologo: { nivel: "no" },
-      asistente: { nivel: "no" },
+      clinica: { nivel: "no" },
     },
   },
   {
@@ -24,8 +19,7 @@ export const PERMISOS: PermisoFila[] = [
     capacidad: "Entrar al portal de clientes",
     roles: {
       administrador: { nivel: "no" },
-      odontologo: { nivel: "si" },
-      asistente: { nivel: "si" },
+      clinica: { nivel: "si" },
     },
   },
   {
@@ -33,8 +27,7 @@ export const PERMISOS: PermisoFila[] = [
     capacidad: "Gestionar órdenes, clínicas, usuarios, catálogo y web",
     roles: {
       administrador: { nivel: "si", nota: "Gestiona todo en el portal de administración" },
-      odontologo: { nivel: "no" },
-      asistente: { nivel: "no" },
+      clinica: { nivel: "no" },
     },
   },
   {
@@ -42,8 +35,7 @@ export const PERMISOS: PermisoFila[] = [
     capacidad: "Crear y ver sus órdenes",
     roles: {
       administrador: { nivel: "no", nota: "Ve todas las órdenes desde el portal de administración" },
-      odontologo: { nivel: "si", nota: "Sus propias órdenes" },
-      asistente: { nivel: "delegado", nota: "En nombre del odontólogo asignado (asistente_doctor)" },
+      clinica: { nivel: "si", nota: "Las órdenes de su clínica" },
     },
   },
   {
@@ -51,8 +43,7 @@ export const PERMISOS: PermisoFila[] = [
     capacidad: "Ver y registrar sus pacientes",
     roles: {
       administrador: { nivel: "por_definir" },
-      odontologo: { nivel: "si", nota: "Sus propios pacientes" },
-      asistente: { nivel: "delegado", nota: "En nombre del odontólogo asignado (asistente_doctor)" },
+      clinica: { nivel: "si", nota: "Los pacientes de los doctores de su clínica" },
     },
   },
   {
@@ -60,17 +51,15 @@ export const PERMISOS: PermisoFila[] = [
     capacidad: "Cambiar el estado de una orden",
     roles: {
       administrador: { nivel: "por_definir" },
-      odontologo: { nivel: "por_definir" },
-      asistente: { nivel: "por_definir" },
+      clinica: { nivel: "por_definir" },
     },
   },
   {
-    id: "limites-asistente",
-    capacidad: "Alcance exacto de lo que un asistente puede hacer por su odontólogo",
+    id: "cuentas-cobro",
+    capacidad: "Ver sus cuentas de cobro",
     roles: {
-      administrador: { nivel: "por_definir" },
-      odontologo: { nivel: "por_definir" },
-      asistente: { nivel: "por_definir" },
+      administrador: { nivel: "si", nota: "Crea y gestiona todas las cuentas de cobro" },
+      clinica: { nivel: "si", nota: "Solo las cuentas de cobro de su clínica" },
     },
   },
 ];

@@ -14,14 +14,15 @@ export async function crearCuentaCobro(
   _prevState: CrearCuentaResult | null,
   formData: FormData,
 ): Promise<CrearCuentaResult> {
-  const doctorId = formData.get("doctorId") as string | null;
+  const clinicaIdRaw = formData.get("clinicaId") as string | null;
+  const clinicaId = clinicaIdRaw ? parseInt(clinicaIdRaw, 10) : null;
   const fechaVencimiento =
     (formData.get("fechaVencimiento") as string | null) || undefined;
   const observaciones =
     (formData.get("observaciones") as string | null) || undefined;
 
-  if (!doctorId) {
-    return { ok: false, error: "Selecciona un doctor." };
+  if (!clinicaId || isNaN(clinicaId)) {
+    return { ok: false, error: "Selecciona una clínica." };
   }
 
   try {
@@ -31,7 +32,7 @@ export async function crearCuentaCobro(
         "Content-Type": "application/json",
         Cookie: await authCookie(),
       },
-      body: JSON.stringify({ doctorId, fechaVencimiento, observaciones }),
+      body: JSON.stringify({ clinicaId, fechaVencimiento, observaciones }),
     });
 
     if (!res.ok) {

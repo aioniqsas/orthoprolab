@@ -20,6 +20,9 @@ export class Clinica {
   @Column({ type: 'varchar', nullable: true })
   direccion: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  correo: string | null;
+
   @CreateDateColumn({ name: 'fecha_creacion', type: 'timestamptz' })
   fechaCreacion: Date;
 
