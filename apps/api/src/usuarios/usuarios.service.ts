@@ -37,7 +37,7 @@ export interface UsuarioPublico {
   fechaCreacion: Date;
   rol: { id: string; nombre: string };
   clinica: { id: string; nombre: string } | null;
-  cedulaEnmascarada: string;
+  cedulaEnmascarada?: string;
 }
 
 function maskCedula(cedula: string): string {
