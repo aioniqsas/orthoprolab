@@ -24,10 +24,16 @@ export async function editarUsuario(
   const nombres = (formData.get("nombres") as string | null)?.trim();
   const apellidos = (formData.get("apellidos") as string | null)?.trim();
   const correo = (formData.get("correo") as string | null)?.trim().toLowerCase();
+  const clinicaIdRaw = (formData.get("clinicaId") as string | null)?.trim();
 
   if (!nombres) return { ok: false, error: "Los nombres son obligatorios." };
   if (!apellidos) return { ok: false, error: "Los apellidos son obligatorios." };
   if (!correo) return { ok: false, error: "El correo es obligatorio." };
+
+  const payload: Record<string, unknown> = { nombres, apellidos, correo };
+  if (clinicaIdRaw !== null) {
+    payload.clinicaId = clinicaIdRaw ? parseInt(clinicaIdRaw, 10) : null;
+  }
 
   try {
     const res = await fetch(`${API_URL}/usuarios/${id}`, {
@@ -36,7 +42,7 @@ export async function editarUsuario(
         "Content-Type": "application/json",
         Cookie: await authCookie(),
       },
-      body: JSON.stringify({ nombres, apellidos, correo }),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {

@@ -2,15 +2,24 @@
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
-import type { Usuario } from "@/lib/data/types";
+import type { Clinica, Usuario } from "@/lib/data/types";
 import { editarUsuario } from "../actions";
 
 const inputCls =
   "rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight";
+const selectCls =
+  "rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight";
 
-export function EditarUsuarioForm({ usuario }: { usuario: Usuario }) {
+interface Props {
+  usuario: Usuario;
+  clinicas: Clinica[];
+}
+
+export function EditarUsuarioForm({ usuario, clinicas }: Props) {
   const boundAction = editarUsuario.bind(null, usuario.id);
   const [state, formAction, isPending] = useActionState(boundAction, null);
+
+  const isClinica = usuario.rol === "clinica";
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -63,6 +72,27 @@ export function EditarUsuarioForm({ usuario }: { usuario: Usuario }) {
             Si cambias el correo, el usuario deberá iniciar sesión con el nuevo.
           </p>
         </div>
+
+        {isClinica ? (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="clinicaId" className="text-sm font-medium text-body">
+              Clínica asignada
+            </label>
+            <select
+              id="clinicaId"
+              name="clinicaId"
+              defaultValue={usuario.clinica?.id != null ? String(usuario.clinica.id) : ""}
+              className={selectCls}
+            >
+              <option value="">Sin clínica asignada</option>
+              {clinicas.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
       </div>
 
       {state && !state.ok ? (

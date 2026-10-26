@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { isAdmin } from "@/lib/auth-guard";
 import { fullName } from "@/lib/data/helpers";
-import { getUsuario } from "@/lib/data/repository";
+import { getUsuario, listClinicas } from "@/lib/data/repository";
 import { ListSkeleton } from "../../../../_components/list-skeleton";
 import { PageHeader } from "../../../../_components/page-header";
 import { EditarUsuarioForm } from "./editar-usuario-form";
@@ -42,13 +42,13 @@ async function EditarUsuarioContent({
   if (!(await isAdmin())) return null;
   const { id } = await params;
   if (!UUID.test(id)) notFound();
-  const usuario = await getUsuario(id);
+  const [usuario, clinicas] = await Promise.all([getUsuario(id), listClinicas()]);
   if (!usuario) notFound();
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={`Editar: ${fullName(usuario)}`} />
-      <EditarUsuarioForm usuario={usuario} />
+      <EditarUsuarioForm usuario={usuario} clinicas={clinicas} />
     </div>
   );
 }
