@@ -34,9 +34,20 @@ export class CreateOrdenDto {
   @IsUUID()
   doctorId!: string;
 
+  @IsOptional()
   @IsInt()
   @Min(1)
-  pacienteId!: number;
+  pacienteId?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  pacienteCedula?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  pacienteNombre?: string;
 
   @IsArray()
   @ArrayMinSize(1)

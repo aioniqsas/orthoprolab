@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -69,11 +70,32 @@ export class MiClinicaController {
   }
 
   @Get('pacientes')
-  listPacientesDelDoctor(
+  listPacientes(
     @Req() req: AuthenticatedRequest,
-    @Query('doctorId') doctorId: string,
+    @Query('doctorId') doctorId?: string,
   ) {
-    return this.miClinica.listPacientesDelDoctor(req.user.id, doctorId);
+    if (doctorId) {
+      return this.miClinica.listPacientesDelDoctor(req.user.id, doctorId);
+    }
+    return this.miClinica.listAllPacientes(req.user.id);
+  }
+
+  @Post('pacientes')
+  @HttpCode(HttpStatus.CREATED)
+  createPaciente(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { cedula: string; nombre: string },
+  ) {
+    return this.miClinica.createPaciente(req.user.id, body.cedula, body.nombre);
+  }
+
+  @Patch('pacientes/:id')
+  updatePaciente(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { nombre: string },
+  ) {
+    return this.miClinica.updatePaciente(req.user.id, id, body.nombre);
   }
 
   @Get('servicios')

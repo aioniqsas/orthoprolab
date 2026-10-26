@@ -9,6 +9,7 @@ import { DataSource } from 'typeorm';
 import { Servicio } from '../catalogo/servicio.entity.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
+import { PacientesService } from '../pacientes/pacientes.service.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { DetalleOrden } from './detalle-orden.entity.js';
 import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
@@ -31,6 +32,7 @@ export class PedidosService {
     @InjectRepository(Servicio)
     private readonly servicioRepo: Repository<Servicio>,
     private readonly dataSource: DataSource,
+    private readonly pacientesService: PacientesService,
   ) {}
 
   async findAll(filters?: {
@@ -125,12 +127,48 @@ export class PedidosService {
   /**
    * Creates a new order inside a single transaction.
    * Validates doctor–patient assignment, active services, and seeds history.
+   * Accepts either pacienteId (existing) or pacienteCedula+pacienteNombre
+   * (inline patient lookup/creation).
    */
   async create(dto: CreateOrdenDto, usuarioId: string): Promise<Orden> {
+    // Resolve pacienteId before entering the transaction so that
+    // PacientesService uses its own connection context.
+    let resolvedPacienteId: string;
+    let ensureLink = false;
+
+    if (dto.pacienteId !== undefined) {
+      resolvedPacienteId = String(dto.pacienteId);
+    } else if (dto.pacienteCedula && dto.pacienteNombre) {
+      const p = await this.pacientesService.findOrCreate(
+        dto.pacienteCedula,
+        dto.pacienteNombre,
+      );
+      resolvedPacienteId = p.id;
+      ensureLink = true;
+    } else {
+      throw new BadRequestException(
+        'Proporciona pacienteId o (pacienteCedula + pacienteNombre).',
+      );
+    }
+
     return this.dataSource.transaction(async (manager) => {
+      // When patient was resolved inline, ensure the PacienteDoctor link exists.
+      if (ensureLink) {
+        const existing = await manager.findOne(PacienteDoctor, {
+          where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
+        });
+        if (!existing) {
+          const link = manager.create(PacienteDoctor, {
+            pacienteId: resolvedPacienteId,
+            doctorId: dto.doctorId,
+          });
+          await manager.save(PacienteDoctor, link);
+        }
+      }
+
       // 1. Validate that the patient is assigned to this doctor.
       const asignacion = await manager.findOne(PacienteDoctor, {
-        where: { doctorId: dto.doctorId, pacienteId: String(dto.pacienteId) },
+        where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
       });
       if (!asignacion) {
         throw new BadRequestException(
@@ -185,7 +223,7 @@ export class PedidosService {
       // 4. Insert Orden.
       const orden = manager.create(Orden, {
         doctorId: dto.doctorId,
-        pacienteId: String(dto.pacienteId),
+        pacienteId: resolvedPacienteId,
         estadoId: estadoCreada.id,
         valor: total.toFixed(2),
         urgente: dto.urgente ?? false,

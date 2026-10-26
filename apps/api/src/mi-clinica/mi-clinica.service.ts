@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -7,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { CuentaCobro } from '../cuentas-cobro/cuenta-cobro.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
+import { PacientesService } from '../pacientes/pacientes.service.js';
 import { Orden } from '../pedidos/orden.entity.js';
 import type { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { PedidosService } from '../pedidos/pedidos.service.js';
@@ -32,6 +34,7 @@ export class MiClinicaService {
     @InjectRepository(Servicio)
     private readonly servicioRepo: Repository<Servicio>,
     private readonly pedidosService: PedidosService,
+    private readonly pacientesService: PacientesService,
   ) {}
 
   async resolveClinicaId(usuarioId: string): Promise<string> {
@@ -139,6 +142,40 @@ export class MiClinicaService {
   async createOrden(usuarioId: string, dto: CreateOrdenDto): Promise<Orden> {
     await this.getDoctor(usuarioId, dto.doctorId);
     return this.pedidosService.create(dto, usuarioId);
+  }
+
+  async listAllPacientes(
+    usuarioId: string,
+  ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {
+    const clinicaId = await this.resolveClinicaId(usuarioId);
+    return this.pacientesService.listForClinica(clinicaId);
+  }
+
+  async updatePaciente(
+    usuarioId: string,
+    pacienteId: number,
+    nombre: string,
+  ): Promise<{ id: string; nombre: string }> {
+    const clinicaId = await this.resolveClinicaId(usuarioId);
+    const inClinica = await this.pacientesService.listForClinica(clinicaId);
+    const found = inClinica.find((p) => p.id === String(pacienteId));
+    if (!found) {
+      throw new NotFoundException(`Paciente ${pacienteId} no encontrado en esta clínica.`);
+    }
+    return this.pacientesService.updateNombre(pacienteId, nombre);
+  }
+
+  async createPaciente(
+    usuarioId: string,
+    cedula: string,
+    nombre: string,
+  ): Promise<{ id: string; nombre: string }> {
+    if (!cedula?.trim() || !nombre?.trim()) {
+      throw new BadRequestException('Cédula y nombre son obligatorios.');
+    }
+    // Verify the user belongs to a valid clinic.
+    await this.resolveClinicaId(usuarioId);
+    return this.pacientesService.findOrCreate(cedula.trim(), nombre.trim());
   }
 
   async getOrden(usuarioId: string, ordenId: string): Promise<Orden> {
