@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsEmail,
   IsInt,
   IsOptional,
   IsString,
@@ -7,6 +8,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class UpdateUsuarioDto {
   @IsOptional()
@@ -18,6 +20,11 @@ export class UpdateUsuarioDto {
   @IsString()
   @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü' -]{1,100}$/)
   apellidos?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => String(value).toLowerCase().trim())
+  @IsEmail()
+  correo?: string;
 
   @IsOptional()
   @IsBoolean()

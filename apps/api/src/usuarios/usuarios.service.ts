@@ -204,6 +204,18 @@ export class UsuariosService {
     if (dto.apellidos !== undefined) usuario.apellidos = dto.apellidos;
     if (dto.activo !== undefined) usuario.activo = dto.activo;
 
+    if (dto.correo !== undefined) {
+      const taken = await this.usuarioRepo
+        .createQueryBuilder('u')
+        .where('lower(u.correo) = :correo AND u.id != :id', {
+          correo: dto.correo.toLowerCase(),
+          id,
+        })
+        .getExists();
+      if (taken) throw new ConflictException('El correo ya está en uso');
+      usuario.correo = dto.correo;
+    }
+
     if ('clinicaId' in dto) {
       usuario.clinicaId =
         dto.clinicaId != null ? String(dto.clinicaId) : null;
@@ -221,6 +233,30 @@ export class UsuariosService {
     if (!usuario) throw new NotFoundException(`Usuario ${id} no encontrado`);
     usuario.passwordHash = await this.passwordService.hash(dto.nuevaPassword);
     await this.usuarioRepo.save(usuario);
+    return { ok: true };
+  }
+
+  /** Generates a new random password, stores its hash, and sends a welcome email. */
+  async regenerarCredenciales(id: string): Promise<{ ok: true }> {
+    const usuario = await this.usuarioRepo.findOneBy({ id });
+    if (!usuario) throw new NotFoundException(`Usuario ${id} no encontrado`);
+
+    const rawPassword = generatePassword();
+    usuario.passwordHash = await this.passwordService.hash(rawPassword);
+    await this.usuarioRepo.save(usuario);
+
+    const { sent, error } = await this.mailerAuth.sendWelcome(
+      usuario.correo,
+      `${usuario.nombres} ${usuario.apellidos}`,
+      usuario.correo,
+      rawPassword,
+    );
+    if (!sent) {
+      this.logger.warn(
+        `Credentials email not sent for user ${id}: ${error ?? 'unknown'}`,
+      );
+    }
+
     return { ok: true };
   }
 }

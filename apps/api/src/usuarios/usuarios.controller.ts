@@ -46,4 +46,10 @@ export class UsuariosController {
   resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) {
     return this.usuarios.resetPassword(id, dto);
   }
+
+  @Post(':id/regenerar-credenciales')
+  @HttpCode(HttpStatus.OK)
+  regenerarCredenciales(@Param('id') id: string) {
+    return this.usuarios.regenerarCredenciales(id);
+  }
 }

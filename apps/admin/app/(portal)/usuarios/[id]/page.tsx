@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { buttonVariants } from "@repo/ui/components/button";
 import { isAdmin } from "@/lib/auth-guard";
 import { fullName } from "@/lib/data/helpers";
 import { getUsuario } from "@/lib/data/repository";
-import { DisabledAction, USUARIOS_REASON } from "../../../_components/disabled-action";
 import { ListSkeleton } from "../../../_components/list-skeleton";
 import { PageHeader } from "../../../_components/page-header";
-import { SampleNotice } from "../../../_components/sample-notice";
 import { ActivoBadge, RolBadge } from "../../../_components/status-badges";
+import { UsuarioAcciones } from "./usuario-acciones";
 
 export const metadata: Metadata = { title: "Detalle de usuario" };
 
@@ -55,16 +55,13 @@ async function UsuarioDetail({ params }: { params: Promise<{ id: string }> }) {
         description={usuario.correo}
         actions={
           <>
-            <DisabledAction id="editar-usuario-reason" reason={USUARIOS_REASON}>
+            <Link href={`/usuarios/${usuario.id}/editar`} className={buttonVariants({ variant: "outline" })}>
               Editar
-            </DisabledAction>
-            <DisabledAction id="desactivar-usuario-reason" variant="destructive" reason={USUARIOS_REASON}>
-              {usuario.activo ? "Desactivar" : "Activar"}
-            </DisabledAction>
+            </Link>
+            <UsuarioAcciones id={usuario.id} activo={usuario.activo} />
           </>
         }
       />
-      <SampleNotice section="usuarios" />
       <section aria-labelledby="perfil" className="rounded-xl border border-border bg-card p-5">
         <h2 id="perfil" className="font-heading text-lg font-semibold">
           Perfil
