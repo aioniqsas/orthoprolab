@@ -3,6 +3,7 @@ import type { Rol, Usuario } from "@repo/api-client"
 
 const ROLE_LABELS: Record<Rol, string> = {
   administrador: "Administrador",
+  clinica: "Clínica",
   odontologo: "Odontólogo",
   asistente: "Asistente",
 }
@@ -16,6 +17,8 @@ export interface PortalFrameProps {
   usuario: Pick<Usuario, "nombres" | "apellidos" | "rol">
   /** Slot for the logout button. */
   actions?: React.ReactNode
+  /** Optional navigation bar rendered between the header and main content. */
+  nav?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -24,6 +27,7 @@ export function PortalFrame({
   productName,
   usuario,
   actions,
+  nav,
   children,
 }: PortalFrameProps) {
   return (
@@ -46,6 +50,7 @@ export function PortalFrame({
           </div>
         </div>
       </header>
+      {nav}
       <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">
         {children}
       </main>

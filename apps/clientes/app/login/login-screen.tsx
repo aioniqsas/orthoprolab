@@ -12,24 +12,21 @@ export function LoginScreen() {
   return (
     <PortalLogin
       client={api}
-      allowedRoles={["odontologo", "asistente"]}
+      allowedRoles={["clinica"]}
       deniedMessage="Usa el portal de administración con esta cuenta."
       next={next}
       navigate={(path) => router.replace(path)}
       shell={{
-        productName: "Portal de clientes",
-        eyebrow: "Odontólogos y clínicas",
-        heading: "Portal de clientes de OrthoPro Lab",
+        productName: "Portal de clínicas",
+        eyebrow: "OrthoPro Lab",
+        heading: "Portal de clínicas",
         description: "Inicia sesión con tu cuenta para continuar.",
       }}
       description="Ingresa con tu correo y contraseña."
       footer={
-        <>
-          ¿Aún no tienes cuenta?{" "}
-          <Link href="/registro" className="font-medium text-primary underline-offset-4 hover:underline">
-            Regístrate
-          </Link>
-        </>
+        <Link href="/restablecer-password" className="font-medium text-primary underline-offset-4 hover:underline">
+          ¿Olvidaste tu contraseña?
+        </Link>
       }
     />
   );

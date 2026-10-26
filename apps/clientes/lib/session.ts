@@ -5,7 +5,7 @@ import { fetchSessionOnServer, resolvePortalAccess, safeRedirectPath } from "@re
 import type { Rol } from "@repo/api-client";
 import { API_URL } from "./api";
 
-export const ALLOWED_ROLES: readonly Rol[] = ["odontologo", "asistente"];
+export const ALLOWED_ROLES: readonly Rol[] = ["clinica"];
 
 /** Header set by `proxy.ts` with the sanitized path of the current request. */
 export const PATH_HEADER = "x-portal-path";

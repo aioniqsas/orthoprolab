@@ -1,0 +1,70 @@
+import "server-only";
+import { cookies } from "next/headers";
+import { API_URL } from "@/lib/api";
+import type { CuentaCobro, Doctor, Orden } from "./types";
+
+async function authHeader(): Promise<HeadersInit> {
+  const token = (await cookies()).get("auth_token")?.value;
+  return token ? { Cookie: `auth_token=${token}` } : {};
+}
+
+// ─── Doctores ───────────────────────────────────────────────────────────────
+
+export async function listDoctores(includeInactive = false): Promise<Doctor[]> {
+  try {
+    const url = includeInactive
+      ? `${API_URL}/mi-clinica/doctores?includeInactive=true`
+      : `${API_URL}/mi-clinica/doctores`;
+    const res = await fetch(url, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json() as Promise<Doctor[]>;
+  } catch {
+    return [];
+  }
+}
+
+export async function getDoctor(id: string): Promise<Doctor | null> {
+  try {
+    const res = await fetch(`${API_URL}/mi-clinica/doctores/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<Doctor>;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Órdenes ────────────────────────────────────────────────────────────────
+
+export async function listOrdenes(): Promise<Orden[]> {
+  try {
+    const res = await fetch(`${API_URL}/mi-clinica/ordenes`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json() as Promise<Orden[]>;
+  } catch {
+    return [];
+  }
+}
+
+// ─── Cuentas de cobro ───────────────────────────────────────────────────────
+
+export async function listCuentasCobro(): Promise<CuentaCobro[]> {
+  try {
+    const res = await fetch(`${API_URL}/mi-clinica/cuentas-cobro`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json() as Promise<CuentaCobro[]>;
+  } catch {
+    return [];
+  }
+}
