@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -14,29 +14,32 @@ export function PacienteCedulaField({ onFound, onCleared }: Props) {
   const [nombre, setNombre] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [foundId, setFoundId] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevStatusRef = useRef<Status>("idle");
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevStatusRef = useRef<Status>("idle");
   const onFoundRef = useRef(onFound);
   const onClearedRef = useRef(onCleared);
   onFoundRef.current = onFound;
   onClearedRef.current = onCleared;
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+  function handleCedulaChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setCedula(value);
 
-    debounceRef.current = setTimeout(() => {
-      if (!cedula.trim()) {
-        setStatus("idle");
-        setNombre("");
-        setFoundId("");
-        prevStatusRef.current = "idle";
-        onClearedRef.current();
-        return;
-      }
+    if (timerRef.current) clearTimeout(timerRef.current);
 
+    if (!value.trim()) {
+      setStatus("idle");
+      setNombre("");
+      setFoundId("");
+      prevStatusRef.current = "idle";
+      onClearedRef.current();
+      return;
+    }
+
+    timerRef.current = setTimeout(() => {
       setStatus("searching");
-      fetch(`/api/pacientes/buscar?cedula=${encodeURIComponent(cedula.trim())}`)
+      fetch(`/api/pacientes/buscar?cedula=${encodeURIComponent(value.trim())}`)
         .then(async (res) => {
           if (res.ok) {
             const data = (await res.json()) as { id: string; nombre: string };
@@ -61,11 +64,7 @@ export function PacienteCedulaField({ onFound, onCleared }: Props) {
           onClearedRef.current();
         });
     }, 400);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [cedula]);
+  }
 
   const inputCls =
     "rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight";
@@ -83,7 +82,7 @@ export function PacienteCedulaField({ onFound, onCleared }: Props) {
             type="text"
             placeholder="Cédula del paciente"
             value={cedula}
-            onChange={(e) => setCedula(e.target.value)}
+            onChange={handleCedulaChange}
             className={inputCls}
             autoComplete="off"
           />

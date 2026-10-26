@@ -4,9 +4,9 @@ import {
   IsBoolean,
   IsDateString,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -31,7 +31,8 @@ export class CreateDetalleOrdenDto {
 }
 
 export class CreateOrdenDto {
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   doctorId!: string;
 
   @IsOptional()
