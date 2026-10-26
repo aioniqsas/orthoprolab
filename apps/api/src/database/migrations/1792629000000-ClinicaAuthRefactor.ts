@@ -11,6 +11,9 @@ export class ClinicaAuthRefactor1792629000000 implements MigrationInterface {
   name = 'ClinicaAuthRefactor1792629000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // ── 0. Drop asistente_doctor (assistants removed from the system) ─────────
+    await queryRunner.query(`DROP TABLE IF EXISTS asistente_doctor`);
+
     // ── 1. Extend clinica and usuario ─────────────────────────────────────────
     await queryRunner.query(`ALTER TABLE clinica ADD COLUMN correo VARCHAR`);
     await queryRunner.query(
