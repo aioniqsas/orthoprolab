@@ -6,7 +6,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { CuentaCobro } from '../cuentas-cobro/cuenta-cobro.entity.js';
+import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { Orden } from '../pedidos/orden.entity.js';
+import type { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
+import { PedidosService } from '../pedidos/pedidos.service.js';
+import { Servicio } from '../catalogo/servicio.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
@@ -23,6 +27,11 @@ export class MiClinicaService {
     private readonly ordenRepo: Repository<Orden>,
     @InjectRepository(CuentaCobro)
     private readonly cuentaCobroRepo: Repository<CuentaCobro>,
+    @InjectRepository(PacienteDoctor)
+    private readonly pacienteDoctorRepo: Repository<PacienteDoctor>,
+    @InjectRepository(Servicio)
+    private readonly servicioRepo: Repository<Servicio>,
+    private readonly pedidosService: PedidosService,
   ) {}
 
   async resolveClinicaId(usuarioId: string): Promise<string> {
@@ -106,5 +115,46 @@ export class MiClinicaService {
       .where('cc.clinicaId = :clinicaId', { clinicaId })
       .orderBy('cc.createdAt', 'DESC')
       .getMany();
+  }
+
+  async listPacientesDelDoctor(
+    usuarioId: string,
+    doctorId: string,
+  ): Promise<PacienteDoctor[]> {
+    await this.getDoctor(usuarioId, doctorId);
+    return this.pacienteDoctorRepo.find({
+      where: { doctorId },
+      relations: { paciente: true },
+      order: { fechaAsignacion: 'DESC' },
+    });
+  }
+
+  async listServicios(): Promise<Servicio[]> {
+    return this.servicioRepo.find({
+      where: { activo: true },
+      order: { nombre: 'ASC' },
+    });
+  }
+
+  async createOrden(usuarioId: string, dto: CreateOrdenDto): Promise<Orden> {
+    await this.getDoctor(usuarioId, dto.doctorId);
+    return this.pedidosService.create(dto, usuarioId);
+  }
+
+  async getOrden(usuarioId: string, ordenId: string): Promise<Orden> {
+    const clinicaId = await this.resolveClinicaId(usuarioId);
+    const orden = await this.ordenRepo.findOne({
+      where: { id: ordenId },
+      relations: {
+        estado: true,
+        asignacion: { doctor: true, paciente: true },
+        detalles: { servicio: true },
+      },
+    });
+    if (!orden) throw new NotFoundException(`Orden ${ordenId} no encontrada`);
+    if (orden.asignacion?.doctor?.clinicaId !== clinicaId) {
+      throw new NotFoundException(`Orden ${ordenId} no encontrada`);
+    }
+    return orden;
   }
 }

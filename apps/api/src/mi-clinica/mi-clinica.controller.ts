@@ -16,6 +16,7 @@ import {
 import type { AuthenticatedRequest } from '../auth/auth-user.js';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { NoStoreInterceptor } from '../security/index.js';
+import { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
@@ -67,9 +68,36 @@ export class MiClinicaController {
     return this.miClinica.deactivateDoctor(req.user.id, id);
   }
 
+  @Get('pacientes')
+  listPacientesDelDoctor(
+    @Req() req: AuthenticatedRequest,
+    @Query('doctorId') doctorId: string,
+  ) {
+    return this.miClinica.listPacientesDelDoctor(req.user.id, doctorId);
+  }
+
+  @Get('servicios')
+  listServicios() {
+    return this.miClinica.listServicios();
+  }
+
   @Get('ordenes')
   listOrdenes(@Req() req: AuthenticatedRequest) {
     return this.miClinica.listOrdenes(req.user.id);
+  }
+
+  @Post('ordenes')
+  @HttpCode(HttpStatus.CREATED)
+  createOrden(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateOrdenDto,
+  ) {
+    return this.miClinica.createOrden(req.user.id, dto);
+  }
+
+  @Get('ordenes/:id')
+  getOrden(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    return this.miClinica.getOrden(req.user.id, id);
   }
 
   @Get('cuentas-cobro')

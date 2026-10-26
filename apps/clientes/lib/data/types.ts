@@ -9,6 +9,22 @@ export interface Doctor {
   activo: boolean;
 }
 
+// ─── Paciente ──────────────────────────────────────────────────────────────
+
+export interface Paciente {
+  id: string;
+  nombre: string;
+}
+
+// ─── Servicio ──────────────────────────────────────────────────────────────
+
+export interface Servicio {
+  id: string;
+  nombre: string;
+  precio: string;
+  activo: boolean;
+}
+
 // ─── Orden ─────────────────────────────────────────────────────────────────
 
 export interface EstadoOrden {
@@ -17,16 +33,31 @@ export interface EstadoOrden {
   color: string | null;
 }
 
+export interface DetalleOrden {
+  id: string;
+  servicioId: string;
+  servicio: Pick<Servicio, "id" | "nombre" | "precio">;
+  cantidad: number;
+  precioUnitario: string;
+  observaciones: string | null;
+}
+
 export interface Orden {
   id: string;
   doctorId: string;
-  doctor: Pick<Doctor, "id" | "nombres" | "apellidos"> | null;
+  pacienteId: string;
   estadoId: string;
   estado: EstadoOrden;
-  precio: string;
+  valor: string;
   urgente: boolean;
   fechaCreacion: string;
   fechaEntrega: string | null;
+  // Populated in detail view (getOrden)
+  asignacion: {
+    doctor: Pick<Doctor, "id" | "nombres" | "apellidos"> | null;
+    paciente: Paciente | null;
+  } | null;
+  detalles: DetalleOrden[];
 }
 
 // ─── Cuenta de cobro ───────────────────────────────────────────────────────
@@ -49,4 +80,13 @@ export interface CuentaCobro {
   pdfUrl: string | null;
   observaciones: string | null;
   creadaEn: string;
+}
+
+// ─── PacienteDoctor (from listPacientesDelDoctor) ──────────────────────────
+
+export interface PacienteDoctor {
+  pacienteId: string;
+  doctorId: string;
+  paciente: Paciente;
+  fechaAsignacion: string;
 }
