@@ -22,12 +22,19 @@ export async function crearOrden(
 ): Promise<CrearOrdenResult> {
   const doctorId = (formData.get("doctorId") as string | null)?.trim();
   const pacienteId = (formData.get("pacienteId") as string | null)?.trim();
+  const pacienteCedula = (formData.get("pacienteCedula") as string | null)?.trim();
+  const pacienteNombre = (formData.get("pacienteNombre") as string | null)?.trim();
   const detallesJson = (formData.get("detalles") as string | null)?.trim();
   const urgente = formData.get("urgente") === "on";
   const fechaEntrega = (formData.get("fechaEntrega") as string | null)?.trim() || undefined;
 
   if (!doctorId) return { ok: false, error: "Seleccioná un doctor." };
-  if (!pacienteId) return { ok: false, error: "Seleccioná un paciente." };
+  if (!pacienteId && !pacienteCedula) {
+    return { ok: false, error: "Ingresá la cédula del paciente." };
+  }
+  if (!pacienteId && !pacienteNombre) {
+    return { ok: false, error: "Ingresá el nombre del paciente." };
+  }
   if (!detallesJson) return { ok: false, error: "Agregá al menos un servicio." };
 
   let detalles: Array<{ servicioId: number; cantidad: number; observaciones?: string }>;
@@ -41,6 +48,10 @@ export async function crearOrden(
     return { ok: false, error: "Agregá al menos un servicio." };
   }
 
+  const pacientePayload = pacienteId
+    ? { pacienteId: Number(pacienteId) }
+    : { pacienteCedula, pacienteNombre };
+
   try {
     const res = await fetch(`${API_URL}/mi-clinica/ordenes`, {
       method: "POST",
@@ -50,7 +61,7 @@ export async function crearOrden(
       },
       body: JSON.stringify({
         doctorId,
-        pacienteId: Number(pacienteId),
+        ...pacientePayload,
         detalles,
         urgente,
         fechaEntrega: fechaEntrega || undefined,

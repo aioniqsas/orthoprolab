@@ -1,9 +1,10 @@
 "use client";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
-import type { Doctor, PacienteDoctor, Servicio } from "@/lib/data/types";
+import type { Doctor, Servicio } from "@/lib/data/types";
 import { crearOrden } from "./actions";
+import { PacienteCedulaField } from "./_components/paciente-cedula-field";
 
 const inputCls =
   "rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight w-full";
@@ -26,24 +27,9 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
   const [state, formAction, isPending] = useActionState(crearOrden, null);
 
   const [doctorId, setDoctorId] = useState("");
-  const [pacientes, setPacientes] = useState<PacienteDoctor[]>([]);
-  const [loadingPacientes, setLoadingPacientes] = useState(false);
   const [detalles, setDetalles] = useState<Detalle[]>([
     { servicioId: "", servicioNombre: "", cantidad: 1, observaciones: "" },
   ]);
-
-  useEffect(() => {
-    if (!doctorId) {
-      setPacientes([]);
-      return;
-    }
-    setLoadingPacientes(true);
-    fetch(`/api/pacientes?doctorId=${encodeURIComponent(doctorId)}`)
-      .then((r) => r.json())
-      .then((data: PacienteDoctor[]) => setPacientes(data))
-      .catch(() => setPacientes([]))
-      .finally(() => setLoadingPacientes(false));
-  }, [doctorId]);
 
   function addDetalle() {
     setDetalles((prev) => [
@@ -83,7 +69,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
       <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
         <h2 className="font-semibold text-title">Asignación</h2>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label htmlFor="doctorId" className="text-sm font-medium text-body">
               Doctor <span aria-hidden className="text-destructive">*</span>
@@ -105,33 +91,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
             </select>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="pacienteId" className="text-sm font-medium text-body">
-              Paciente <span aria-hidden className="text-destructive">*</span>
-            </label>
-            <select
-              id="pacienteId"
-              name="pacienteId"
-              required
-              disabled={!doctorId || loadingPacientes}
-              className={selectCls}
-            >
-              <option value="">
-                {loadingPacientes
-                  ? "Cargando…"
-                  : !doctorId
-                    ? "Primero seleccioná un doctor"
-                    : pacientes.length === 0
-                      ? "Sin pacientes asignados"
-                      : "Seleccioná un paciente"}
-              </option>
-              {pacientes.map((p) => (
-                <option key={p.pacienteId} value={p.pacienteId}>
-                  {p.paciente.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <PacienteCedulaField onFound={() => {}} onCleared={() => {}} />
         </div>
       </div>
 

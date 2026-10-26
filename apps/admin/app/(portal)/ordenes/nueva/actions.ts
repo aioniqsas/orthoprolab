@@ -28,9 +28,16 @@ export async function crearOrden(
 ): Promise<CrearOrdenResult> {
   const doctorId = (formData.get("doctorId") as string | null)?.trim();
   const pacienteId = (formData.get("pacienteId") as string | null)?.trim();
+  const pacienteCedula = (formData.get("pacienteCedula") as string | null)?.trim();
+  const pacienteNombre = (formData.get("pacienteNombre") as string | null)?.trim();
 
   if (!doctorId) return { ok: false, error: "Selecciona un doctor." };
-  if (!pacienteId) return { ok: false, error: "Selecciona un paciente." };
+  if (!pacienteId && !pacienteCedula) {
+    return { ok: false, error: "Ingresa la cédula del paciente." };
+  }
+  if (!pacienteId && !pacienteNombre) {
+    return { ok: false, error: "Ingresa el nombre del paciente." };
+  }
 
   // Collect dynamic line items.
   const detalles: { servicioId: number; cantidad: number; observaciones?: string }[] = [];
@@ -55,13 +62,22 @@ export async function crearOrden(
   const fechaEntrega = (formData.get("fechaEntrega") as string | null) || undefined;
   const urgente = formData.get("urgente") === "on";
 
-  const payload = {
-    doctorId,
-    pacienteId: Number(pacienteId),
-    detalles,
-    ...(fechaEntrega ? { fechaEntrega } : {}),
-    urgente,
-  };
+  const payload = pacienteId
+    ? {
+        doctorId,
+        pacienteId: Number(pacienteId),
+        detalles,
+        ...(fechaEntrega ? { fechaEntrega } : {}),
+        urgente,
+      }
+    : {
+        doctorId,
+        pacienteCedula,
+        pacienteNombre,
+        detalles,
+        ...(fechaEntrega ? { fechaEntrega } : {}),
+        urgente,
+      };
 
   try {
     const res = await fetch(`${API_URL}/ordenes`, {

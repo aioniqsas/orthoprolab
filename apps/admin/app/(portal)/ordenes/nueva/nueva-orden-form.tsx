@@ -2,9 +2,9 @@
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
-import { API_URL } from "@/lib/api";
-import type { DoctorOpcion, PacienteOpcion, Servicio } from "@/lib/data/types";
+import type { DoctorOpcion, Servicio } from "@/lib/data/types";
 import { crearOrden } from "./actions";
+import { PacienteCedulaField } from "./_components/paciente-cedula-field";
 
 interface Props {
   doctores: DoctorOpcion[];
@@ -20,29 +20,9 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
   const [state, formAction, isPending] = useActionState(crearOrden, null);
 
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
-  const [pacientes, setPacientes] = useState<PacienteOpcion[]>([]);
-  const [loadingPacientes, setLoadingPacientes] = useState(false);
   const [detalles, setDetalles] = useState<DetalleRow[]>([
     { servicioId: "", cantidad: 1 },
   ]);
-
-  async function handleDoctorChange(doctorId: string) {
-    setSelectedDoctorId(doctorId);
-    setPacientes([]);
-    if (!doctorId) return;
-    setLoadingPacientes(true);
-    try {
-      const res = await fetch(
-        `${API_URL}/ordenes/doctores/${doctorId}/pacientes`,
-      );
-      if (res.ok) {
-        const data = (await res.json()) as PacienteOpcion[];
-        setPacientes(data);
-      }
-    } finally {
-      setLoadingPacientes(false);
-    }
-  }
 
   function addDetalle() {
     setDetalles((prev) => [...prev, { servicioId: "", cantidad: 1 }]);
@@ -75,7 +55,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
             name="doctorId"
             required
             value={selectedDoctorId}
-            onChange={(e) => handleDoctorChange(e.target.value)}
+            onChange={(e) => setSelectedDoctorId(e.target.value)}
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
           >
             <option value="">Selecciona un doctor</option>
@@ -91,36 +71,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
       {/* Paciente */}
       <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
         <h2 className="font-semibold text-title">Paciente</h2>
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="pacienteId"
-            className="text-sm font-medium text-body"
-          >
-            Paciente <span className="text-destructive">*</span>
-          </label>
-          <select
-            id="pacienteId"
-            name="pacienteId"
-            required
-            disabled={!selectedDoctorId || loadingPacientes}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight disabled:opacity-50"
-          >
-            <option value="">
-              {loadingPacientes
-                ? "Cargando pacientes…"
-                : !selectedDoctorId
-                  ? "Primero selecciona un doctor"
-                  : pacientes.length === 0
-                    ? "Sin pacientes asignados"
-                    : "Selecciona un paciente"}
-            </option>
-            {pacientes.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
+        <PacienteCedulaField onFound={() => {}} onCleared={() => {}} />
       </div>
 
       {/* Servicios */}
