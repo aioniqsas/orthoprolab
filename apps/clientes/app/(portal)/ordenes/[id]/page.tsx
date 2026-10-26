@@ -78,6 +78,31 @@ export default async function OrdenPage({
         )}
       </div>
 
+      {/* Historial de estados */}
+      {orden.historial && orden.historial.length > 0 && (
+        <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">
+          <h2 id="historial" className="font-heading text-lg font-semibold">Historial de estados</h2>
+          <ol className="mt-4 flex flex-col gap-4 border-s border-border ps-4">
+            {orden.historial.map((h) => (
+              <li key={h.id} className="relative">
+                <span aria-hidden className="absolute top-1.5 -start-[1.3rem] size-2 rounded-full bg-primary" />
+                <p className="text-sm font-medium">
+                  {h.estadoAnterior
+                    ? `${h.estadoAnterior.nombre} → ${h.estadoNuevo.nombre}`
+                    : h.estadoNuevo.nombre}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(h.fechaCambio).toLocaleString("es-CO")}
+                </p>
+                {h.observaciones ? (
+                  <p className="mt-1 text-xs text-muted-foreground">{h.observaciones}</p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       {/* Detalles table */}
       {orden.detalles.length > 0 && (
         <div className="rounded-xl border border-border bg-card overflow-hidden">

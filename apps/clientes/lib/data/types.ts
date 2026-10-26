@@ -46,6 +46,14 @@ export interface DetalleOrden {
   observaciones: string | null;
 }
 
+export interface HistorialEstadoOrden {
+  id: string;
+  estadoAnterior: { id: string; nombre: string; color: string | null } | null;
+  estadoNuevo: { id: string; nombre: string; color: string | null };
+  fechaCambio: string;
+  observaciones?: string | null;
+}
+
 export interface Orden {
   id: string;
   doctorId: string;
@@ -62,6 +70,8 @@ export interface Orden {
     paciente: Paciente | null;
   } | null;
   detalles: DetalleOrden[];
+  // Populated in detail view (getOrden) — maps to entity relation `historial`
+  historial?: HistorialEstadoOrden[];
 }
 
 // ─── Cuenta de cobro ───────────────────────────────────────────────────────

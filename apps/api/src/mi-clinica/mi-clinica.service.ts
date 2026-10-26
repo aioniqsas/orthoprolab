@@ -180,14 +180,21 @@ export class MiClinicaService {
 
   async getOrden(usuarioId: string, ordenId: string): Promise<Orden> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    const orden = await this.ordenRepo.findOne({
-      where: { id: ordenId },
-      relations: {
-        estado: true,
-        asignacion: { doctor: true, paciente: true },
-        detalles: { servicio: true },
-      },
-    });
+    const orden = await this.ordenRepo
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.estado', 'estado')
+      .leftJoinAndSelect('o.asignacion', 'asig')
+      .leftJoinAndSelect('asig.doctor', 'doctor')
+      .leftJoinAndSelect('asig.paciente', 'paciente')
+      .leftJoinAndSelect('o.detalles', 'detalles')
+      .leftJoinAndSelect('detalles.servicio', 'servicio')
+      .leftJoinAndSelect('o.historial', 'historial')
+      .leftJoinAndSelect('historial.estadoAnterior', 'estadoAnterior')
+      .leftJoinAndSelect('historial.estadoNuevo', 'estadoNuevo')
+      .leftJoinAndSelect('historial.usuario', 'usuario')
+      .where('o.id = :ordenId', { ordenId })
+      .orderBy('historial.fechaCambio', 'DESC')
+      .getOne();
     if (!orden) throw new NotFoundException(`Orden ${ordenId} no encontrada`);
     if (orden.asignacion?.doctor?.clinicaId !== clinicaId) {
       throw new NotFoundException(`Orden ${ordenId} no encontrada`);

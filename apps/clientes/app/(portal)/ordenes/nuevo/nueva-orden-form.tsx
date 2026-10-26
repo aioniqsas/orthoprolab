@@ -23,6 +23,17 @@ interface Props {
   servicios: Servicio[];
 }
 
+function StepHeader({ number, title }: { number: number; title: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-white shrink-0">
+        {number}
+      </span>
+      <h2 className="font-heading font-semibold text-title">{title}</h2>
+    </div>
+  );
+}
+
 export function NuevaOrdenForm({ doctores, servicios }: Props) {
   const [state, formAction, isPending] = useActionState(crearOrden, null);
 
@@ -63,11 +74,28 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
       ...(d.observaciones ? { observaciones: d.observaciones } : {}),
     }));
 
+  const total = detalles.reduce((acc, d) => {
+    const srv = servicios.find((s) => s.id === d.servicioId);
+    return acc + (srv ? Number(srv.precio) * d.cantidad : 0);
+  }, 0);
+
+  const totalFmt =
+    total > 0
+      ? total.toLocaleString("es-CO", {
+          style: "currency",
+          currency: "COP",
+          minimumFractionDigits: 0,
+        })
+      : null;
+
+  const hasEmptyDetalles =
+    detalles.length === 1 && detalles[0]!.servicioId === "";
+
   return (
     <form action={formAction} className="flex flex-col gap-6">
-      {/* Doctor + Paciente */}
-      <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
-        <h2 className="font-semibold text-title">Asignación</h2>
+      {/* ── Step 1: Asignación ── */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <StepHeader number={1} title="Asignación" />
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
@@ -91,76 +119,132 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
             </select>
           </div>
 
-          <PacienteCedulaField onFound={() => {}} onCleared={() => {}} />
+          <div>
+            <PacienteCedulaField onFound={() => {}} onCleared={() => {}} />
+          </div>
         </div>
       </div>
 
-      {/* Servicios */}
-      <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-title">Servicios</h2>
+      {/* ── Step 2: Servicios ── */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-white shrink-0">
+              2
+            </span>
+            <h2 className="font-heading font-semibold text-title">Servicios</h2>
+          </div>
           <Button type="button" variant="outline" size="sm" onClick={addDetalle}>
-            <Plus className="size-4 mr-1" aria-hidden /> Agregar
+            <Plus className="size-4 mr-1" aria-hidden /> Agregar servicio
           </Button>
         </div>
 
-        {detalles.map((d, i) => (
-          <div key={i} className="grid gap-3 sm:grid-cols-[1fr_80px_auto] items-end border-t border-border pt-4 first:border-0 first:pt-0">
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-body">
-                Servicio <span aria-hidden className="text-destructive">*</span>
-              </label>
-              <select
-                value={d.servicioId}
-                onChange={(e) => updateDetalle(i, "servicioId", e.target.value)}
-                className={selectCls}
-                required
-              >
-                <option value="">Seleccioná un servicio</option>
-                {servicios.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                placeholder="Observaciones (opcional)"
-                value={d.observaciones}
-                onChange={(e) => updateDetalle(i, "observaciones", e.target.value)}
-                className={inputCls + " mt-1"}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-body">Cantidad</label>
-              <input
-                type="number"
-                min={1}
-                max={99}
-                value={d.cantidad}
-                onChange={(e) => updateDetalle(i, "cantidad", Number(e.target.value))}
-                className={inputCls}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => removeDetalle(i)}
-              disabled={detalles.length === 1}
-              className="mb-0.5 self-end p-2 text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
-              aria-label="Quitar línea"
-            >
-              <Trash2 className="size-4" aria-hidden />
-            </button>
+        {hasEmptyDetalles ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+            <Plus className="size-8 opacity-30" aria-hidden />
+            <p className="text-sm">Aún no hay servicios. Usá "Agregar servicio" para empezar.</p>
           </div>
-        ))}
+        ) : (
+          <div className="flex flex-col gap-0">
+            {detalles.map((d, i) => {
+              const srvInfo = servicios.find((s) => s.id === d.servicioId);
+              return (
+                <div
+                  key={i}
+                  className="grid gap-3 sm:grid-cols-[1fr_auto_auto] items-start border-t border-border pt-4 first:border-0 first:pt-0 mt-4 first:mt-0"
+                >
+                  {/* Service selector + observaciones */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-body">
+                        Servicio <span aria-hidden className="text-destructive">*</span>
+                      </label>
+                      <select
+                        value={d.servicioId}
+                        onChange={(e) => updateDetalle(i, "servicioId", e.target.value)}
+                        className={selectCls}
+                        required
+                      >
+                        <option value="">Seleccioná un servicio</option>
+                        {servicios.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.nombre}
+                            {Number(s.precio) > 0
+                              ? ` — ${Number(s.precio).toLocaleString("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 })}`
+                              : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {srvInfo && Number(srvInfo.precio) > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Precio unitario:{" "}
+                          {Number(srvInfo.precio).toLocaleString("es-CO", {
+                            style: "currency",
+                            currency: "COP",
+                            minimumFractionDigits: 0,
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <textarea
+                      placeholder="Observaciones (opcional)"
+                      value={d.observaciones}
+                      onChange={(e) => updateDetalle(i, "observaciones", e.target.value)}
+                      rows={2}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight w-full resize-none"
+                    />
+                  </div>
+
+                  {/* Quantity +/- */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-body">Cantidad</label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => updateDetalle(i, "cantidad", Math.max(1, d.cantidad - 1))}
+                        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background text-sm font-bold hover:bg-muted transition-colors"
+                        aria-label="Reducir cantidad"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm font-medium">{d.cantidad}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateDetalle(i, "cantidad", Math.min(99, d.cantidad + 1))}
+                        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background text-sm font-bold hover:bg-muted transition-colors"
+                        aria-label="Aumentar cantidad"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Remove */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-transparent select-none" aria-hidden>.</span>
+                    <button
+                      type="button"
+                      onClick={() => removeDetalle(i)}
+                      disabled={detalles.length === 1}
+                      className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-30 transition-colors"
+                      aria-label="Quitar línea"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Hidden field carries the serialised detalles */}
         <input type="hidden" name="detalles" value={JSON.stringify(detallesPayload)} />
       </div>
 
-      {/* Opciones */}
-      <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
-        <h2 className="font-semibold text-title">Opciones</h2>
+      {/* ── Step 3: Opciones ── */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <StepHeader number={3} title="Opciones" />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label htmlFor="fechaEntrega" className="text-sm font-medium text-body">
@@ -191,8 +275,14 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
         <p role="alert" className="text-sm text-destructive">{state.error}</p>
       ) : null}
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
+        {totalFmt && (
+          <p className="text-sm text-muted-foreground sm:mr-auto">
+            Total estimado:{" "}
+            <span className="font-semibold text-foreground">{totalFmt}</span>
+          </p>
+        )}
+        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
           {isPending ? <Loader2 className="size-4 animate-spin mr-1" aria-hidden /> : null}
           Crear orden
         </Button>
