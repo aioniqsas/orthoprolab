@@ -80,10 +80,7 @@ async function UsuarioDetail({ params }: { params: Promise<{ id: string }> }) {
             <span className="font-mono">{usuario.cedulaEnmascarada}</span>
           </Field>
         </dl>
-        <p className="mt-4 text-xs text-muted-foreground">
-          La cédula es un dato sensible: el portal nunca muestra el número completo. Las contraseñas
-          no se almacenan ni se muestran.
-        </p>
+
       </section>
       {usuario.rol === "clinica" ? (
         <section aria-labelledby="clinica" className="rounded-xl border border-border bg-card p-5">
