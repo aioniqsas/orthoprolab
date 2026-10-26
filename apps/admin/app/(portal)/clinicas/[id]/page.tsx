@@ -3,13 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { buttonVariants } from "@repo/ui/components/button";
 import { isAdmin } from "@/lib/auth-guard";
 import { fullName } from "@/lib/data/helpers";
 import { getClinica } from "@/lib/data/repository";
-import { CLINICAS_REASON, DisabledAction } from "../../../_components/disabled-action";
 import { ListSkeleton } from "../../../_components/list-skeleton";
 import { PageHeader } from "../../../_components/page-header";
-import { SampleNotice } from "../../../_components/sample-notice";
+import { ClinicaAcciones } from "./clinica-acciones";
 
 export const metadata: Metadata = { title: "Detalle de clínica" };
 
@@ -43,16 +43,13 @@ async function ClinicaDetail({ params }: { params: Promise<{ id: string }> }) {
         description={clinica.direccion ?? "Sin dirección registrada"}
         actions={
           <>
-            <DisabledAction id="editar-clinica-reason" reason={CLINICAS_REASON}>
+            <Link href={`/clinicas/${clinica.id}/editar`} className={buttonVariants({ variant: "outline" })}>
               Editar
-            </DisabledAction>
-            <DisabledAction id="eliminar-clinica-reason" variant="destructive" reason={CLINICAS_REASON}>
-              Eliminar
-            </DisabledAction>
+            </Link>
+            <ClinicaAcciones id={String(clinica.id)} />
           </>
         }
       />
-      <SampleNotice section="clínicas" />
       <section aria-labelledby="doctores" className="rounded-xl border border-border bg-card p-5">
         <h2 id="doctores" className="font-heading text-lg font-semibold">
           Doctores ({clinica.doctores.length})
