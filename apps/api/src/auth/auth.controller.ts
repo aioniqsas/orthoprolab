@@ -20,7 +20,6 @@ import { AuthService, type UsuarioPublico } from './auth.service.js';
 import { AuthCookies } from './cookies.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
 import { ResetPasswordTokenDto } from './dto/reset-password-token.dto.js';
 import { Public } from './public.decorator.js';
 
@@ -38,14 +37,6 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly cookies: AuthCookies,
   ) {}
-
-  @Public()
-  @StrictThrottle('register')
-  @Post('register')
-  async register(@Body() dto: RegisterDto): Promise<{ message: string }> {
-    await this.auth.register(dto);
-    return { message: 'Registro completado.' };
-  }
 
   @Public()
   @StrictThrottle('login')

@@ -3,18 +3,24 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { Roles, RolesGuard } from '../auth/index.js';
 import { DoctoresService } from './doctores.service.js';
 import { CreateDoctorDto } from './dto/create-doctor.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
 import type { Doctor } from '../usuarios/doctor.entity.js';
 
 @Controller('doctores')
+@UseGuards(RolesGuard)
+@Roles('administrador')
 export class DoctoresController {
   constructor(private readonly doctoresService: DoctoresService) {}
 
@@ -41,6 +47,7 @@ export class DoctoresController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.OK)
   deactivate(@Param('id') id: string): Promise<Doctor> {
     return this.doctoresService.deactivate(id);
   }

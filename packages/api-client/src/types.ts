@@ -1,4 +1,4 @@
-export type Rol = "administrador" | "odontologo" | "asistente";
+export type Rol = "administrador" | "clinica" | "odontologo" | "asistente";
 
 export interface Usuario {
   id: string;
