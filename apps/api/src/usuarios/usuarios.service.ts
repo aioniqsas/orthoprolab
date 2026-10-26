@@ -37,6 +37,13 @@ export interface UsuarioPublico {
   fechaCreacion: Date;
   rol: { id: string; nombre: string };
   clinica: { id: string; nombre: string } | null;
+  cedulaEnmascarada: string;
+}
+
+function maskCedula(cedula: string): string {
+  const digits = cedula.replace(/\D/g, '');
+  if (digits.length <= 3) return '*'.repeat(digits.length);
+  return '*'.repeat(digits.length - 3) + digits.slice(-3);
 }
 
 @Injectable()
@@ -96,6 +103,7 @@ export class UsuariosService {
         'u.nombres',
         'u.apellidos',
         'u.correo',
+        'u.cedula',
         'u.activo',
         'u.fechaCreacion',
         'rol.id',
@@ -119,6 +127,7 @@ export class UsuariosService {
       clinica: usuario.clinica
         ? { id: usuario.clinica.id, nombre: usuario.clinica.nombre }
         : null,
+      cedulaEnmascarada: maskCedula(usuario.cedula ?? ''),
     };
   }
 
