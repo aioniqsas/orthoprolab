@@ -54,15 +54,6 @@ export class ClinicaAuthRefactor1792629000000 implements MigrationInterface {
       WHERE u.nombres = dn.nombres AND u.apellidos = dn.apellidos
     `);
 
-    // ── 5. Drop asistente_doctor (references old doctor.usuario_id) ───────────
-    await queryRunner.query(
-      `ALTER TABLE asistente_doctor DROP CONSTRAINT "FK_7b1e01087f0656b52d643724cb3"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE asistente_doctor DROP CONSTRAINT "FK_5e0007640800085fc82dac3ad2a"`,
-    );
-    await queryRunner.query(`DROP TABLE asistente_doctor`);
-
     // ── 6. Migrate paciente_doctor.doctor_id: uuid → bigint ───────────────────
     // Drop composite FK on orden first (it references paciente_doctor.doctor_id)
     await queryRunner.query(
