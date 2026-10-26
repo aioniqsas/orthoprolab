@@ -88,7 +88,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
       : null;
 
   return (
-    <form action={formAction} className="flex flex-col gap-0 max-w-3xl">
+    <form action={formAction} className="flex flex-col gap-0">
 
       {/* ── Block 1: Asignación ── */}
       <div className="rounded-t-2xl border border-border bg-card px-6 pt-6 pb-7">

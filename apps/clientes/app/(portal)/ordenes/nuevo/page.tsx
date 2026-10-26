@@ -13,7 +13,7 @@ export default async function NuevaOrdenPage() {
   ]);
 
   return (
-    <section className="flex flex-col gap-6 max-w-2xl">
+    <section className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <Link
           href="/ordenes"
