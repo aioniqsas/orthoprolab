@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -15,49 +15,59 @@ export function PacienteCedulaField({ onFound, onCleared }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [foundId, setFoundId] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevStatusRef = useRef<Status>("idle");
 
-  const lookup = useCallback(
-    (value: string) => {
-      if (!value.trim()) {
+  // Keep callbacks in refs so they never become stale dependencies
+  const onFoundRef = useRef(onFound);
+  const onClearedRef = useRef(onCleared);
+  onFoundRef.current = onFound;
+  onClearedRef.current = onCleared;
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(() => {
+      if (!cedula.trim()) {
         setStatus("idle");
         setNombre("");
         setFoundId("");
-        onCleared();
+        prevStatusRef.current = "idle";
+        onClearedRef.current();
         return;
       }
+
       setStatus("searching");
-      fetch(`/api/pacientes/buscar?cedula=${encodeURIComponent(value.trim())}`)
+      fetch(`/api/pacientes/buscar?cedula=${encodeURIComponent(cedula.trim())}`)
         .then(async (res) => {
           if (res.ok) {
             const data = (await res.json()) as { id: string; nombre: string };
             setFoundId(data.id);
             setNombre(data.nombre);
             setStatus("found");
-            onFound(data);
+            prevStatusRef.current = "found";
+            onFoundRef.current(data);
           } else {
             setFoundId("");
-            setNombre("");
+            // Only clear the name if we previously had a found patient autofilled
+            if (prevStatusRef.current === "found") setNombre("");
             setStatus("new");
-            onCleared();
+            prevStatusRef.current = "new";
+            onClearedRef.current();
           }
         })
         .catch(() => {
           setFoundId("");
-          setNombre("");
+          if (prevStatusRef.current === "found") setNombre("");
           setStatus("new");
-          onCleared();
+          prevStatusRef.current = "new";
+          onClearedRef.current();
         });
-    },
-    [onFound, onCleared],
-  );
+    }, 400);
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => lookup(cedula), 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [cedula, lookup]);
+  }, [cedula]); // cedula is the only real dependency
 
   const inputCls =
     "rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight w-full";
