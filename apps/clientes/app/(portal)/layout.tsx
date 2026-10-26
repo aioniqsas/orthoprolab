@@ -1,9 +1,25 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { AccessNotice } from "@repo/ui/auth/access-notice";
 import { getAccess, getRequestPath } from "@/lib/session";
+import { API_URL } from "@/lib/api";
 import { ClientesShell } from "../_components/clientes-shell";
 import { Logout } from "./logout";
+
+async function hasClinicaAsignada(): Promise<boolean> {
+  const token = (await cookies()).get("auth_token")?.value;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_URL}/mi-clinica/doctores`, {
+      headers: { Cookie: `auth_token=${token}` },
+      cache: "no-store",
+    });
+    return res.status !== 403;
+  } catch {
+    return true; // assume ok on network error; individual pages will handle it
+  }
+}
 
 async function Gate({ children }: { children: React.ReactNode }) {
   const access = await getAccess();
@@ -32,6 +48,18 @@ async function Gate({ children }: { children: React.ReactNode }) {
       <AccessNotice
         title="Usa el portal de administración"
         description="Esta cuenta es de administrador y no puede usar el portal de clientes."
+      >
+        <Logout />
+      </AccessNotice>
+    );
+  }
+
+  const clinicaOk = await hasClinicaAsignada();
+  if (!clinicaOk) {
+    return (
+      <AccessNotice
+        title="Tu cuenta no tiene una clínica asignada"
+        description="Contactá al administrador para que asigne tu cuenta a una clínica antes de continuar."
       >
         <Logout />
       </AccessNotice>
