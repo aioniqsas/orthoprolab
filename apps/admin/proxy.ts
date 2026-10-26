@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { safeRedirectPath } from "@repo/api-client/redirect";
 
 // Only a UX gate: the authoritative check is the server-side `/auth/me` call.
-const PUBLIC_PATHS = new Set(["/login"]);
+const PUBLIC_PATHS = new Set(["/login", "/restablecer-password"]);
 const PATH_HEADER = "x-portal-path";
 
 export function proxy(request: NextRequest) {
