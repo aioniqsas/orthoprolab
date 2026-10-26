@@ -76,7 +76,9 @@ async function UsuarioDetail({ params }: { params: Promise<{ id: string }> }) {
           <Field label="Estado">
             <ActivoBadge activo={usuario.activo} />
           </Field>
-
+          <Field label="Cédula">
+            <span className="font-mono">{usuario.cedulaEnmascarada}</span>
+          </Field>
         </dl>
 
       </section>
