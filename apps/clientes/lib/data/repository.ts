@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { API_URL } from "@/lib/api";
-import type { CuentaCobro, Doctor, Orden, PacienteDoctor, Servicio } from "./types";
+import type { CuentaCobro, Doctor, Orden, PacienteConCedula, PacienteDoctor, Servicio } from "./types";
 
 async function authHeader(): Promise<HeadersInit> {
   const token = (await cookies()).get("auth_token")?.value;
@@ -94,6 +94,51 @@ export async function listServicios(): Promise<Servicio[]> {
     return res.json() as Promise<Servicio[]>;
   } catch {
     return [];
+  }
+}
+
+// ─── Pacientes (all in clinic) ──────────────────────────────────────────────
+
+export async function listPacientes(): Promise<PacienteConCedula[]> {
+  try {
+    const res = await fetch(`${API_URL}/mi-clinica/pacientes`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json() as Promise<PacienteConCedula[]>;
+  } catch {
+    return [];
+  }
+}
+
+export async function getPaciente(id: string): Promise<PacienteConCedula | null> {
+  const all = await listPacientes();
+  return all.find((p) => p.id === id) ?? null;
+}
+
+export async function actualizarPaciente(
+  id: string,
+  nombre: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const token = (await cookies()).get("auth_token")?.value;
+    const res = await fetch(`${API_URL}/mi-clinica/pacientes/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Cookie: `auth_token=${token}` } : {}),
+      },
+      body: JSON.stringify({ nombre }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const msg = (body as { message?: string | string[] }).message;
+      return { ok: false, error: Array.isArray(msg) ? msg.join(", ") : (msg ?? "Error al actualizar") };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "No se pudo conectar con el servidor" };
   }
 }
 

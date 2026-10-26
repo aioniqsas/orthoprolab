@@ -1,4 +1,4 @@
-import { ClipboardList, Home, Stethoscope, ReceiptText } from "lucide-react";
+import { ClipboardList, Home, Stethoscope, ReceiptText, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -13,6 +13,7 @@ export type NavEntry = NavItem;
 export const NAV_ENTRIES: readonly NavEntry[] = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/doctores", label: "Mis doctores", icon: Stethoscope },
+  { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/ordenes", label: "Órdenes", icon: ClipboardList },
   { href: "/cuentas-cobro", label: "Cuentas de cobro", icon: ReceiptText },
 ];

@@ -16,6 +16,10 @@ export interface Paciente {
   nombre: string;
 }
 
+export interface PacienteConCedula extends Paciente {
+  cedula: string | null;
+}
+
 // ─── Servicio ──────────────────────────────────────────────────────────────
 
 export interface Servicio {
