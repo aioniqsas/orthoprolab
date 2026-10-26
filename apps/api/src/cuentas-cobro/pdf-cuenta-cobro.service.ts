@@ -108,14 +108,15 @@ export class PdfCuentaCobroService {
 
       // ── Orders table ──────────────────────────────────────────────────────────
       const tableY = infoY + lh * 5 + 18;
-      // Column widths: #, Orden, Paciente, Servicios (wide), Total
-      const patientColW = Math.round(W * 0.26);
+      // Column widths: #, Orden, Paciente, Doctor, Servicios (wide), Total
+      const patientColW = Math.round(W * 0.18);
+      const doctorColW = Math.round(W * 0.18);
       const totalColW = 70;
       const numColW = 22;
-      const ordenColW = 52;
-      const svcColW = W - numColW - ordenColW - patientColW - totalColW;
-      const cw = [numColW, ordenColW, patientColW, svcColW, totalColW] as const;
-      const hdrs = ['#', 'Orden', 'Paciente', 'Servicios', 'Total'] as const;
+      const ordenColW = 44;
+      const svcColW = W - numColW - ordenColW - patientColW - doctorColW - totalColW;
+      const cw = [numColW, ordenColW, patientColW, doctorColW, svcColW, totalColW] as const;
+      const hdrs = ['#', 'Orden', 'Paciente', 'Doctor', 'Servicios', 'Total'] as const;
 
       // Header row (gray background)
       doc.rect(M, tableY, W, 18).fill('#e0e0e0');
@@ -158,34 +159,30 @@ export class PdfCuentaCobroService {
         xo += cw[0];
         doc.text(String(ord?.id ?? ''), xo + 4, vY, { width: cw[1] - 8, lineBreak: false });
         xo += cw[1];
-        // Patient cell: name on first line, doctor name smaller below
+        // Paciente
         doc.text(patient, xo + 4, vY, { width: cw[2] - 8, lineBreak: false, ellipsis: true });
-        if (doctorLabel) {
-          doc
-            .font('Helvetica')
-            .fontSize(8)
-            .fillColor('#666666')
-            .text(doctorLabel, xo + 4, vY + 10, { width: cw[2] - 8, lineBreak: false, ellipsis: true });
-          doc.font('Helvetica').fontSize(9).fillColor('#333333');
-        }
         xo += cw[2];
+
+        // Doctor
+        doc.text(doctorLabel || '—', xo + 4, vY, { width: cw[3] - 8, lineBreak: false, ellipsis: true });
+        xo += cw[3];
 
         // Servicios: stacked lines
         const svcX = xo;
         if (svcItems.length === 0) {
-          doc.text('—', svcX + 4, rowY + ROW_PAD, { width: cw[3] - 8, lineBreak: false });
+          doc.text('—', svcX + 4, rowY + ROW_PAD, { width: cw[4] - 8, lineBreak: false });
         } else {
           svcItems.forEach((line, li) => {
             doc.text(line, svcX + 4, rowY + ROW_PAD + li * SVC_LINE_H, {
-              width: cw[3] - 8,
+              width: cw[4] - 8,
               lineBreak: false,
               ellipsis: true,
             });
           });
         }
-        xo += cw[3];
+        xo += cw[4];
 
-        doc.text(valor, xo + 4, vY, { width: cw[4] - 8, align: 'right', lineBreak: false });
+        doc.text(valor, xo + 4, vY, { width: cw[5] - 8, align: 'right', lineBreak: false });
 
         rowY += rowH;
       });
