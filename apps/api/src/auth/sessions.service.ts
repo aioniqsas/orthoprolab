@@ -133,6 +133,16 @@ export class SessionsService {
   }
 
   /** Revokes the whole family of a refresh token (logout). No-op if unknown. */
+  /** Revokes all active sessions for a given user (e.g. after password reset). */
+  async revokeAllForUser(usuarioId: string): Promise<void> {
+    await this.dataSource.manager
+      .createQueryBuilder()
+      .update(SesionRefresco)
+      .set({ revocadaEn: new Date() })
+      .where('usuarioId = :usuarioId AND revocadaEn IS NULL', { usuarioId })
+      .execute();
+  }
+
   async revokeByToken(rawToken: string): Promise<void> {
     const row = await this.dataSource.manager.findOne(SesionRefresco, {
       where: { tokenHash: hashRefreshToken(rawToken) },

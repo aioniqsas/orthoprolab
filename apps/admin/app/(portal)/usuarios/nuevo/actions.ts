@@ -23,7 +23,6 @@ export async function crearUsuario(
   const apellidos = (formData.get("apellidos") as string | null)?.trim();
   const correo = (formData.get("correo") as string | null)?.trim();
   const cedula = (formData.get("cedula") as string | null)?.trim();
-  const password = (formData.get("password") as string | null) ?? "";
   const rol = (formData.get("rol") as string | null)?.trim();
   const clinicaIdRaw = (formData.get("clinicaId") as string | null)?.trim();
   const clinicaId = clinicaIdRaw ? parseInt(clinicaIdRaw, 10) : undefined;
@@ -35,15 +34,12 @@ export async function crearUsuario(
   if (!/^\d{5,12}$/.test(cedula)) {
     return { ok: false, error: "La cédula debe contener solo dígitos (5–12 caracteres)." };
   }
-  if (!password || password.length < 12) {
-    return { ok: false, error: "La contraseña debe tener al menos 12 caracteres." };
-  }
   if (!rol) return { ok: false, error: "Selecciona un rol." };
   if (!["administrador", "clinica"].includes(rol)) {
     return { ok: false, error: "Rol no válido." };
   }
 
-  const payload: Record<string, unknown> = { nombres, apellidos, correo, cedula, password, rol };
+  const payload: Record<string, unknown> = { nombres, apellidos, correo, cedula, rol };
   if (clinicaId) payload.clinicaId = clinicaId;
 
   try {

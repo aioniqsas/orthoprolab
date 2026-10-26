@@ -15,6 +15,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { AuthCookies } from './cookies.js';
+import { MailerAuthService } from './mailer-auth.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { JwtStrategy } from './jwt.strategy.js';
 import { LoginAttemptsService } from './login-attempts.service.js';
@@ -63,6 +64,7 @@ class LoginRedisCloser implements OnApplicationShutdown {
   controllers: [AuthController],
   providers: [
     AuthService,
+    MailerAuthService,
     SessionsService,
     JwtStrategy,
     LoginRedisCloser,

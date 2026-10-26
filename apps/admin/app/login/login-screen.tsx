@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PortalLogin } from "@repo/ui/auth/portal-login";
 import { api } from "@/lib/api";
@@ -22,6 +23,14 @@ export function LoginScreen() {
         description: "Acceso exclusivo para administradores del laboratorio.",
       }}
       description="Ingresa con tu cuenta de administrador."
+      footer={
+        <Link
+          href="/restablecer-password"
+          className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline transition-colors"
+        >
+          ¿Olvidaste tu contraseña?
+        </Link>
+      }
     />
   );
 }

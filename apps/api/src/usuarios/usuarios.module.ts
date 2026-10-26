@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailerAuthService } from '../auth/mailer-auth.service.js';
 import { Clinica } from './clinica.entity.js';
 import { Doctor } from './doctor.entity.js';
 import { Rol } from './rol.entity.js';
@@ -11,7 +12,7 @@ import { UsuariosService } from './usuarios.service.js';
   imports: [
     TypeOrmModule.forFeature([Rol, Usuario, Clinica, Doctor]),
   ],
-  providers: [UsuariosService],
-  exports: [TypeOrmModule, UsuariosService],
+  providers: [UsuariosService, MailerAuthService],
+  exports: [TypeOrmModule, UsuariosService, MailerAuthService],
 })
 export class UsuariosModule {}

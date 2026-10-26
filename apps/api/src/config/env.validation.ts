@@ -497,6 +497,12 @@ const envSchema = z
     SMTP_USER: z.preprocess(fromEnv, z.string().optional()),
     SMTP_PASS: z.preprocess(fromEnv, z.string().optional()),
     SMTP_FROM: z.preprocess(fromEnv, z.string().optional()),
+
+    // ── Frontend URL (for password reset links) ───────────────────────────────
+    ADMIN_URL: z.preprocess(
+      fromEnv,
+      z.string().optional().transform(v => v ?? 'http://localhost:3002'),
+    ),
   })
   .superRefine((data, ctx) => {
     // 1. Cloudinary credentials must be all-or-nothing.

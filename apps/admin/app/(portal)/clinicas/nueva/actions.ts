@@ -21,10 +21,27 @@ export async function crearClinica(
 ): Promise<CrearClinicaResult> {
   const nombre = (formData.get("nombre") as string | null)?.trim();
   const direccion = (formData.get("direccion") as string | null)?.trim() || undefined;
+  const correo = (formData.get("correo") as string | null)?.trim();
+  const adminNombres = (formData.get("adminNombres") as string | null)?.trim();
+  const adminApellidos = (formData.get("adminApellidos") as string | null)?.trim();
+  const adminCedula = (formData.get("adminCedula") as string | null)?.trim();
 
   if (!nombre) return { ok: false, error: "El nombre de la clínica es obligatorio." };
+  if (!correo) return { ok: false, error: "El correo electrónico es obligatorio." };
+  if (!adminNombres) return { ok: false, error: "Los nombres del administrador son obligatorios." };
+  if (!adminApellidos) return { ok: false, error: "Los apellidos del administrador son obligatorios." };
+  if (!adminCedula) return { ok: false, error: "La cédula del administrador es obligatoria." };
+  if (!/^\d{5,12}$/.test(adminCedula)) {
+    return { ok: false, error: "La cédula debe contener solo dígitos (5–12 caracteres)." };
+  }
 
-  const payload: Record<string, unknown> = { nombre };
+  const payload: Record<string, unknown> = {
+    nombre,
+    correo,
+    adminNombres,
+    adminApellidos,
+    adminCedula,
+  };
   if (direccion) payload.direccion = direccion;
 
   try {

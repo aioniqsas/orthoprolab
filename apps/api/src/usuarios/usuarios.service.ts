@@ -1,19 +1,32 @@
+import { randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { cedulaHash } from '../crypto/cedula.js';
 import { PasswordService } from '../crypto/password.service.js';
+import { MailerAuthService } from '../auth/mailer-auth.service.js';
 import { Clinica } from './clinica.entity.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 import { Rol } from './rol.entity.js';
 import { Usuario } from './usuario.entity.js';
+
+const PASSWORD_CHARS =
+  'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+
+function generatePassword(): string {
+  const bytes = randomBytes(12);
+  return Array.from(bytes)
+    .map((b) => PASSWORD_CHARS[b % PASSWORD_CHARS.length])
+    .join('');
+}
 
 export interface UsuarioPublico {
   id: string;
@@ -28,6 +41,8 @@ export interface UsuarioPublico {
 
 @Injectable()
 export class UsuariosService {
+  private readonly logger = new Logger(UsuariosService.name);
+
   constructor(
     private readonly dataSource: DataSource,
     @InjectRepository(Usuario)
@@ -35,6 +50,7 @@ export class UsuariosService {
     @InjectRepository(Rol)
     private readonly rolRepo: Repository<Rol>,
     private readonly passwordService: PasswordService,
+    private readonly mailerAuth: MailerAuthService,
   ) {}
 
   async findAll(): Promise<UsuarioPublico[]> {
@@ -112,7 +128,8 @@ export class UsuariosService {
       throw new BadRequestException(`Rol '${dto.rol}' no encontrado`);
     }
 
-    const passwordHash = await this.passwordService.hash(dto.password);
+    const rawPassword = generatePassword();
+    const passwordHash = await this.passwordService.hash(rawPassword);
     const hash = cedulaHash(dto.cedula);
 
     const exists = await this.usuarioRepo
@@ -127,7 +144,7 @@ export class UsuariosService {
       throw new ConflictException('El correo o la cédula ya está en uso');
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const clinicaId =
         dto.rol === 'clinica' && dto.clinicaId !== undefined
           ? String(dto.clinicaId)
@@ -163,6 +180,20 @@ export class UsuariosService {
         clinica,
       };
     });
+
+    const { sent, error } = await this.mailerAuth.sendWelcome(
+      dto.correo,
+      `${dto.nombres} ${dto.apellidos}`,
+      dto.correo,
+      rawPassword,
+    );
+    if (!sent) {
+      this.logger.warn(
+        `Welcome email not sent for user ${result.id}: ${error ?? 'unknown'}`,
+      );
+    }
+
+    return result;
   }
 
   async update(id: string, dto: UpdateUsuarioDto): Promise<UsuarioPublico> {

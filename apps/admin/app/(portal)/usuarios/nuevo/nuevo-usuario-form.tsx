@@ -82,20 +82,9 @@ export function NuevoUsuarioForm({ clinicas }: Props) {
           <p className="text-xs text-muted-foreground">Solo dígitos, 5 a 12 caracteres.</p>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="password" className="text-sm font-medium text-body">
-            Contraseña <span className="text-destructive">*</span>
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            minLength={12}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-          />
-          <p className="text-xs text-muted-foreground">Mínimo 12 caracteres.</p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          Se generará una contraseña automáticamente y se enviará al correo del usuario.
+        </p>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">

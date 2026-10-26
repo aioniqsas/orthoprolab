@@ -1,12 +1,16 @@
+import { createHash, randomBytes } from 'node:crypto';
 import {
+  BadRequestException,
   Injectable,
   Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import type { EnvConfig } from '../config/env.validation.js';
 import { CryptoService } from '../crypto/crypto.service.js';
 import { cedulaHash } from '../crypto/cedula.js';
 import { PasswordService } from '../crypto/password.service.js';
@@ -19,6 +23,7 @@ import {
 import type { LoginDto } from './dto/login.dto.js';
 import type { RegisterDto } from './dto/register.dto.js';
 import { LoginAttemptsService } from './login-attempts.service.js';
+import { MailerAuthService } from './mailer-auth.service.js';
 import { SessionsService } from './sessions.service.js';
 
 export interface UsuarioPublico {
@@ -61,6 +66,8 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly sessions: SessionsService,
     private readonly attempts: LoginAttemptsService,
+    private readonly mailerAuth: MailerAuthService,
+    private readonly config: ConfigService<EnvConfig, true>,
   ) {}
 
   /**
@@ -170,6 +177,73 @@ export class AuthService {
       rol: session.rol,
       sid: session.familiaId,
     });
+  }
+
+  /**
+   * Generates a password reset token, stores its SHA-256 hash, and emails the
+   * link. Always returns { ok: true } to prevent user enumeration.
+   */
+  async forgotPassword(correo: string): Promise<{ ok: true }> {
+    const user = await this.usuarios
+      .createQueryBuilder('u')
+      .where('lower(u.correo) = :correo', { correo: correo.toLowerCase() })
+      .getOne();
+
+    if (user && user.activo) {
+      const rawToken = randomBytes(32).toString('hex');
+      const tokenHash = createHash('sha256')
+        .update(rawToken)
+        .digest('hex');
+
+      user.resetTokenHash = tokenHash;
+      user.resetTokenExpires = new Date(Date.now() + 3_600_000);
+      await this.usuarios.save(user);
+
+      const adminUrl = this.config.get('ADMIN_URL', { infer: true });
+      const resetUrl = `${adminUrl}/restablecer-password?token=${rawToken}`;
+
+      const { sent, error } = await this.mailerAuth.sendPasswordReset(
+        user.correo,
+        `${user.nombres} ${user.apellidos}`,
+        resetUrl,
+      );
+      if (!sent) {
+        this.logger.warn(
+          `Password reset email not sent for ${user.id}: ${error ?? 'unknown'}`,
+        );
+      }
+    }
+
+    return { ok: true };
+  }
+
+  /** Validates a reset token and sets the new password. */
+  async resetPassword(
+    token: string,
+    nuevaPassword: string,
+  ): Promise<{ ok: true }> {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+
+    const user = await this.usuarios
+      .createQueryBuilder('u')
+      .where('u.resetTokenHash = :hash', { hash: tokenHash })
+      .andWhere('u.resetTokenExpires > :now', { now: new Date() })
+      .andWhere('u.activo = true')
+      .getOne();
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    user.passwordHash = await this.passwords.hash(nuevaPassword);
+    user.resetTokenHash = null;
+    user.resetTokenExpires = null;
+    await this.usuarios.save(user);
+
+    // Invalidate all active sessions so stolen cookies can't be reused.
+    await this.sessions.revokeAllForUser(user.id);
+
+    return { ok: true };
   }
 
   private getDummyHash(): Promise<string> {

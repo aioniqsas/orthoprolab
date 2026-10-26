@@ -67,6 +67,13 @@ export class Usuario {
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 
+  // Password reset: the raw token is emailed; only its SHA-256 hex is stored.
+  @Column({ name: 'reset_token_hash', type: 'varchar', nullable: true })
+  resetTokenHash: string | null;
+
+  @Column({ name: 'reset_token_expires', type: 'timestamptz', nullable: true })
+  resetTokenExpires: Date | null;
+
   @CreateDateColumn({ name: 'fecha_creacion', type: 'timestamptz' })
   fechaCreacion: Date;
 
