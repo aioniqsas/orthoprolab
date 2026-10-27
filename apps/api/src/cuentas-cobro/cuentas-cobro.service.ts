@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,18 +12,24 @@ import { CuentaCobro } from './cuenta-cobro.entity.js';
 import { CuentaCobroOrden } from './cuenta-cobro-orden.entity.js';
 import { EnvioCuentaCobro } from './envio-cuenta-cobro.entity.js';
 import { Pago } from './pago.entity.js';
+import { MetodoPagoBancario } from './metodo-pago-bancario.entity.js';
 import { PdfCuentaCobroService } from './pdf-cuenta-cobro.service.js';
 import { MailerCuentaCobroService } from './mailer-cuenta-cobro.service.js';
+import { ComprobanteStorageService } from './comprobante-storage.service.js';
+import { detectComprobanteType } from './comprobante-upload.interceptor.js';
 import { Orden } from '../pedidos/orden.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateCuentaCobroDto } from './dto/create-cuenta-cobro.dto.js';
 import type { AdjuntarOrdenesDto } from './dto/adjuntar-ordenes.dto.js';
 import type { EnviarCuentaCobroDto } from './dto/enviar-cuenta-cobro.dto.js';
 import type { RegistrarPagoDto } from './dto/registrar-pago.dto.js';
+import type { RegistrarComprobanteDto } from './dto/registrar-comprobante.dto.js';
 import type { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
 
 @Injectable()
 export class CuentasCobroService {
+  private readonly logger = new Logger(CuentasCobroService.name);
+
   constructor(
     @InjectRepository(CuentaCobro)
     private readonly cuentaCobroRepo: Repository<CuentaCobro>,
@@ -36,9 +43,12 @@ export class CuentasCobroService {
     private readonly usuarioRepo: Repository<Usuario>,
     @InjectRepository(EnvioCuentaCobro)
     private readonly envioCuentaCobroRepo: Repository<EnvioCuentaCobro>,
+    @InjectRepository(MetodoPagoBancario)
+    private readonly metodoPagoRepo: Repository<MetodoPagoBancario>,
     private readonly dataSource: DataSource,
     private readonly pdfService: PdfCuentaCobroService,
     private readonly mailerService: MailerCuentaCobroService,
+    private readonly comprobanteStorage: ComprobanteStorageService,
   ) {}
 
   findAll(clinicaId?: string): Promise<CuentaCobro[]> {
@@ -221,8 +231,9 @@ export class CuentasCobroService {
     cuentaCobroId: string,
     dto: RegistrarPagoDto,
     usuarioId: string,
+    comprobante?: { url: string; nombre: string },
   ): Promise<CuentaCobro> {
-    return this.dataSource.transaction(async (em) => {
+    await this.dataSource.transaction(async (em) => {
       const cuenta = await em.findOne(CuentaCobro, { where: { id: cuentaCobroId } });
       if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
 
@@ -239,6 +250,8 @@ export class CuentasCobroService {
         metodo: dto.metodo,
         referencia: dto.referencia ?? null,
         notas: dto.notas ?? null,
+        comprobanteUrl: comprobante?.url ?? null,
+        comprobanteNombre: comprobante?.nombre ?? null,
         registradoPor: usuarioId,
         anulado: false,
       });
@@ -260,13 +273,91 @@ export class CuentasCobroService {
       }
 
       await em.update(CuentaCobro, { id: cuentaCobroId }, { estado: nuevoEstado });
+    });
 
-      return (await this.findOne(cuentaCobroId))!;
+    // Read after commit: the transaction's writes are invisible to the global repo.
+    return (await this.findOne(cuentaCobroId))!;
+  }
+
+  listMetodosPagoBancarios(): Promise<MetodoPagoBancario[]> {
+    return this.metodoPagoRepo.find({
+      where: { activo: true },
+      order: { orden: 'ASC', id: 'ASC' },
     });
   }
 
+  /**
+   * Client portal flow: validates the receipt type, stores it and registers the
+   * payment, then notifies every active administrator by email.
+   */
+  async registrarPagoDesdeClinica(
+    cuentaCobroId: string,
+    usuarioId: string,
+    dto: RegistrarComprobanteDto,
+    file: { buffer: Buffer; originalname: string },
+  ): Promise<CuentaCobro> {
+    const cuentaPrevia = await this.findOne(cuentaCobroId);
+    if (!cuentaPrevia) {
+      throw new NotFoundException('Cuenta de cobro no encontrada.');
+    }
+    if (cuentaPrevia.estado === 'anulada' || cuentaPrevia.estado === 'pagada') {
+      throw new BadRequestException(
+        `No se pueden registrar pagos en una cuenta en estado "${cuentaPrevia.estado}".`,
+      );
+    }
+    if (!detectComprobanteType(file.buffer)) {
+      throw new BadRequestException(
+        'El comprobante debe ser un PDF o una imagen (JPG, PNG o WebP).',
+      );
+    }
+
+    const url = await this.comprobanteStorage.upload(
+      file.buffer,
+      file.originalname,
+    );
+
+    const cuenta = await this.registrarPago(
+      cuentaCobroId,
+      {
+        monto: dto.monto,
+        fechaPago: dto.fechaPago,
+        metodo: 'transferencia',
+        referencia: dto.referencia,
+        notas: dto.notas,
+      },
+      usuarioId,
+      { url, nombre: file.originalname.slice(0, 255) },
+    );
+
+    const pago = await this.pagoRepo.findOne({
+      where: { cuentaCobroId, comprobanteUrl: url },
+      order: { id: 'DESC' },
+    });
+    const administradores = await this.usuarioRepo
+      .createQueryBuilder('u')
+      .innerJoin('u.rol', 'rol')
+      .where('rol.nombre = :rol', { rol: 'administrador' })
+      .andWhere('u.activo = true')
+      .getMany();
+
+    if (pago && administradores.length > 0) {
+      const result = await this.mailerService.sendPagoRegistrado(
+        cuenta,
+        pago,
+        administradores.map((a) => a.correo),
+      );
+      if (!result.sent) {
+        this.logger.warn(
+          `Pago ${pago.id} registrado, pero el correo a administradores falló: ${result.error ?? 'sin detalle'}`,
+        );
+      }
+    }
+
+    return cuenta;
+  }
+
   async anularPago(cuentaCobroId: string, pagoId: string): Promise<CuentaCobro> {
-    return this.dataSource.transaction(async (em) => {
+    await this.dataSource.transaction(async (em) => {
       const pago = await em.findOne(Pago, {
         where: { id: pagoId, cuentaCobroId },
       });
@@ -295,9 +386,9 @@ export class CuentasCobroService {
       }
 
       await em.update(CuentaCobro, { id: cuentaCobroId }, { estado: nuevoEstado });
-
-      return (await this.findOne(cuentaCobroId))!;
     });
+
+    return (await this.findOne(cuentaCobroId))!;
   }
 
   /**

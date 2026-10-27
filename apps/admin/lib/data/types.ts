@@ -165,6 +165,8 @@ export interface PagoItem {
   metodo: string;
   referencia: string | null;
   notas: string | null;
+  comprobanteUrl: string | null;
+  comprobanteNombre: string | null;
   anulado: boolean;
   creadoEn: string;
 }

@@ -277,6 +277,9 @@ async function CuentaDetail({
                   <th className="pb-2 pr-4 font-medium text-muted-foreground text-right">
                     Monto
                   </th>
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground">
+                    Comprobante
+                  </th>
                   <th className="pb-2 font-medium text-muted-foreground" />
                 </tr>
               </thead>
@@ -293,6 +296,20 @@ async function CuentaDetail({
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {formatCop(pago.monto)}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {pago.comprobanteUrl ? (
+                        <a
+                          href={pago.comprobanteUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary underline-offset-4 hover:underline"
+                        >
+                          {pago.comprobanteNombre ?? "Ver comprobante"}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="py-2">
                       <AnularPagoButton cuentaId={cuenta.id} pago={pago} />

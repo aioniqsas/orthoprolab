@@ -10,7 +10,7 @@ const ESTADO_LABEL: Record<EstadoCuentaCobro, string> = {
   borrador: "Borrador",
   emitida: "Emitida",
   pagada: "Pagada",
-  pago_parcial: "Pago parcial",
+  pagada_parcial: "Pago parcial",
   anulada: "Anulada",
 };
 
@@ -18,7 +18,7 @@ const ESTADO_CLASS: Record<EstadoCuentaCobro, string> = {
   borrador: "bg-muted text-muted-foreground",
   emitida: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   pagada: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  pago_parcial: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-600",
+  pagada_parcial: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-600",
   anulada: "bg-destructive/10 text-destructive",
 };
 

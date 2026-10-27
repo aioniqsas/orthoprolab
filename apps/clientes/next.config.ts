@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui", "@repo/api-client"],
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    serverActions: { bodySizeLimit: "6mb" },
+  },
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com" }],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

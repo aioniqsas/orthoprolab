@@ -80,7 +80,7 @@ export type EstadoCuentaCobro =
   | "borrador"
   | "emitida"
   | "pagada"
-  | "pago_parcial"
+  | "pagada_parcial"
   | "anulada";
 
 export interface CuentaCobro {
@@ -94,6 +94,32 @@ export interface CuentaCobro {
   pdfUrl: string | null;
   observaciones: string | null;
   creadaEn: string;
+}
+
+export interface Pago {
+  id: string;
+  monto: string;
+  fechaPago: string;
+  metodo: string;
+  referencia: string | null;
+  notas: string | null;
+  comprobanteUrl: string | null;
+  comprobanteNombre: string | null;
+  anulado: boolean;
+  createdAt: string;
+}
+
+export interface CuentaCobroDetalle extends CuentaCobro {
+  pagos: Pago[];
+}
+
+export interface MetodoPagoBancario {
+  id: string;
+  banco: string;
+  tipoCuenta: string;
+  numeroCuenta: string;
+  titular: string;
+  qrUrl: string | null;
 }
 
 // ─── PacienteDoctor (from listPacientesDelDoctor) ──────────────────────────

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -11,12 +12,16 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/auth-user.js';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { NoStoreInterceptor } from '../security/index.js';
+import { CuentasCobroService } from '../cuentas-cobro/cuentas-cobro.service.js';
+import { ComprobanteUploadInterceptor } from '../cuentas-cobro/comprobante-upload.interceptor.js';
+import { RegistrarComprobanteDto } from '../cuentas-cobro/dto/registrar-comprobante.dto.js';
 import { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
@@ -27,7 +32,10 @@ import { MiClinicaService } from './mi-clinica.service.js';
 @Roles('clinica')
 @UseInterceptors(NoStoreInterceptor)
 export class MiClinicaController {
-  constructor(private readonly miClinica: MiClinicaService) {}
+  constructor(
+    private readonly miClinica: MiClinicaService,
+    private readonly cuentasCobro: CuentasCobroService,
+  ) {}
 
   @Get('doctores')
   listDoctores(
@@ -125,5 +133,40 @@ export class MiClinicaController {
   @Get('cuentas-cobro')
   listCuentasCobro(@Req() req: AuthenticatedRequest) {
     return this.miClinica.listCuentasCobro(req.user.id);
+  }
+
+  @Get('cuentas-cobro/:id')
+  getCuentaCobro(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.miClinica.getCuentaCobro(req.user.id, id);
+  }
+
+  @Get('metodos-pago-bancarios')
+  listMetodosPagoBancarios() {
+    return this.cuentasCobro.listMetodosPagoBancarios();
+  }
+
+  @Post('cuentas-cobro/:id/pagos')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(ComprobanteUploadInterceptor)
+  async registrarComprobante(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: RegistrarComprobanteDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Adjunta el comprobante de pago.');
+    }
+    // Ownership check first: never store a receipt for another clinic's account.
+    await this.miClinica.getCuentaCobro(req.user.id, id);
+    return this.cuentasCobro.registrarPagoDesdeClinica(
+      id,
+      req.user.id,
+      dto,
+      file,
+    );
   }
 }

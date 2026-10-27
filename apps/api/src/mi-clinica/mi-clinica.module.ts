@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CuentaCobro } from '../cuentas-cobro/cuenta-cobro.entity.js';
+import { CuentasCobroModule } from '../cuentas-cobro/cuentas-cobro.module.js';
 import { PacientesModule } from '../pacientes/pacientes.module.js';
 import { Orden } from '../pedidos/orden.entity.js';
 import { PedidosModule } from '../pedidos/pedidos.module.js';
@@ -12,6 +13,7 @@ import { MiClinicaService } from './mi-clinica.service.js';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Doctor, Usuario, Orden, CuentaCobro]),
+    CuentasCobroModule,
     PedidosModule,
     PacientesModule,
   ],

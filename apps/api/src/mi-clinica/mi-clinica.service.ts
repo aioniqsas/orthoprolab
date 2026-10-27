@@ -120,6 +120,20 @@ export class MiClinicaService {
       .getMany();
   }
 
+  /** Detail view for the client portal; rejects accounts from other clinics. */
+  async getCuentaCobro(usuarioId: string, cuentaId: string): Promise<CuentaCobro> {
+    const clinicaId = await this.resolveClinicaId(usuarioId);
+    const cuenta = await this.cuentaCobroRepo.findOne({
+      where: { id: cuentaId, clinicaId },
+      relations: { clinica: true, pagos: true },
+    });
+    if (!cuenta) {
+      throw new NotFoundException('Cuenta de cobro no encontrada.');
+    }
+    cuenta.pagos.sort((a, b) => Number(b.id) - Number(a.id));
+    return cuenta;
+  }
+
   async listPacientesDelDoctor(
     usuarioId: string,
     doctorId: string,

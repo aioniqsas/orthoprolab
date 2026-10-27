@@ -1,7 +1,16 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { API_URL } from "@/lib/api";
-import type { CuentaCobro, Doctor, Orden, PacienteConCedula, PacienteDoctor, Servicio } from "./types";
+import type {
+  CuentaCobro,
+  CuentaCobroDetalle,
+  Doctor,
+  MetodoPagoBancario,
+  Orden,
+  PacienteConCedula,
+  PacienteDoctor,
+  Servicio,
+} from "./types";
 
 async function authHeader(): Promise<HeadersInit> {
   const token = (await cookies()).get("auth_token")?.value;
@@ -152,6 +161,32 @@ export async function listCuentasCobro(): Promise<CuentaCobro[]> {
     });
     if (!res.ok) return [];
     return res.json() as Promise<CuentaCobro[]>;
+  } catch {
+    return [];
+  }
+}
+
+export async function getCuentaCobro(id: string): Promise<CuentaCobroDetalle | null> {
+  try {
+    const res = await fetch(`${API_URL}/mi-clinica/cuentas-cobro/${id}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<CuentaCobroDetalle>;
+  } catch {
+    return null;
+  }
+}
+
+export async function listMetodosPagoBancarios(): Promise<MetodoPagoBancario[]> {
+  try {
+    const res = await fetch(`${API_URL}/mi-clinica/metodos-pago-bancarios`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json() as Promise<MetodoPagoBancario[]>;
   } catch {
     return [];
   }

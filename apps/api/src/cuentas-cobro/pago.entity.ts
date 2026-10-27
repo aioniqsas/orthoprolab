@@ -36,6 +36,22 @@ export class Pago {
   @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
   notas: string | null;
 
+  @Column({
+    name: 'comprobante_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  comprobanteUrl: string | null;
+
+  @Column({
+    name: 'comprobante_nombre',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  comprobanteNombre: string | null;
+
   @Column({ name: 'registrado_por', type: 'uuid' })
   registradoPor: string;
 

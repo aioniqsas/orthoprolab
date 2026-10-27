@@ -26,18 +26,6 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: asistente_doctor; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.asistente_doctor (
-    doctor_id uuid NOT NULL,
-    asistente_id uuid NOT NULL,
-    fecha_asignacion timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT ck_asistente_doctor_distintos CHECK ((doctor_id <> asistente_id))
-);
-
-
---
 -- Name: clinica; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -46,7 +34,8 @@ CREATE TABLE public.clinica (
     nombre character varying NOT NULL,
     direccion character varying,
     fecha_creacion timestamp with time zone DEFAULT now() NOT NULL,
-    fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL
+    fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL,
+    correo character varying
 );
 
 
@@ -72,6 +61,52 @@ CREATE TABLE public.contenido_web (
     clave character varying(120) NOT NULL,
     valor text NOT NULL,
     fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: cuenta_cobro; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cuenta_cobro (
+    id bigint NOT NULL,
+    numero character varying(20) NOT NULL,
+    estado character varying(20) DEFAULT 'borrador'::character varying NOT NULL,
+    fecha_emision date DEFAULT CURRENT_DATE NOT NULL,
+    fecha_vencimiento date,
+    total numeric(12,2) DEFAULT 0 NOT NULL,
+    pdf_url character varying(500),
+    pdf_hash character varying(64),
+    observaciones text,
+    creada_por uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    clinica_id bigint NOT NULL
+);
+
+
+--
+-- Name: cuenta_cobro_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.cuenta_cobro ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.cuenta_cobro_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: cuenta_cobro_orden; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cuenta_cobro_orden (
+    cuenta_cobro_id bigint NOT NULL,
+    orden_id bigint NOT NULL,
+    valor_snapshot numeric(12,2) NOT NULL
 );
 
 
@@ -110,8 +145,57 @@ ALTER TABLE public.detalle_orden ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 --
 
 CREATE TABLE public.doctor (
-    usuario_id uuid NOT NULL,
-    clinica_id bigint
+    id bigint NOT NULL,
+    clinica_id bigint NOT NULL,
+    nombres character varying NOT NULL,
+    apellidos character varying NOT NULL,
+    correo character varying,
+    activo boolean DEFAULT true NOT NULL,
+    fecha_creacion timestamp with time zone DEFAULT now() NOT NULL,
+    fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: doctor_new_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.doctor ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.doctor_new_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: envio_cuenta_cobro; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.envio_cuenta_cobro (
+    id bigint NOT NULL,
+    cuenta_cobro_id bigint NOT NULL,
+    enviado_a character varying(254) NOT NULL,
+    estado character varying(20) NOT NULL,
+    error text,
+    enviado_por uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: envio_cuenta_cobro_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.envio_cuenta_cobro ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.envio_cuenta_cobro_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
 );
 
 
@@ -172,6 +256,38 @@ ALTER TABLE public.historial_estado_orden ALTER COLUMN id ADD GENERATED ALWAYS A
 
 
 --
+-- Name: metodo_pago_bancario; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.metodo_pago_bancario (
+    id bigint NOT NULL,
+    banco character varying(120) NOT NULL,
+    tipo_cuenta character varying(60) NOT NULL,
+    numero_cuenta character varying(40) NOT NULL,
+    titular character varying(160) NOT NULL,
+    qr_url character varying(500),
+    activo boolean DEFAULT true NOT NULL,
+    orden integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: metodo_pago_bancario_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.metodo_pago_bancario ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.metodo_pago_bancario_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -208,7 +324,6 @@ ALTER SEQUENCE public.migrations_id_seq OWNED BY public.migrations.id;
 
 CREATE TABLE public.orden (
     id bigint NOT NULL,
-    doctor_id uuid NOT NULL,
     paciente_id bigint NOT NULL,
     estado_id bigint NOT NULL,
     valor numeric(12,2) DEFAULT '0'::numeric NOT NULL,
@@ -216,6 +331,7 @@ CREATE TABLE public.orden (
     fecha_creacion timestamp with time zone DEFAULT now() NOT NULL,
     fecha_entrega timestamp with time zone,
     fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL,
+    doctor_id bigint,
     CONSTRAINT ck_orden_fecha_entrega CHECK (((fecha_entrega IS NULL) OR (fecha_entrega >= fecha_creacion))),
     CONSTRAINT ck_orden_valor_no_negativo CHECK ((valor >= (0)::numeric))
 );
@@ -255,8 +371,8 @@ CREATE TABLE public.paciente (
 
 CREATE TABLE public.paciente_doctor (
     paciente_id bigint NOT NULL,
-    doctor_id uuid NOT NULL,
-    fecha_asignacion timestamp with time zone DEFAULT now() NOT NULL
+    fecha_asignacion timestamp with time zone DEFAULT now() NOT NULL,
+    doctor_id bigint NOT NULL
 );
 
 
@@ -266,6 +382,40 @@ CREATE TABLE public.paciente_doctor (
 
 ALTER TABLE public.paciente ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.paciente_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: pago; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pago (
+    id bigint NOT NULL,
+    cuenta_cobro_id bigint NOT NULL,
+    monto numeric(12,2) NOT NULL,
+    fecha_pago date NOT NULL,
+    metodo character varying(30) NOT NULL,
+    referencia character varying(100),
+    notas text,
+    registrado_por uuid NOT NULL,
+    anulado boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    comprobante_url character varying(500),
+    comprobante_nombre character varying(255)
+);
+
+
+--
+-- Name: pago_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pago ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.pago_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -379,7 +529,10 @@ CREATE TABLE public.usuario (
     activo boolean DEFAULT true NOT NULL,
     fecha_creacion timestamp with time zone DEFAULT now() NOT NULL,
     fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL,
-    cedula_hash character(64) NOT NULL
+    cedula_hash character(64) NOT NULL,
+    clinica_id bigint,
+    reset_token_hash character varying,
+    reset_token_expires timestamp with time zone
 );
 
 
@@ -391,27 +544,11 @@ ALTER TABLE ONLY public.migrations ALTER COLUMN id SET DEFAULT nextval('public.m
 
 
 --
--- Name: asistente_doctor PK_123bac748968c11dbb2ff7bee30; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.asistente_doctor
-    ADD CONSTRAINT "PK_123bac748968c11dbb2ff7bee30" PRIMARY KEY (doctor_id, asistente_id);
-
-
---
 -- Name: estado_orden PK_2a43d4453d2a2888732cd961e70; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.estado_orden
     ADD CONSTRAINT "PK_2a43d4453d2a2888732cd961e70" PRIMARY KEY (id);
-
-
---
--- Name: paciente_doctor PK_58384de963d054b00f4c747c2e3; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.paciente_doctor
-    ADD CONSTRAINT "PK_58384de963d054b00f4c747c2e3" PRIMARY KEY (paciente_id, doctor_id);
 
 
 --
@@ -428,14 +565,6 @@ ALTER TABLE ONLY public.orden
 
 ALTER TABLE ONLY public.migrations
     ADD CONSTRAINT "PK_8c82d7f526340ab734260ea46be" PRIMARY KEY (id);
-
-
---
--- Name: doctor PK_8d90e19ddbe01cbfd9556dfcd00; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.doctor
-    ADD CONSTRAINT "PK_8d90e19ddbe01cbfd9556dfcd00" PRIMARY KEY (usuario_id);
 
 
 --
@@ -519,6 +648,70 @@ ALTER TABLE ONLY public.rol
 
 
 --
+-- Name: cuenta_cobro cuenta_cobro_numero_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cuenta_cobro
+    ADD CONSTRAINT cuenta_cobro_numero_key UNIQUE (numero);
+
+
+--
+-- Name: cuenta_cobro_orden cuenta_cobro_orden_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cuenta_cobro_orden
+    ADD CONSTRAINT cuenta_cobro_orden_pkey PRIMARY KEY (cuenta_cobro_id, orden_id);
+
+
+--
+-- Name: cuenta_cobro cuenta_cobro_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cuenta_cobro
+    ADD CONSTRAINT cuenta_cobro_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: doctor doctor_new_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.doctor
+    ADD CONSTRAINT doctor_new_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: envio_cuenta_cobro envio_cuenta_cobro_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.envio_cuenta_cobro
+    ADD CONSTRAINT envio_cuenta_cobro_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: metodo_pago_bancario metodo_pago_bancario_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.metodo_pago_bancario
+    ADD CONSTRAINT metodo_pago_bancario_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: paciente_doctor paciente_doctor_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.paciente_doctor
+    ADD CONSTRAINT paciente_doctor_pkey PRIMARY KEY (paciente_id, doctor_id);
+
+
+--
+-- Name: pago pago_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pago
+    ADD CONSTRAINT pago_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: contenido_web pk_contenido_web; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -532,6 +725,13 @@ ALTER TABLE ONLY public.contenido_web
 
 ALTER TABLE ONLY public.sesion_refresco
     ADD CONSTRAINT pk_sesion_refresco PRIMARY KEY (id);
+
+
+--
+-- Name: idx_cuenta_cobro_orden_orden; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cuenta_cobro_orden_orden ON public.cuenta_cobro_orden USING btree (orden_id);
 
 
 --
@@ -567,6 +767,13 @@ CREATE INDEX idx_orden_estado ON public.orden USING btree (estado_id);
 --
 
 CREATE INDEX idx_orden_paciente ON public.orden USING btree (paciente_id);
+
+
+--
+-- Name: idx_pago_cuenta_cobro; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pago_cuenta_cobro ON public.pago USING btree (cuenta_cobro_id);
 
 
 --
@@ -634,30 +841,6 @@ ALTER TABLE ONLY public.historial_estado_orden
 
 
 --
--- Name: doctor FK_28398af44ae6449e1e423622173; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.doctor
-    ADD CONSTRAINT "FK_28398af44ae6449e1e423622173" FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE RESTRICT;
-
-
---
--- Name: orden FK_31d764e8a08c7d26dbae0d32a60; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.orden
-    ADD CONSTRAINT "FK_31d764e8a08c7d26dbae0d32a60" FOREIGN KEY (paciente_id, doctor_id) REFERENCES public.paciente_doctor(paciente_id, doctor_id) ON DELETE RESTRICT;
-
-
---
--- Name: asistente_doctor FK_5e0007640800085fc82dac3ad2a; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.asistente_doctor
-    ADD CONSTRAINT "FK_5e0007640800085fc82dac3ad2a" FOREIGN KEY (asistente_id) REFERENCES public.usuario(id) ON DELETE RESTRICT;
-
-
---
 -- Name: usuario FK_6c336b0a51b5c4d22614cb02533; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -666,35 +849,11 @@ ALTER TABLE ONLY public.usuario
 
 
 --
--- Name: asistente_doctor FK_7b1e01087f0656b52d643724cb3; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.asistente_doctor
-    ADD CONSTRAINT "FK_7b1e01087f0656b52d643724cb3" FOREIGN KEY (doctor_id) REFERENCES public.doctor(usuario_id) ON DELETE RESTRICT;
-
-
---
--- Name: paciente_doctor FK_8555fa57a77e8aeb1daf1681bd4; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.paciente_doctor
-    ADD CONSTRAINT "FK_8555fa57a77e8aeb1daf1681bd4" FOREIGN KEY (doctor_id) REFERENCES public.doctor(usuario_id) ON DELETE RESTRICT;
-
-
---
 -- Name: detalle_orden FK_8633a4a37c368f1e7dda4c866dc; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.detalle_orden
     ADD CONSTRAINT "FK_8633a4a37c368f1e7dda4c866dc" FOREIGN KEY (orden_id) REFERENCES public.orden(id) ON DELETE RESTRICT;
-
-
---
--- Name: doctor FK_8d90e19ddbe01cbfd9556dfcd00; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.doctor
-    ADD CONSTRAINT "FK_8d90e19ddbe01cbfd9556dfcd00" FOREIGN KEY (usuario_id) REFERENCES public.usuario(id) ON DELETE RESTRICT;
 
 
 --
@@ -746,11 +905,115 @@ ALTER TABLE ONLY public.historial_estado_orden
 
 
 --
+-- Name: cuenta_cobro cuenta_cobro_clinica_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cuenta_cobro
+    ADD CONSTRAINT cuenta_cobro_clinica_id_fkey FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: cuenta_cobro cuenta_cobro_creada_por_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cuenta_cobro
+    ADD CONSTRAINT cuenta_cobro_creada_por_fkey FOREIGN KEY (creada_por) REFERENCES public.usuario(id);
+
+
+--
+-- Name: cuenta_cobro_orden cuenta_cobro_orden_cuenta_cobro_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cuenta_cobro_orden
+    ADD CONSTRAINT cuenta_cobro_orden_cuenta_cobro_id_fkey FOREIGN KEY (cuenta_cobro_id) REFERENCES public.cuenta_cobro(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cuenta_cobro_orden cuenta_cobro_orden_orden_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cuenta_cobro_orden
+    ADD CONSTRAINT cuenta_cobro_orden_orden_id_fkey FOREIGN KEY (orden_id) REFERENCES public.orden(id);
+
+
+--
+-- Name: doctor doctor_new_clinica_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.doctor
+    ADD CONSTRAINT doctor_new_clinica_id_fkey FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: envio_cuenta_cobro envio_cuenta_cobro_cuenta_cobro_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.envio_cuenta_cobro
+    ADD CONSTRAINT envio_cuenta_cobro_cuenta_cobro_id_fkey FOREIGN KEY (cuenta_cobro_id) REFERENCES public.cuenta_cobro(id);
+
+
+--
+-- Name: envio_cuenta_cobro envio_cuenta_cobro_enviado_por_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.envio_cuenta_cobro
+    ADD CONSTRAINT envio_cuenta_cobro_enviado_por_fkey FOREIGN KEY (enviado_por) REFERENCES public.usuario(id);
+
+
+--
+-- Name: orden fk_orden_doctor; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.orden
+    ADD CONSTRAINT fk_orden_doctor FOREIGN KEY (doctor_id) REFERENCES public.doctor(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: orden fk_orden_paciente_doctor; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.orden
+    ADD CONSTRAINT fk_orden_paciente_doctor FOREIGN KEY (paciente_id, doctor_id) REFERENCES public.paciente_doctor(paciente_id, doctor_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: paciente_doctor fk_paciente_doctor_doctor; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.paciente_doctor
+    ADD CONSTRAINT fk_paciente_doctor_doctor FOREIGN KEY (doctor_id) REFERENCES public.doctor(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: sesion_refresco fk_sesion_refresco_usuario; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sesion_refresco
     ADD CONSTRAINT fk_sesion_refresco_usuario FOREIGN KEY (usuario_id) REFERENCES public.usuario(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: pago pago_cuenta_cobro_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pago
+    ADD CONSTRAINT pago_cuenta_cobro_id_fkey FOREIGN KEY (cuenta_cobro_id) REFERENCES public.cuenta_cobro(id);
+
+
+--
+-- Name: pago pago_registrado_por_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pago
+    ADD CONSTRAINT pago_registrado_por_fkey FOREIGN KEY (registrado_por) REFERENCES public.usuario(id);
+
+
+--
+-- Name: usuario usuario_clinica_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usuario
+    ADD CONSTRAINT usuario_clinica_id_fkey FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE RESTRICT;
 
 
 --

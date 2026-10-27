@@ -433,6 +433,8 @@ interface RawPago {
   metodo: string;
   referencia: string | null;
   notas: string | null;
+  comprobanteUrl: string | null;
+  comprobanteNombre: string | null;
   anulado: boolean;
   creadoEn: string;
 }
@@ -482,6 +484,8 @@ function mapPago(raw: RawPago): PagoItem {
     metodo: raw.metodo,
     referencia: raw.referencia,
     notas: raw.notas,
+    comprobanteUrl: raw.comprobanteUrl,
+    comprobanteNombre: raw.comprobanteNombre,
     anulado: raw.anulado,
     creadoEn: raw.creadoEn,
   };
