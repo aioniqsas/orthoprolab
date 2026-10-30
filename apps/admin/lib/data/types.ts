@@ -186,7 +186,7 @@ export interface CuentaCobro {
   clinicaNombre: string;
   clinicaCorreo: string | null;
   estado: EstadoCuentaCobro;
-  fechaEmision: string;
+  fechaEmision: string | null;
   fechaVencimiento: string | null;
   total: string;
   pdfUrl: string | null;

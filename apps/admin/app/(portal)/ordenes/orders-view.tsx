@@ -1,5 +1,5 @@
 import { isAdmin } from "@/lib/auth-guard";
-import { getOrdenesStats, listOrdenes } from "@/lib/data/repository";
+import { getEstadosOrden, getOrdenesStats, listOrdenes } from "@/lib/data/repository";
 import { ESTADOS_ORDEN } from "@/lib/data/types";
 import { estadoLabel } from "@/lib/data/helpers";
 import { OrdersTable } from "./orders-table";
@@ -10,7 +10,7 @@ const STATS_LABELS: Record<string, string> = {
   en_proceso: "En proceso",
   cancelada: "Canceladas",
   en_entrega: "En entrega",
-  devuelta_correccion: "Devueltas",
+  devuelta: "Devueltas",
   terminada: "Terminadas",
 };
 
@@ -46,11 +46,11 @@ function OrdersStats({ stats }: { stats: Record<string, number> }) {
 
 export async function OrdersView() {
   if (!(await isAdmin())) return null;
-  const [ordenes, stats] = await Promise.all([listOrdenes(), getOrdenesStats()]);
+  const [ordenes, stats, estados] = await Promise.all([listOrdenes(), getOrdenesStats(), getEstadosOrden()]);
   return (
     <div className="flex flex-col gap-6">
       <OrdersStats stats={stats} />
-      <OrdersTable ordenes={ordenes} />
+      <OrdersTable ordenes={ordenes} estados={estados} />
     </div>
   );
 }

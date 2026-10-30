@@ -32,8 +32,9 @@ export class CuentaCobro {
   @Column({ default: 'borrador' })
   estado: string;
 
-  @Column({ name: 'fecha_emision', type: 'date' })
-  fechaEmision: Date;
+  // Null until the account is issued (PDF generated); drafts are not emitted.
+  @Column({ name: 'fecha_emision', type: 'date', nullable: true })
+  fechaEmision: Date | null;
 
   @Column({ name: 'fecha_vencimiento', type: 'date', nullable: true })
   fechaVencimiento: Date | null;

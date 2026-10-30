@@ -7,7 +7,7 @@ import type { EstadoCuentaCobro } from "@/lib/data/types";
 export const metadata: Metadata = { title: "Cuentas de cobro" };
 
 const ESTADO_LABEL: Record<EstadoCuentaCobro, string> = {
-  borrador: "Borrador",
+  borrador: "Sin emitir",
   emitida: "Emitida",
   pagada: "Pagada",
   pagada_parcial: "Pago parcial",
@@ -42,7 +42,10 @@ async function CuentasList() {
             <div>
               <p className="text-sm font-medium">{c.numero}</p>
               <p className="text-xs text-muted-foreground">
-                Emitida: {new Date(c.fechaEmision).toLocaleDateString("es-CO")}
+                Emitida:{" "}
+                {c.fechaEmision
+                  ? new Date(c.fechaEmision).toLocaleDateString("es-CO")
+                  : "—"}
               </p>
             </div>
             <div className="flex items-center gap-3">

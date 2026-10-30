@@ -463,7 +463,7 @@ interface RawCuentaCobro {
     correo: string | null;
   };
   estado: string;
-  fechaEmision: string;
+  fechaEmision: string | null;
   fechaVencimiento: string | null;
   total: string;
   pdfUrl: string | null;

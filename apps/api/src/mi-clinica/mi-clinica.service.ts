@@ -12,6 +12,8 @@ import { PacientesService } from '../pacientes/pacientes.service.js';
 import { Orden } from '../pedidos/orden.entity.js';
 import type { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { PedidosService } from '../pedidos/pedidos.service.js';
+import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
+import { MailerControlTrabajosService } from '../pedidos/mailer-control-trabajos.service.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
@@ -34,6 +36,8 @@ export class MiClinicaService {
     @InjectRepository(Servicio)
     private readonly servicioRepo: Repository<Servicio>,
     private readonly pedidosService: PedidosService,
+    private readonly pdfControlTrabajos: PdfControlTrabajosService,
+    private readonly mailerControlTrabajos: MailerControlTrabajosService,
     private readonly pacientesService: PacientesService,
   ) {}
 
@@ -102,20 +106,23 @@ export class MiClinicaService {
     const clinicaId = await this.resolveClinicaId(usuarioId);
     return this.ordenRepo
       .createQueryBuilder('o')
-      .innerJoin('o.asignacion', 'asig')
-      .innerJoin('asig.doctor', 'doctor')
+      .innerJoinAndSelect('o.asignacion', 'asig')
+      .innerJoinAndSelect('asig.doctor', 'doctor')
+      .innerJoinAndSelect('asig.paciente', 'paciente')
       .innerJoinAndSelect('o.estado', 'estado')
       .where('doctor.clinicaId = :clinicaId', { clinicaId })
       .orderBy('o.fechaCreacion', 'DESC')
       .getMany();
   }
 
+  /** Clinic portal: drafts are still internal, so they never reach the client. */
   async listCuentasCobro(usuarioId: string): Promise<CuentaCobro[]> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
     return this.cuentaCobroRepo
       .createQueryBuilder('cc')
       .leftJoinAndSelect('cc.clinica', 'clinica')
       .where('cc.clinicaId = :clinicaId', { clinicaId })
+      .andWhere('cc.estado != :borrador', { borrador: 'borrador' })
       .orderBy('cc.createdAt', 'DESC')
       .getMany();
   }
@@ -127,7 +134,7 @@ export class MiClinicaService {
       where: { id: cuentaId, clinicaId },
       relations: { clinica: true, pagos: true },
     });
-    if (!cuenta) {
+    if (!cuenta || cuenta.estado === 'borrador') {
       throw new NotFoundException('Cuenta de cobro no encontrada.');
     }
     cuenta.pagos.sort((a, b) => Number(b.id) - Number(a.id));
@@ -190,6 +197,65 @@ export class MiClinicaService {
     // Verify the user belongs to a valid clinic.
     await this.resolveClinicaId(usuarioId);
     return this.pacientesService.findOrCreate(cedula.trim(), nombre.trim());
+  }
+
+  async devolverOrden(
+    usuarioId: string,
+    ordenId: string,
+    observaciones: string,
+  ): Promise<Orden> {
+    const trimmed = (observaciones ?? '').trim();
+    if (!trimmed) {
+      throw new BadRequestException('La observación es obligatoria para devolver una orden.');
+    }
+    // Ownership check.
+    const orden = await this.getOrden(usuarioId, ordenId);
+
+    if (orden.estado?.codigo !== 'en_entrega') {
+      throw new BadRequestException('Solo se puede devolver una orden que esté en entrega al cliente.');
+    }
+
+    const estadoId = await this.pedidosService.getEstadoIdByCodigo('devuelta_correccion');
+    if (!estadoId) {
+      throw new BadRequestException('Estado "devuelta_correccion" no encontrado.');
+    }
+
+    return this.pedidosService.cambiarEstado(ordenId, estadoId, usuarioId, trimmed);
+  }
+
+  async finalizarOrden(
+    usuarioId: string,
+    ordenId: string,
+    observaciones?: string,
+  ): Promise<Orden> {
+    const orden = await this.getOrden(usuarioId, ordenId);
+
+    if (orden.estado?.codigo !== 'en_entrega') {
+      throw new BadRequestException('Solo se puede finalizar una orden que esté en entrega al cliente.');
+    }
+
+    const estadoId = await this.pedidosService.getEstadoIdByCodigo('terminada');
+    if (!estadoId) {
+      throw new BadRequestException('Estado "terminada" no encontrado.');
+    }
+
+    const result = await this.pedidosService.cambiarEstado(ordenId, estadoId, usuarioId, (observaciones ?? '').trim() || undefined);
+
+    // Send control de trabajos de laboratorio email (best-effort).
+    try {
+      const usuario = await this.usuarioRepo.findOneBy({ id: usuarioId });
+      const toEmail = usuario?.correo;
+      if (toEmail) {
+        const ordenCompleta = await this.getOrden(usuarioId, ordenId);
+        const pdfBuffer = await this.pdfControlTrabajos.generate(ordenCompleta);
+        await this.mailerControlTrabajos.sendControlTrabajos(toEmail, pdfBuffer, ordenId);
+      }
+    } catch (err) {
+      // Do not fail finalization if email fails.
+      console.error('Failed to send control de trabajos email:', err);
+    }
+
+    return result;
   }
 
   async getOrden(usuarioId: string, ordenId: string): Promise<Orden> {

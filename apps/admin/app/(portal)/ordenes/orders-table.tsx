@@ -7,8 +7,28 @@ import { estadoLabel, formatCop, formatDate, fullName } from "@/lib/data/helpers
 import { ESTADOS_ORDEN } from "@/lib/data/types";
 import type { Orden } from "@/lib/data/types";
 import { EstadoBadge, UrgenteBadge } from "../../_components/estado-badge";
+import { EstadoFilaSelect } from "./estado-fila-select";
 
-const columns: DataTableColumn<Orden>[] = [
+
+const filters: DataTableFilter<Orden>[] = [
+  {
+    id: "estado",
+    label: "Estado",
+    allLabel: "Todos los estados",
+    options: ESTADOS_ORDEN.map((estado) => ({ value: estado, label: estadoLabel(estado) })),
+    match: (o, value) => o.estado === value,
+  },
+  {
+    id: "urgencia",
+    label: "Urgencia",
+    allLabel: "Todas",
+    options: [{ value: "1", label: "Solo urgentes" }],
+    match: (o, value) => (value === "1" ? o.urgente : true),
+  },
+];
+
+export function OrdersTable({ ordenes, estados }: { ordenes: Orden[]; estados: { id: string; codigo: string; nombre: string }[] }) {
+  const columns: DataTableColumn<Orden>[] = [
   {
     id: "orden",
     header: "Orden",
@@ -43,7 +63,7 @@ const columns: DataTableColumn<Orden>[] = [
   {
     id: "estado",
     header: "Estado",
-    render: (o) => <EstadoBadge estado={o.estado} />,
+    render: (o) => <EstadoFilaSelect key={o.id} ordenId={String(o.id)} estadoActualCodigo={o.estado} estados={estados} />,
   },
   {
     id: "total",
@@ -65,30 +85,12 @@ const columns: DataTableColumn<Orden>[] = [
     render: (o) => formatDate(o.fechaEntrega),
   },
 ];
-
-const filters: DataTableFilter<Orden>[] = [
-  {
-    id: "estado",
-    label: "Estado",
-    allLabel: "Todos los estados",
-    options: ESTADOS_ORDEN.map((estado) => ({ value: estado, label: estadoLabel(estado) })),
-    match: (o, value) => o.estado === value,
-  },
-  {
-    id: "urgencia",
-    label: "Urgencia",
-    allLabel: "Todas",
-    options: [{ value: "1", label: "Solo urgentes" }],
-    match: (o, value) => (value === "1" ? o.urgente : true),
-  },
-];
-
-export function OrdersTable({ ordenes }: { ordenes: Orden[] }) {
   return (
     <DataTable
       rows={ordenes}
       columns={columns}
       rowKey={(o) => String(o.id)}
+      initialSort={{ id: "creada", dir: "asc" }}
       search={{
         placeholder: "Buscar por número, doctor o paciente",
         label: "Buscar por número, doctor o paciente",

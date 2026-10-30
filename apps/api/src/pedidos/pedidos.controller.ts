@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -10,7 +11,9 @@ import {
   Post,
   Query,
   Req,
+  Sse,
   UseGuards,
+  type MessageEvent,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/index.js';
 import { Roles, RolesGuard } from '../auth/index.js';
@@ -18,12 +21,17 @@ import { CambiarEstadoDto } from './dto/cambiar-estado.dto.js';
 import { CreateOrdenDto } from './dto/create-orden.dto.js';
 import { PedidosService } from './pedidos.service.js';
 import type { Orden } from './orden.entity.js';
+import { interval, map, merge, type Observable } from 'rxjs';
+import { PedidosEventosService } from './pedidos-eventos.service.js';
 
 @Controller('ordenes')
 @UseGuards(RolesGuard)
 @Roles('administrador')
 export class PedidosController {
-  constructor(private readonly pedidos: PedidosService) {}
+  constructor(
+    private readonly pedidos: PedidosService,
+    private readonly eventos: PedidosEventosService,
+  ) {}
 
   @Get()
   findAll(
@@ -45,6 +53,22 @@ export class PedidosController {
   @Get('estados')
   listEstados() {
     return this.pedidos.listEstados();
+  }
+
+  /** Change trigger for both portals: clients re-fetch their order lists on every event. */
+  @Sse('eventos')
+  @Header('Cache-Control', 'no-cache, no-transform')
+  @Header('X-Accel-Buffering', 'no')
+  cambios(): Observable<MessageEvent> {
+    const SSE_HEARTBEAT_MS = 25_000;
+    return merge(
+      this.eventos.cambios$.pipe(
+        map((cambio): MessageEvent => ({ type: 'orden', data: { tipo: cambio.tipo } })),
+      ),
+      interval(SSE_HEARTBEAT_MS).pipe(
+        map((): MessageEvent => ({ type: 'ping', data: {} })),
+      ),
+    );
   }
 
   @Get('doctores')

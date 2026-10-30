@@ -111,7 +111,9 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
               Historial de estados
             </h2>
             <ol className="mt-4 flex flex-col gap-4 border-s border-border ps-4">
-              {orden.historial.map((h) => (
+              {orden.historial
+                .filter((h) => !h.estadoAnterior || h.estadoAnterior !== h.estadoNuevo)
+                .map((h) => (
                 <li key={h.id} className="relative">
                   <span
                     aria-hidden
@@ -119,14 +121,14 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                   />
                   <p className="text-sm font-medium">
                     {h.estadoAnterior
-                      ? `${estadoLabel(h.estadoAnterior)} → ${estadoLabel(h.estadoNuevo)}`
-                      : estadoLabel(h.estadoNuevo)}
+                      ? `Pasó de "${estadoLabel(h.estadoAnterior)}" a "${estadoLabel(h.estadoNuevo)}"`
+                      : `Se creó con estado "${estadoLabel(h.estadoNuevo)}"`}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDateTime(h.fechaCambio)} - {h.usuario}
+                    {formatDateTime(h.fechaCambio)} · {h.usuario}
                   </p>
                   {h.observaciones ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{h.observaciones}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Motivo: {h.observaciones}</p>
                   ) : null}
                 </li>
               ))}

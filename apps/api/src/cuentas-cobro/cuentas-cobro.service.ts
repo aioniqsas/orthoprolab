@@ -86,7 +86,7 @@ export class CuentasCobroService {
 
   async create(dto: CreateCuentaCobroDto, usuarioId: string): Promise<CuentaCobro> {
     return this.dataSource.transaction(async (em) => {
-      const year = new Date().getFullYear();
+      const year = new Date().getFullYear(); // shortcut: kept native for year only
 
       const [row] = await em.query<{ count: string }[]>(
         `SELECT COUNT(*) AS count FROM cuenta_cobro WHERE numero LIKE $1`,
@@ -99,7 +99,7 @@ export class CuentasCobroService {
         numero,
         clinicaId: String(dto.clinicaId),
         creadaPor: usuarioId,
-        fechaEmision: new Date(),
+        fechaEmision: null,
         fechaVencimiento: dto.fechaVencimiento ? new Date(dto.fechaVencimiento) : null,
         observaciones: dto.observaciones ?? null,
         estado: 'borrador',
@@ -145,6 +145,8 @@ export class CuentasCobroService {
           `No se pueden adjuntar órdenes a una cuenta en estado "${cuenta.estado}".`,
         );
       }
+      // shortcut: an issued account can still change its orders (and total) after the
+      // client saw the PDF. Freeze edits at emitida if a stale PDF becomes a real problem.
 
       for (const ordenId of dto.ordenIds) {
         const orden = await em.findOne(Orden, { where: { id: String(ordenId) } });
@@ -237,9 +239,11 @@ export class CuentasCobroService {
       const cuenta = await em.findOne(CuentaCobro, { where: { id: cuentaCobroId } });
       if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
 
-      if (cuenta.estado === 'anulada' || cuenta.estado === 'pagada') {
+      if (['borrador', 'anulada', 'pagada'].includes(cuenta.estado)) {
         throw new BadRequestException(
-          `No se pueden registrar pagos en una cuenta en estado "${cuenta.estado}".`,
+          cuenta.estado === 'borrador'
+            ? 'No se pueden registrar pagos en una cuenta sin emitir.'
+            : `No se pueden registrar pagos en una cuenta en estado "${cuenta.estado}".`,
         );
       }
 
@@ -423,17 +427,36 @@ export class CuentasCobroService {
   }
 
   /**
-   * Generates a PDF for the given billing account, uploads it to Cloudinary,
-   * and persists the resulting URL and hash on the entity.
+   * Generates the PDF and, for a draft, issues the account: the emission date and
+   * the `emitida` state land with the PDF so the clinic only sees it once it is real.
    */
   async generarYGuardarPdf(id: string): Promise<CuentaCobro> {
     const cuenta = await this.findOne(id);
     if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
 
+    const emitir = cuenta.estado === 'borrador';
+    if (emitir && Number(cuenta.total) <= 0) {
+      throw new BadRequestException(
+        'No se puede emitir una cuenta de cobro sin órdenes adjuntas.',
+      );
+    }
+    if (emitir) {
+      cuenta.fechaEmision = new Date();
+    }
+
     const buffer = await this.pdfService.generate(cuenta);
     const { url, hash } = await this.pdfService.uploadToCloudinary(buffer, cuenta.numero);
 
-    await this.cuentaCobroRepo.update({ id }, { pdfUrl: url, pdfHash: hash });
+    await this.cuentaCobroRepo.update(
+      { id },
+      {
+        pdfUrl: url,
+        pdfHash: hash,
+        ...(emitir
+          ? { estado: 'emitida', fechaEmision: cuenta.fechaEmision }
+          : {}),
+      },
+    );
     return (await this.findOne(id))!;
   }
 

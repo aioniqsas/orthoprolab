@@ -51,6 +51,8 @@ export type DataTableProps<T> = {
   empty?: React.ReactNode
   pageSizeOptions?: readonly number[]
   initialPageSize?: number
+  /** Initial sort applied on first render. */
+  initialSort?: { id: string; dir: "asc" | "desc" }
 }
 
 const selectClass =
@@ -112,12 +114,13 @@ function DataTable<T>({
   empty,
   pageSizeOptions = [10, 25, 50],
   initialPageSize = 10,
+  initialSort,
 }: DataTableProps<T>) {
   const [query, setQuery] = React.useState("")
   const [filterValues, setFilterValues] = React.useState<Record<string, string>>({})
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(initialPageSize)
-  const [sort, setSort] = React.useState<{ id: string; dir: "asc" | "desc" } | null>(null)
+  const [sort, setSort] = React.useState<{ id: string; dir: "asc" | "desc" } | null>(initialSort ?? null)
 
   function toggleSort(columnId: string) {
     setSort((prev) => {

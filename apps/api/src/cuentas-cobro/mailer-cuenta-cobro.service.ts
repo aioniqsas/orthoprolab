@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import type { CuentaCobro } from './cuenta-cobro.entity.js';
@@ -48,8 +50,11 @@ export class MailerCuentaCobroService {
     const clinicaNombre = cuenta.clinica?.nombre ?? 'Clínica';
     const total = `$${Number(cuenta.total).toLocaleString('es-CO')}`;
     const vencimiento = cuenta.fechaVencimiento
-      ? new Date(cuenta.fechaVencimiento).toLocaleDateString('es-CO')
+      ? format(cuenta.fechaVencimiento, "d 'de' MMMM 'de' yyyy", { locale: es })
       : 'Sin vencimiento';
+    const emision = cuenta.fechaEmision
+      ? format(cuenta.fechaEmision, "d 'de' MMMM 'de' yyyy", { locale: es })
+      : 'Sin emitir';
 
     const html = `
 <!DOCTYPE html>
@@ -67,7 +72,7 @@ export class MailerCuentaCobroService {
   <p>Se adjunta la cuenta de cobro <strong>${cuenta.numero}</strong> emitida por OrthoPro Lab.</p>
   <div class="info">
     <p><strong>Número:</strong> ${cuenta.numero}</p>
-    <p><strong>Fecha de emisión:</strong> ${new Date(cuenta.fechaEmision).toLocaleDateString('es-CO')}</p>
+    <p><strong>Fecha de emisión:</strong> ${emision}</p>
     <p><strong>Fecha de vencimiento:</strong> ${vencimiento}</p>
     <p class="total">Total: ${total}</p>
   </div>
@@ -135,7 +140,7 @@ export class MailerCuentaCobroService {
     const adminUrl = this.config.get<string>('ADMIN_URL') ?? 'http://localhost:3002';
     const clinicaNombre = cuenta.clinica?.nombre ?? 'Clínica';
     const total = `$${Number(pago.monto).toLocaleString('es-CO')}`;
-    const fecha = new Date(pago.fechaPago).toLocaleDateString('es-CO');
+    const fecha = pago.fechaPago ? format(pago.fechaPago, "d 'de' MMMM 'de' yyyy", { locale: es }) : "—";
     const comprobante = pago.comprobanteUrl
       ? `<p><a href="${escapeHtml(pago.comprobanteUrl)}">Ver comprobante</a></p>`
       : '';

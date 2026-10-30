@@ -1,3 +1,5 @@
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 import { ESTADOS_ORDEN } from "./types";
 import type { Clinica, DetalleOrden, EstadoOrden, Orden } from "./types";
 
@@ -51,28 +53,12 @@ export function formatCop(value: string | number): string {
   return copFormat.format(Number(value));
 }
 
-const dateFormat = new Intl.DateTimeFormat("es-CO", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "America/Bogota",
-});
-
 export function formatDate(iso: string | null): string {
-  return iso ? dateFormat.format(new Date(iso)) : "Sin fecha";
+  return iso ? format(parseISO(iso), "d 'de' MMMM 'de' yyyy", { locale: es }) : "Sin fecha";
 }
 
-const dateTimeFormat = new Intl.DateTimeFormat("es-CO", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "America/Bogota",
-});
-
 export function formatDateTime(iso: string): string {
-  return dateTimeFormat.format(new Date(iso));
+  return iso ? format(parseISO(iso), "d MMM yyyy HH:mm", { locale: es }) : "—";
 }
 
 /** Lowercase and strip accents so searches ignore case and diacritics. */

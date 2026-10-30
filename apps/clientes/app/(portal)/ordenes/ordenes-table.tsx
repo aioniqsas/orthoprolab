@@ -1,0 +1,100 @@
+"use client";
+
+import Link from "next/link";
+import { DataTable } from "@repo/ui/components/data-table";
+import type { Orden } from "@/lib/data/types";
+
+function estadoBadge(nombre: string, color: string | null) {
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
+      style={{ backgroundColor: color ?? "#6b7280" }}
+    >
+      {nombre}
+    </span>
+  );
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("es-CO");
+}
+
+function formatCop(value: string) {
+  return Number(value).toLocaleString("es-CO", {
+    style: "currency",
+    currency: "COP",
+    minimumFractionDigits: 0,
+  });
+}
+
+export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
+  return (
+    <DataTable
+      rows={ordenes}
+      rowKey={(o) => o.id}
+      columns={[
+        {
+          id: "orden",
+          header: "Orden",
+          render: (o) => (
+            <Link href={`/ordenes/${o.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
+              #{o.id}
+            </Link>
+          ),
+          searchValue: (o) => `#${o.id}`,
+          sortValue: (o) => o.id,
+        },
+        {
+          id: "doctor",
+          header: "Doctor",
+          render: (o) =>
+            o.asignacion?.doctor
+              ? `${o.asignacion.doctor.nombres} ${o.asignacion.doctor.apellidos}`
+              : "—",
+          searchValue: (o) =>
+            o.asignacion?.doctor
+              ? `${o.asignacion.doctor.nombres} ${o.asignacion.doctor.apellidos}`
+              : "",
+          sortValue: (o) => o.asignacion?.doctor?.nombres ?? "",
+        },
+        {
+          id: "paciente",
+          header: "Paciente",
+          render: (o) => o.asignacion?.paciente?.nombre ?? "—",
+          searchValue: (o) => o.asignacion?.paciente?.nombre ?? "",
+          sortValue: (o) => o.asignacion?.paciente?.nombre ?? "",
+        },
+        {
+          id: "estado",
+          header: "Estado",
+          render: (o) => estadoBadge(o.estado.nombre, o.estado.color),
+          searchValue: (o) => o.estado.nombre,
+          sortValue: (o) => o.estado.nombre,
+        },
+        {
+          id: "total",
+          header: "Total",
+          align: "right",
+          render: (o) => formatCop(o.valor),
+          sortValue: (o) => Number(o.valor),
+        },
+        {
+          id: "creada",
+          header: "Creada",
+          render: (o) => formatDate(o.fechaCreacion),
+          sortValue: (o) => o.fechaCreacion,
+        },
+        {
+          id: "entrega",
+          header: "Entrega",
+          render: (o) => formatDate(o.fechaEntrega),
+          sortValue: (o) => o.fechaEntrega ?? "",
+        },
+      ]}
+      search={{ placeholder: "Buscar por número, doctor o paciente", label: "Buscar por número, doctor o paciente" }}
+      initialSort={{ id: "creada", dir: "asc" }}
+      empty={<p className="text-sm text-muted-foreground">No hay órdenes registradas aún.</p>}
+    />
+  );
+}

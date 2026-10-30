@@ -26,7 +26,7 @@ export async function generateMetadata({
 }
 
 const ESTADO_LABELS: Record<EstadoCuentaCobro, string> = {
-  borrador: "Borrador",
+  borrador: "Sin emitir",
   emitida: "Emitida",
   pagada_parcial: "Pago parcial",
   pagada: "Pagada",
@@ -50,15 +50,15 @@ function EstadoBadge({ estado }: { estado: EstadoCuentaCobro }) {
   return <span className={ESTADO_CLASS[estado]}>{ESTADO_LABELS[estado]}</span>;
 }
 
-const EDITABLE_ESTADOS: EstadoCuentaCobro[] = [
+/** Still editable: a draft is being assembled, and an issued account can be corrected until it is paid. */
+const ADJUNTABLE_ESTADOS: EstadoCuentaCobro[] = [
   "borrador",
   "emitida",
   "pagada_parcial",
 ];
 
-function isEditable(estado: EstadoCuentaCobro): boolean {
-  return EDITABLE_ESTADOS.includes(estado);
-}
+/** Payments only make sense on an issued account. */
+const PAGABLE_ESTADOS: EstadoCuentaCobro[] = ["emitida", "pagada_parcial"];
 
 function AnularPagoButton({
   cuentaId,
@@ -94,7 +94,8 @@ async function CuentaDetail({
 
   if (!cuenta) notFound();
 
-  const editable = isEditable(cuenta.estado);
+  const puedeAdjuntar = ADJUNTABLE_ESTADOS.includes(cuenta.estado);
+  const puedePagar = PAGABLE_ESTADOS.includes(cuenta.estado);
 
   return (
     <div className="flex flex-col gap-6">
@@ -232,7 +233,7 @@ async function CuentaDetail({
       </section>
 
       {/* Agregar órdenes */}
-      {editable ? (
+      {puedeAdjuntar ? (
         <section
           aria-labelledby="agregar-ordenes"
           className="rounded-xl border border-border bg-card p-5"
@@ -323,7 +324,7 @@ async function CuentaDetail({
       </section>
 
       {/* Registrar pago */}
-      {editable ? (
+      {puedePagar ? (
         <section
           aria-labelledby="registrar-pago"
           className="rounded-xl border border-border bg-card p-5"

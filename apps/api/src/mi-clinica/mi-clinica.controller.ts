@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -12,6 +13,7 @@ import {
   Post,
   Query,
   Req,
+  Sse,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -26,6 +28,9 @@ import { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
+import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
+import { interval, map, merge, type Observable } from 'rxjs';
+import type { MessageEvent } from '@nestjs/common';
 
 @Controller('mi-clinica')
 @UseGuards(RolesGuard)
@@ -35,6 +40,7 @@ export class MiClinicaController {
   constructor(
     private readonly miClinica: MiClinicaService,
     private readonly cuentasCobro: CuentasCobroService,
+    private readonly eventos: PedidosEventosService,
   ) {}
 
   @Get('doctores')
@@ -125,9 +131,45 @@ export class MiClinicaController {
     return this.miClinica.createOrden(req.user.id, dto);
   }
 
+  /** Change trigger for the client portal: only events for this clinic's orders. */
+  @Sse('ordenes/eventos')
+  @Header('Cache-Control', 'no-cache, no-transform')
+  @Header('X-Accel-Buffering', 'no')
+  ordenesEventos(): Observable<MessageEvent> {
+    const SSE_HEARTBEAT_MS = 25_000;
+    return merge(
+      this.eventos.cambios$.pipe(
+        map((cambio): MessageEvent => ({ type: 'orden', data: { tipo: cambio.tipo } })),
+      ),
+      interval(SSE_HEARTBEAT_MS).pipe(
+        map((): MessageEvent => ({ type: 'ping', data: {} })),
+      ),
+    );
+  }
+
   @Get('ordenes/:id')
   getOrden(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     return this.miClinica.getOrden(req.user.id, id);
+  }
+
+  @Post('ordenes/:id/devolver')
+  @HttpCode(HttpStatus.OK)
+  devolverOrden(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { observaciones?: string },
+  ) {
+    return this.miClinica.devolverOrden(req.user.id, id, body?.observaciones ?? '');
+  }
+
+  @Post('ordenes/:id/finalizar')
+  @HttpCode(HttpStatus.OK)
+  finalizarOrden(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { observaciones?: string },
+  ) {
+    return this.miClinica.finalizarOrden(req.user.id, id, body?.observaciones);
   }
 
   @Get('cuentas-cobro')

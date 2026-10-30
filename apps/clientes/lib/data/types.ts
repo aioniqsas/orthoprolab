@@ -33,6 +33,7 @@ export interface Servicio {
 
 export interface EstadoOrden {
   id: string;
+  codigo?: string;
   nombre: string;
   color: string | null;
 }
@@ -88,7 +89,7 @@ export interface CuentaCobro {
   numero: string;
   clinicaId: string;
   estado: EstadoCuentaCobro;
-  fechaEmision: string;
+  fechaEmision: string | null;
   fechaVencimiento: string | null;
   total: string;
   pdfUrl: string | null;

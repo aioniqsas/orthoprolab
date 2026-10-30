@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
@@ -79,18 +81,10 @@ export class PdfCuentaCobroService {
       const lh = 16;
 
       const fechaEmision = cuenta.fechaEmision
-        ? new Date(cuenta.fechaEmision).toLocaleDateString('es-CO', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          })
+        ? format(cuenta.fechaEmision, "d 'de' MMMM 'de' yyyy", { locale: es })
         : '—';
       const fechaVencimiento = cuenta.fechaVencimiento
-        ? new Date(cuenta.fechaVencimiento).toLocaleDateString('es-CO', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          })
+        ? format(cuenta.fechaVencimiento, "d 'de' MMMM 'de' yyyy", { locale: es })
         : 'Sin vencimiento';
       const clinicaNombre = cuenta.clinica?.nombre ?? '—';
       const clinicaCorreo = cuenta.clinica?.correo ?? '—';
@@ -226,7 +220,7 @@ export class PdfCuentaCobroService {
 
         activePagos.forEach((p, idx) => {
           const fecha = p.fechaPago
-            ? new Date(p.fechaPago).toLocaleDateString('es-CO')
+            ? format(p.fechaPago, "d 'de' MMMM 'de' yyyy", { locale: es })
             : '—';
           doc.rect(M, rowY, W, 16).fill(idx % 2 === 0 ? '#ffffff' : '#f9f9f9');
           xo = M;
@@ -254,11 +248,7 @@ export class PdfCuentaCobroService {
 
       // ── Footer ────────────────────────────────────────────────────────────────
       const footerY = doc.page.height - 36;
-      const dateStr = new Date().toLocaleDateString('es-CO', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
+      const dateStr = format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es });
       doc
         .font('Helvetica')
         .fontSize(9)

@@ -11,8 +11,7 @@ import { CuentasTable } from "./cuentas-table";
 export const metadata: Metadata = { title: "Cuentas de cobro" };
 
 async function CuentasList() {
-  const all = await listCuentasCobro();
-  const cuentas = all.filter((c) => c.estado !== "borrador");
+  const cuentas = await listCuentasCobro();
   return <CuentasTable cuentas={cuentas} />;
 }
 
@@ -21,7 +20,7 @@ export default function CuentasCobroPage() {
     <section className="flex flex-col gap-6">
       <PageHeader
         title="Cuentas de cobro"
-        description="Gestiona las cuentas de cobro emitidas a los doctores."
+        description="Gestiona las cuentas de cobro de los doctores."
         actions={
           <Link href="/cuentas-cobro/nueva" className={buttonVariants()}>
             <Plus aria-hidden /> Nueva cuenta

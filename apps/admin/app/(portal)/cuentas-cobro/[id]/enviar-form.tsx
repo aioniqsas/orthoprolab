@@ -21,10 +21,12 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, clinicaCorreo }: P
   );
 
   const [pdfPending, startPdfTransition] = useTransition();
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   function handleGenerarPdf() {
     startPdfTransition(async () => {
-      await generarPdf(cuentaId);
+      const result = await generarPdf(cuentaId);
+      setPdfError(result.ok ? null : (result.error ?? "Error al generar el PDF"));
     });
   }
 
@@ -62,6 +64,11 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, clinicaCorreo }: P
           ) : null}
           {initialPdfUrl ? "Regenerar PDF" : "Generar PDF"}
         </Button>
+        {pdfError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {pdfError}
+          </p>
+        ) : null}
       </div>
 
       {/* Email section */}

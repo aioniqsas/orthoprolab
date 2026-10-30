@@ -8,7 +8,7 @@ import { formatDate } from "@/lib/data/helpers";
 import type { CuentaCobro, EstadoCuentaCobro } from "@/lib/data/types";
 
 const ESTADO_LABELS: Record<EstadoCuentaCobro, string> = {
-  borrador: "Borrador",
+  borrador: "Sin emitir",
   emitida: "Emitida",
   pagada_parcial: "Pago parcial",
   pagada: "Pagada",
@@ -73,7 +73,7 @@ const columns: DataTableColumn<CuentaCobro>[] = [
   {
     id: "fechaEmision",
     header: "Fecha emisión",
-    sortValue: (c) => c.fechaEmision,
+    sortValue: (c) => c.fechaEmision ?? "",
     render: (c) => formatDate(c.fechaEmision),
   },
   {

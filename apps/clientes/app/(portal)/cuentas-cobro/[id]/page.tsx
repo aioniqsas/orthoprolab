@@ -21,7 +21,7 @@ export async function generateMetadata({
 }
 
 const ESTADO_LABEL: Record<EstadoCuentaCobro, string> = {
-  borrador: "Borrador",
+  borrador: "Sin emitir",
   emitida: "Emitida",
   pagada: "Pagada",
   pagada_parcial: "Pago parcial",

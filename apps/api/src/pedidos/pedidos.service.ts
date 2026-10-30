@@ -14,6 +14,7 @@ import { Doctor } from '../usuarios/doctor.entity.js';
 import { DetalleOrden } from './detalle-orden.entity.js';
 import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
 import { Orden } from './orden.entity.js';
+import { PedidosEventosService } from './pedidos-eventos.service.js';
 import type { CreateOrdenDto } from './dto/create-orden.dto.js';
 
 @Injectable()
@@ -33,6 +34,7 @@ export class PedidosService {
     private readonly servicioRepo: Repository<Servicio>,
     private readonly dataSource: DataSource,
     private readonly pacientesService: PacientesService,
+    private readonly eventos: PedidosEventosService,
   ) {}
 
   async findAll(filters?: {
@@ -151,7 +153,7 @@ export class PedidosService {
       );
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       // When patient was resolved inline, ensure the PacienteDoctor link exists.
       if (ensureLink) {
         const existing = await manager.findOne(PacienteDoctor, {
@@ -267,6 +269,16 @@ export class PedidosService {
       if (!result) throw new NotFoundException('Orden no encontrada tras creación.');
       return result;
     });
+
+    const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
+    this.eventos.emitir('creada', String(result.id), doctor?.clinicaId);
+    return result;
+  }
+
+  /** Resolves the DB id of an estado_orden by its codigo. */
+  async getEstadoIdByCodigo(codigo: string): Promise<string | null> {
+    const estado = await this.estadoRepo.findOne({ where: { codigo } });
+    return estado ? estado.id : null;
   }
 
   /**
@@ -279,7 +291,7 @@ export class PedidosService {
     usuarioId: string,
     observaciones?: string,
   ): Promise<Orden> {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const orden = await manager.findOne(Orden, {
         where: { id },
         relations: { estado: true },
@@ -308,5 +320,11 @@ export class PedidosService {
 
       return orden;
     });
+
+    // Reload with estado relation for callers (the transaction result only has
+    // the state we set, but keep shape consistent).
+    const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
+    this.eventos.emitir('estado', String(result.id), doctor?.clinicaId);
+    return result;
   }
 }

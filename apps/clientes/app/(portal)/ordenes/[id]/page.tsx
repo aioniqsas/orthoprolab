@@ -3,6 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { getOrden } from "@/lib/data/repository";
+import { OrdenesLive } from "../ordenes-live";
+import { DevolverOrdenForm } from "../devolver-orden-form";
+import { ConfirmarSatisfaccionForm } from "../confirmar-satisfaccion-form";
+import { OrdenDetallesTable } from "../detalles-table";
 
 export const metadata: Metadata = { title: "Orden" };
 
@@ -34,6 +38,7 @@ export default async function OrdenPage({
 
   return (
     <section className="flex flex-col gap-6 max-w-3xl">
+      <OrdenesLive />
       <div className="flex flex-col gap-1">
         <Link
           href="/ordenes"
@@ -83,19 +88,21 @@ export default async function OrdenPage({
         <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">
           <h2 id="historial" className="font-heading text-lg font-semibold">Historial de estados</h2>
           <ol className="mt-4 flex flex-col gap-4 border-s border-border ps-4">
-            {orden.historial.map((h) => (
+            {orden.historial
+              .filter((h) => !h.estadoAnterior || h.estadoAnterior.id !== h.estadoNuevo.id)
+              .map((h) => (
               <li key={h.id} className="relative">
                 <span aria-hidden className="absolute top-1.5 -start-[1.3rem] size-2 rounded-full bg-primary" />
                 <p className="text-sm font-medium">
                   {h.estadoAnterior
-                    ? `${h.estadoAnterior.nombre} → ${h.estadoNuevo.nombre}`
-                    : h.estadoNuevo.nombre}
+                    ? `Pasó de "${h.estadoAnterior.nombre}" a "${h.estadoNuevo.nombre}"`
+                    : `Se creó con estado "${h.estadoNuevo.nombre}"`}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(h.fechaCambio).toLocaleString("es-CO")}
                 </p>
                 {h.observaciones ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{h.observaciones}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Motivo: {h.observaciones}</p>
                 ) : null}
               </li>
             ))}
@@ -103,53 +110,20 @@ export default async function OrdenPage({
         </section>
       )}
 
-      {/* Detalles table */}
+      {/* Detalles */}
       {orden.detalles.length > 0 && (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Servicio</th>
-                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Cant.</th>
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">P. unitario</th>
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {orden.detalles.map((d) => {
-                const subtotal = (Number(d.precioUnitario) * d.cantidad).toLocaleString("es-CO", {
-                  style: "currency",
-                  currency: "COP",
-                  minimumFractionDigits: 0,
-                });
-                const pu = Number(d.precioUnitario).toLocaleString("es-CO", {
-                  style: "currency",
-                  currency: "COP",
-                  minimumFractionDigits: 0,
-                });
-                return (
-                  <tr key={d.id}>
-                    <td className="px-4 py-3">
-                      <p>{d.servicio.nombre}</p>
-                      {d.observaciones && (
-                        <p className="text-xs text-muted-foreground">{d.observaciones}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">{d.cantidad}</td>
-                    <td className="px-4 py-3 text-right">{pu}</td>
-                    <td className="px-4 py-3 text-right font-medium">{subtotal}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="border-t border-border bg-muted/30">
-              <tr>
-                <td colSpan={3} className="px-4 py-3 text-right font-semibold">Total</td>
-                <td className="px-4 py-3 text-right font-semibold">{total}</td>
-              </tr>
-            </tfoot>
-          </table>
+        <div className="flex flex-col gap-3">
+          <OrdenDetallesTable detalles={orden.detalles} />
+          <div className="flex justify-end">
+            <span className="text-sm font-semibold">Total: {total}</span>
+          </div>
         </div>
+      )}
+      {(orden.estado.codigo === "en_entrega" || orden.estado.nombre === "En entrega al cliente") && (
+        <>
+          <ConfirmarSatisfaccionForm ordenId={orden.id} />
+          <DevolverOrdenForm ordenId={orden.id} />
+        </>
       )}
     </section>
   );
