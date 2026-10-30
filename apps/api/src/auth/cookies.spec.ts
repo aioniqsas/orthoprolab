@@ -21,15 +21,26 @@ describe('AuthCookies', () => {
     });
   });
 
-  it('sets the refresh cookie scoped to /auth for 7 days', () => {
+  it('sets the refresh cookie on / for 7 days so portals can renew it', () => {
     const res = fakeRes();
     new AuthCookies(settings).setRefresh(res as never, 'opaque');
     expect(res.cookie).toHaveBeenCalledWith('refresh_token', 'opaque', {
       httpOnly: true,
       secure: false,
       sameSite: 'strict',
-      path: '/auth',
+      path: '/',
       maxAge: 7 * 86_400_000,
+    });
+  });
+
+  it('drops the legacy /auth-scoped refresh cookie on every write', () => {
+    const res = fakeRes();
+    new AuthCookies(settings).setRefresh(res as never, 'opaque');
+    expect(res.clearCookie).toHaveBeenCalledWith('refresh_token', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      path: '/auth',
     });
   });
 
@@ -59,7 +70,7 @@ describe('AuthCookies', () => {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      path: '/auth',
+      path: '/',
     });
   });
 });
