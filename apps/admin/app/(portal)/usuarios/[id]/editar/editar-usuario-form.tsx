@@ -2,7 +2,7 @@
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
-import type { Clinica, Usuario } from "@/lib/data/types";
+import type { Clinica, Usuario, UsuarioDetalle } from "@/lib/data/types";
 import { editarUsuario } from "../actions";
 
 const inputCls =
@@ -11,7 +11,7 @@ const selectCls =
   "rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight";
 
 interface Props {
-  usuario: Usuario;
+  usuario: UsuarioDetalle;
   clinicas: Clinica[];
 }
 

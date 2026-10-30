@@ -57,11 +57,7 @@ export function DoctorAcciones({ doctorId, nombre }: Props) {
           ) : null}
 
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isPending}>
-                Cancelar
-              </Button>
-            </DialogClose>
+            <DialogClose render={<Button variant="outline" disabled={isPending}>Cancelar</Button>} />
             <Button
               variant="destructive"
               disabled={isPending}
