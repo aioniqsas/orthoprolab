@@ -44,6 +44,7 @@ export interface DetalleOrden {
   servicio: Pick<Servicio, "id" | "nombre" | "precio">;
   cantidad: number;
   precioUnitario: string;
+  dientes?: { numero: number; color: string }[];
   observaciones: string | null;
 }
 

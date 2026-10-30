@@ -79,7 +79,7 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <section aria-labelledby="detalles" className="rounded-xl border border-border bg-card p-5">
           <h2 id="detalles" className="font-heading text-lg font-semibold">
-            Servicios
+            Clases de trabajo
           </h2>
           <ul className="mt-4 flex flex-col divide-y divide-border">
             {orden.detalles.map((d) => (
@@ -89,6 +89,12 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                   <p className="text-xs text-muted-foreground tabular-nums">
                     {d.cantidad} x {formatCop(d.precioUnitario)}
                   </p>
+                  {d.dientes.length > 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Dientes:{" "}
+                      {d.dientes.map((diente) => `${diente.numero} (${diente.color})`).join(", ")}
+                    </p>
+                  ) : null}
                   {d.observaciones ? (
                     <p className="mt-1 text-xs text-muted-foreground">{d.observaciones}</p>
                   ) : null}

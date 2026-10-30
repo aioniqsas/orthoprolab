@@ -6,6 +6,7 @@ import type { Orden } from './orden.entity.js';
 
 interface DeepDetalle {
   servicio?: { nombre?: string };
+  dientes?: { numero?: number; color?: string }[];
 }
 
 interface DeepHistorial {
@@ -36,10 +37,18 @@ export class PdfControlTrabajosService {
     const doctorNombre = o.asignacion?.doctor
       ? `${o.asignacion.doctor.nombres ?? ''} ${o.asignacion.doctor.apellidos ?? ''}`.trim()
       : '—';
-    const tiposTrabajo = (o.detalles ?? [])
-      .map((d) => d.servicio?.nombre)
-      .filter(Boolean)
-      .join(', ') || '—';
+    const tiposTrabajo =
+      (o.detalles ?? [])
+        .map((d) => {
+          const nombre = d.servicio?.nombre;
+          if (!nombre) return null;
+          const dientes = (d.dientes ?? [])
+            .map((diente) => `${diente.numero ?? '—'} (${diente.color ?? '—'})`)
+            .join(', ');
+          return dientes ? `${nombre} — ${dientes}` : nombre;
+        })
+        .filter(Boolean)
+        .join('; ') || '—';
 
     const devoluciones = (o.historial ?? []).filter(
       (h) => h.estadoNuevo?.codigo === 'devuelta_correccion' && (h.observaciones ?? '').trim() !== '',
@@ -82,7 +91,7 @@ export class PdfControlTrabajosService {
       line('Cédula:', pacienteCedula);
       line('Odontólogo:', doctorNombre);
       line('Laboratorio:', 'OrthoPro Lab');
-      line('Tipo de trabajo:', tiposTrabajo);
+      line('Clase de trabajo:', tiposTrabajo);
 
       y += 8;
       doc.moveTo(M, y).lineTo(M + W, y).lineWidth(0.5).strokeColor('#cccccc').stroke();

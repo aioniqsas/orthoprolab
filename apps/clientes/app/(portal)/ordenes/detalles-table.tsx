@@ -24,6 +24,20 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
           sortValue: (d) => d.servicio.nombre,
         },
         {
+          id: "dientes",
+          header: "Dientes",
+          render: (d) =>
+            d.dientes?.length ? (
+              <span className="text-xs">
+                {d.dientes.map((diente) => `${diente.numero} (${diente.color})`).join(", ")}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            ),
+          searchValue: (d) =>
+            (d.dientes ?? []).map((diente) => `${diente.numero} ${diente.color}`).join(" "),
+        },
+        {
           id: "cantidad",
           header: "Cant.",
           align: "right",

@@ -40,6 +40,10 @@ export class DetalleOrden {
   @Column({ type: 'integer', default: 1 })
   cantidad: number;
 
+  // Teeth this line covers, each with its shade (FDI numbering).
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  dientes: { numero: number; color: string }[];
+
   // Historical price copied from servicio.precio when the order is placed.
   @Column({
     name: 'precio_unitario',

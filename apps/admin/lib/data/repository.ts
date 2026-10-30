@@ -75,6 +75,7 @@ interface RawDetalleOrden {
   servicio: { id: string; nombre: string; precio: string };
   cantidad: number;
   precioUnitario: string;
+  dientes?: { numero: number; color: string }[] | null;
   observaciones: string | null;
 }
 
@@ -132,6 +133,7 @@ function mapOrden(raw: RawOrden): Orden {
       servicio: d.servicio.nombre,
       cantidad: d.cantidad,
       precioUnitario: d.precioUnitario,
+      dientes: d.dientes ?? [],
       observaciones: d.observaciones,
     })),
     historial: raw.historial.map((h) => ({

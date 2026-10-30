@@ -72,7 +72,7 @@ CREATE TABLE public.cuenta_cobro (
     id bigint NOT NULL,
     numero character varying(20) NOT NULL,
     estado character varying(20) DEFAULT 'borrador'::character varying NOT NULL,
-    fecha_emision date DEFAULT CURRENT_DATE NOT NULL,
+    fecha_emision date,
     fecha_vencimiento date,
     total numeric(12,2) DEFAULT 0 NOT NULL,
     pdf_url character varying(500),
@@ -121,7 +121,9 @@ CREATE TABLE public.detalle_orden (
     cantidad integer DEFAULT 1 NOT NULL,
     precio_unitario numeric(12,2) NOT NULL,
     observaciones text,
+    dientes jsonb DEFAULT '[]'::jsonb NOT NULL,
     CONSTRAINT ck_detalle_orden_cantidad CHECK ((cantidad > 0)),
+    CONSTRAINT ck_detalle_orden_dientes CHECK ((jsonb_typeof(dientes) = 'array'::text)),
     CONSTRAINT ck_detalle_orden_precio CHECK ((precio_unitario >= (0)::numeric))
 );
 

@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { parseDientes, type Diente } from "@/lib/dientes";
 import { API_URL } from "@/lib/api";
 
 export type CrearOrdenResult = { ok: false; error: string };
@@ -40,23 +41,32 @@ export async function crearOrden(
   }
 
   // Collect dynamic line items.
-  const detalles: { servicioId: number; cantidad: number; observaciones?: string }[] = [];
+  const detalles: {
+    servicioId: number;
+    cantidad: number;
+    dientes: Diente[];
+    observaciones?: string;
+  }[] = [];
   let index = 0;
   while (formData.has(`servicioId_${index}`)) {
     const servicioId = Number(formData.get(`servicioId_${index}`));
     const cantidad = Number(formData.get(`cantidad_${index}`));
     if (!servicioId || servicioId < 1) {
-      return { ok: false, error: `Fila ${index + 1}: selecciona un servicio válido.` };
+      return { ok: false, error: `Fila ${index + 1}: selecciona una clase de trabajo válida.` };
     }
     if (!cantidad || cantidad < 1 || cantidad > 99) {
       return { ok: false, error: `Fila ${index + 1}: la cantidad debe estar entre 1 y 99.` };
     }
-    detalles.push({ servicioId, cantidad });
+    const dientes = parseDientes(formData.get(`dientes_${index}`));
+    if (!dientes.ok) {
+      return { ok: false, error: `Fila ${index + 1}: ${dientes.error}` };
+    }
+    detalles.push({ servicioId, cantidad, dientes: dientes.dientes });
     index++;
   }
 
   if (detalles.length === 0) {
-    return { ok: false, error: "Agrega al menos un servicio." };
+    return { ok: false, error: "Agrega al menos una clase de trabajo." };
   }
 
   const fechaEntrega = (formData.get("fechaEntrega") as string | null) || undefined;

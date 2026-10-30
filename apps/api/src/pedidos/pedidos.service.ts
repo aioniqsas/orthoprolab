@@ -193,6 +193,7 @@ export class PedidosService {
         servicioId: string;
         cantidad: number;
         precioUnitario: string;
+        dientes: { numero: number; color: string }[];
         observaciones: string | null;
       };
       const snapshots: DetailSnapshot[] = [];
@@ -214,10 +215,17 @@ export class PedidosService {
         }
         const precio = Number(servicio.precio);
         total += d.cantidad * precio;
+        const numeros = new Set(d.dientes.map((diente) => diente.numero));
+        if (numeros.size !== d.dientes.length) {
+          throw new BadRequestException(
+            `El servicio "${servicio.nombre}" tiene dientes repetidos.`,
+          );
+        }
         snapshots.push({
           servicioId: servicio.id,
           cantidad: d.cantidad,
           precioUnitario: servicio.precio,
+          dientes: d.dientes.map(({ numero, color }) => ({ numero, color })),
           observaciones: d.observaciones ?? null,
         });
       }
@@ -241,6 +249,7 @@ export class PedidosService {
           servicioId: snap.servicioId,
           cantidad: snap.cantidad,
           precioUnitario: snap.precioUnitario,
+          dientes: snap.dientes,
           observaciones: snap.observaciones,
         });
         await manager.save(DetalleOrden, detalle);

@@ -1,0 +1,65 @@
+# Orden: clase de trabajo + odontograma por línea
+
+**Objetivo**: al crear una orden, cada línea (trabajo) indica los dientes sobre
+los que se realiza y el color de cada diente. Además "servicio" pasa a llamarse
+"clase de trabajo" en los textos visibles.
+
+**Por qué**: el laboratorio necesita saber qué piezas se trabajan y con qué tono;
+el campo de observaciones no servía para eso.
+
+**Decisiones**
+- Numeración FDI de dentición permanente (11-48), 32 dientes, superiores e
+  inferiores.
+- Selección y color **por trabajo** (cada detalle de la orden), no por orden.
+- Color por diente, no uno por línea.
+- Dientes obligatorios en órdenes nuevas; las viejas quedan con `[]`.
+
+**Fuera de scope**: dentición temporal (51-85), caras/piezas del diente,
+selección de dientes por línea en el catálogo, edición posterior de una orden.
+
+## Authorized scope
+
+- `apps/api/src/database/migrations/1792633000000-AddDientesToDetalleOrden.ts` (nuevo)
+- `apps/api/src/pedidos/detalle-orden.entity.ts`
+- `apps/api/src/pedidos/dto/create-orden.dto.ts` + spec
+- `apps/api/src/pedidos/pedidos.service.ts`
+- `apps/api/src/pedidos/pdf-control-trabajos.service.ts`
+- `apps/admin/lib/dientes.ts` + spec (nuevo)
+- `apps/admin/app/(portal)/ordenes/nueva/` (form, actions, odontograma)
+- `apps/admin/lib/data/{types,repository,sample}.ts`
+- `apps/admin/app/(portal)/ordenes/[id]/page.tsx`
+- `apps/clientes/lib/data/types.ts`
+- `apps/clientes/app/(portal)/ordenes/detalles-table.tsx`
+- `apps/api/docs/schema.sql` (generado)
+
+## Constraints
+
+- Validación en el API (trust boundary) y en el admin (mensaje por fila).
+- `dientes` es `jsonb NOT NULL DEFAULT '[]'`; el CHECK sólo valida que sea array.
+- Sin librerías nuevas: el diagrama es CSS grid + botones.
+- No tocar el catálogo: el modelo sigue siendo `servicio`.
+
+## Tasks
+
+- [x] T1 — Textos: "Servicio(s)" → "Clase(s) de trabajo" en form, errores y detalle.
+- [x] T2 — Migración + entidad `dientes jsonb`.
+- [x] T3 — DTO con `dientes` obligatorio (FDI + color 1..20) + tests.
+- [x] T4 — Servicio: snapshot de dientes + rechazo de dientes repetidos.
+- [x] T5 — Odontograma (client) + integración por fila con color por diente.
+- [x] T6 — `parseDientes` en admin con tests (FDI, duplicados, color).
+- [x] T7 — Mostrar dientes en detalle admin, tabla de clientes y PDF.
+
+## Progress
+
+- Migración aplicada en la BD local (`AddDientesToDetalleOrden1792633000000`).
+- La columna temporal `color_diente` (nunca commiteada) se dropea en la misma
+  migración con `IF EXISTS`.
+- `bun run db:schema` regeneró `docs/schema.sql`.
+
+## Verification
+
+- `apps/api`: `vitest src/pedidos src/auth` 85 passed; `tsc` OK; oxlint sin errores.
+- `apps/admin`: `vitest` 33 passed (1 falla preexistente en `helpers.spec.ts`,
+  formato de fechas); `tsc` OK; eslint sin errores nuevos.
+- `apps/clientes`: `tsc` OK; eslint del archivo tocado OK.
+- No verificado en navegador: interacción del odontograma.
