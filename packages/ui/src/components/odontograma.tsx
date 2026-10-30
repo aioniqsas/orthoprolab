@@ -1,41 +1,50 @@
 "use client";
 
-import {
-  ARCO_INFERIOR,
-  ARCO_SUPERIOR,
-  COLOR_MAX_LENGTH,
-  type Diente,
-} from "@repo/api-client";
+import { ARCO_INFERIOR, ARCO_SUPERIOR, COLOR_MAX_LENGTH } from "@repo/api-client";
 
 interface Props {
   idPrefix: string;
-  value: Diente[];
-  onChange: (dientes: Diente[]) => void;
+  dientes: number[];
+  color: string;
+  onDientesChange: (dientes: number[]) => void;
+  onColorChange: (color: string) => void;
 }
 
-export function Odontograma({ idPrefix, value, onChange }: Props) {
-  const seleccionados = new Map(value.map((diente) => [diente.numero, diente.color]));
+/**
+ * Places tooth `indice` on a half-ellipse, the way a dental mould is drawn:
+ * the upper arch opens downward (∩) and the lower one upward (∪). Position is
+ * a percentage so the arch scales with its container.
+ */
+export function posicionEnArco(indice: number, total: number, esInferior: boolean) {
+  const angulo = Math.PI - (Math.PI * indice) / (total - 1);
+  const x = 50 + 44 * Math.cos(angulo);
+  const y = esInferior ? 12 + 76 * Math.sin(angulo) : 88 - 76 * Math.sin(angulo);
+  return { left: `${x}%`, top: `${y}%` };
+}
+
+export function Odontograma({
+  idPrefix,
+  dientes,
+  color,
+  onDientesChange,
+  onColorChange,
+}: Props) {
+  const seleccionado = new Set(dientes);
 
   function toggle(numero: number) {
-    onChange(
-      seleccionados.has(numero)
-        ? value.filter((diente) => diente.numero !== numero)
-        : [...value, { numero, color: "" }],
+    onDientesChange(
+      seleccionado.has(numero)
+        ? dientes.filter((diente) => diente !== numero)
+        : [...dientes, numero],
     );
   }
 
-  function setColor(numero: number, color: string) {
-    onChange(
-      value.map((diente) => (diente.numero === numero ? { ...diente, color } : diente)),
-    );
-  }
-
-  const arco = (dientes: readonly number[], etiqueta: string) => (
+  const arco = (numeros: readonly number[], etiqueta: string, esInferior: boolean) => (
     <div className="flex flex-col gap-1">
       <span className="text-xs font-medium text-muted-foreground">{etiqueta}</span>
-      <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-1">
-        {dientes.map((numero) => {
-          const activo = seleccionados.has(numero);
+      <div className="relative aspect-[2.4/1] w-full">
+        {numeros.map((numero, indice) => {
+          const activo = seleccionado.has(numero);
           return (
             <button
               key={numero}
@@ -43,7 +52,8 @@ export function Odontograma({ idPrefix, value, onChange }: Props) {
               aria-pressed={activo}
               aria-label={`Diente ${numero}`}
               onClick={() => toggle(numero)}
-              className={`rounded-md border py-1 text-xs tabular-nums transition-colors ${
+              style={posicionEnArco(indice, numeros.length, esInferior)}
+              className={`absolute grid size-[clamp(18px,4.8vw,23px)] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md border text-[10px] tabular-nums transition-colors ${
                 activo
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-background text-body hover:bg-muted"
@@ -59,36 +69,33 @@ export function Odontograma({ idPrefix, value, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {arco(ARCO_SUPERIOR, "Superior")}
-      {arco(ARCO_INFERIOR, "Inferior")}
+      <div className="mx-auto flex w-full max-w-[320px] flex-col gap-2">
+        {arco(ARCO_SUPERIOR, "Superior", false)}
+        {arco(ARCO_INFERIOR, "Inferior", true)}
+      </div>
 
-      {value.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          Selecciona los dientes sobre los que se realiza el trabajo.
-        </p>
-      ) : (
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {value.map((diente) => (
-            <li key={diente.numero} className="flex items-center gap-2">
-              <label
-                htmlFor={`${idPrefix}_color_${diente.numero}`}
-                className="w-20 shrink-0 text-xs font-medium text-body"
-              >
-                Diente {diente.numero}
-              </label>
-              <input
-                id={`${idPrefix}_color_${diente.numero}`}
-                value={diente.color}
-                required
-                maxLength={COLOR_MAX_LENGTH}
-                placeholder="Color"
-                onChange={(event) => setColor(diente.numero, event.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor={`${idPrefix}_color`}
+          className="shrink-0 text-xs font-medium text-body"
+        >
+          Color del trabajo
+        </label>
+        <input
+          id={`${idPrefix}_color`}
+          value={color}
+          maxLength={COLOR_MAX_LENGTH}
+          placeholder="Ej. A2"
+          onChange={(event) => onColorChange(event.target.value)}
+          className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
+        />
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {dientes.length === 0
+          ? "Selecciona los dientes sobre los que se realiza el trabajo."
+          : `Dientes: ${[...dientes].sort((a, b) => a - b).join(", ")}`}
+      </p>
     </div>
   );
 }

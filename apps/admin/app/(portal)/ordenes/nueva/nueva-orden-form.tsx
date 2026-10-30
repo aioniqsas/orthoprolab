@@ -3,7 +3,6 @@ import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { Odontograma } from "@repo/ui/components/odontograma";
-import type { Diente } from "@repo/api-client";
 import type { DoctorOpcion, Servicio } from "@/lib/data/types";
 import { crearOrden } from "./actions";
 import { PacienteCedulaField } from "./_components/paciente-cedula-field";
@@ -16,7 +15,8 @@ interface Props {
 interface DetalleRow {
   servicioId: string;
   cantidad: number;
-  dientes: Diente[];
+  dientes: number[];
+  color: string;
 }
 
 export function NuevaOrdenForm({ doctores, servicios }: Props) {
@@ -24,11 +24,11 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
 
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [detalles, setDetalles] = useState<DetalleRow[]>([
-    { servicioId: "", cantidad: 1, dientes: [] },
+    { servicioId: "", cantidad: 1, dientes: [], color: "" },
   ]);
 
   function addDetalle() {
-    setDetalles((prev) => [...prev, { servicioId: "", cantidad: 1, dientes: [] }]);
+    setDetalles((prev) => [...prev, { servicioId: "", cantidad: 1, dientes: [], color: "" }]);
   }
 
   function removeDetalle(index: number) {
@@ -153,10 +153,13 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
 
             <Odontograma
               idPrefix={`detalle_${i}`}
-              value={row.dientes}
-              onChange={(dientes) => updateDetalle(i, "dientes", dientes)}
+              dientes={row.dientes}
+              color={row.color}
+              onDientesChange={(dientes) => updateDetalle(i, "dientes", dientes)}
+              onColorChange={(color) => updateDetalle(i, "color", color)}
             />
             <input type="hidden" name={`dientes_${i}`} value={JSON.stringify(row.dientes)} />
+            <input type="hidden" name={`color_${i}`} value={row.color} />
           </div>
         ))}
 

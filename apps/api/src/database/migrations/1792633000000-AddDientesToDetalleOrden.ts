@@ -1,9 +1,9 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Teeth selected for each order line, with the shade of each tooth:
- * `[{ "numero": 11, "color": "A2" }]`. Empty for orders created before the
- * odontogram existed; the API requires at least one tooth from now on.
+ * Each order line records the FDI numbers of the teeth it covers plus the
+ * single shade of the work: `dientes = [11, 21]`, `color_diente = "A2"`.
+ * Existing rows keep `[]` and a null shade; the API requires both from now on.
  */
 export class AddDientesToDetalleOrden1792633000000
   implements MigrationInterface
@@ -11,10 +11,7 @@ export class AddDientesToDetalleOrden1792633000000
   name = 'AddDientesToDetalleOrden1792633000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // The earlier per-line shade column never shipped outside dev.
-    await queryRunner.query(
-      `ALTER TABLE detalle_orden DROP COLUMN IF EXISTS color_diente`,
-    );
+    await queryRunner.query(`ALTER TABLE detalle_orden ADD COLUMN color_diente text`);
     await queryRunner.query(
       `ALTER TABLE detalle_orden ADD COLUMN dientes jsonb NOT NULL DEFAULT '[]'::jsonb`,
     );
@@ -29,7 +26,8 @@ export class AddDientesToDetalleOrden1792633000000
     await queryRunner.query(`
       ALTER TABLE detalle_orden
         DROP CONSTRAINT IF EXISTS ck_detalle_orden_dientes,
-        DROP COLUMN IF EXISTS dientes
+        DROP COLUMN IF EXISTS dientes,
+        DROP COLUMN IF EXISTS color_diente
     `);
   }
 }

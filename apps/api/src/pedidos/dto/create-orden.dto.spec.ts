@@ -9,23 +9,29 @@ const validate = (value: unknown) =>
 const base = {
   doctorId: '7',
   pacienteId: 12,
-  detalles: [{ servicioId: 3, cantidad: 1, dientes: [{ numero: 11, color: 'A2' }] }],
+  detalles: [{ servicioId: 3, cantidad: 1, dientes: [11], colorDiente: 'A2' }],
 };
 
 const detalle = (dientes: unknown) => ({
   ...base,
-  detalles: [{ servicioId: 3, cantidad: 1, dientes }],
+  detalles: [{ servicioId: 3, cantidad: 1, dientes, colorDiente: 'A2' }],
 });
 
 describe('CreateOrdenDto', () => {
-  it('accepts a line with selected teeth', async () => {
+  it('accepts a line with selected teeth and one shade', async () => {
     const dto = await validate(base);
-    expect(dto.detalles[0]?.dientes).toEqual([{ numero: 11, color: 'A2' }]);
+    expect(dto.detalles[0]?.dientes).toEqual([11]);
+    expect(dto.detalles[0]?.colorDiente).toBe('A2');
   });
 
-  it('trims the tooth colour', async () => {
-    const dto = await validate(detalle([{ numero: 11, color: '  A2  ' }]));
-    expect(dto.detalles[0]?.dientes[0]?.color).toBe('A2');
+  it('trims the shade of the line', async () => {
+    const dto = await validate({
+      ...base,
+      detalles: [
+        { servicioId: 3, cantidad: 1, dientes: [11, 21], colorDiente: '  A2  ' },
+      ],
+    });
+    expect(dto.detalles[0]?.colorDiente).toBe('A2');
   });
 
   it('rejects a line without teeth', async () => {
@@ -35,18 +41,20 @@ describe('CreateOrdenDto', () => {
 
   it('rejects teeth outside the FDI permanent range', async () => {
     for (const numero of [0, 19, 29, 30, 39, 40, 49, 55, 11.5]) {
-      await expect(
-        validate(detalle([{ numero, color: 'A2' }])),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(validate(detalle([numero]))).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     }
   });
 
-  it('rejects a blank or oversized tooth colour', async () => {
-    await expect(
-      validate(detalle([{ numero: 11, color: '   ' }])),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    await expect(
-      validate(detalle([{ numero: 11, color: 'A'.repeat(21) }])),
-    ).rejects.toBeInstanceOf(BadRequestException);
+  it('rejects a blank or oversized shade', async () => {
+    const conColor = (colorDiente: string) => ({
+      ...base,
+      detalles: [{ servicioId: 3, cantidad: 1, dientes: [11], colorDiente }],
+    });
+    await expect(validate(conColor('   '))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(validate(conColor('A'.repeat(21)))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });

@@ -6,7 +6,8 @@ import type { Orden } from './orden.entity.js';
 
 interface DeepDetalle {
   servicio?: { nombre?: string };
-  dientes?: { numero?: number; color?: string }[];
+  dientes?: number[];
+  colorDiente?: string | null;
 }
 
 interface DeepHistorial {
@@ -42,10 +43,9 @@ export class PdfControlTrabajosService {
         .map((d) => {
           const nombre = d.servicio?.nombre;
           if (!nombre) return null;
-          const dientes = (d.dientes ?? [])
-            .map((diente) => `${diente.numero ?? '—'} (${diente.color ?? '—'})`)
-            .join(', ');
-          return dientes ? `${nombre} — ${dientes}` : nombre;
+          const dientes = (d.dientes ?? []).join(', ');
+          const color = d.colorDiente ? ` (${d.colorDiente})` : '';
+          return dientes ? `${nombre} — ${dientes}${color}` : nombre;
         })
         .filter(Boolean)
         .join('; ') || '—';

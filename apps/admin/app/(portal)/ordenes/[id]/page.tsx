@@ -91,8 +91,8 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                   </p>
                   {d.dientes.length > 0 ? (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Dientes:{" "}
-                      {d.dientes.map((diente) => `${diente.numero} (${diente.color})`).join(", ")}
+                      Dientes: {d.dientes.join(", ")}
+                      {d.colorDiente ? ` — Color: ${d.colorDiente}` : ""}
                     </p>
                   ) : null}
                   {d.observaciones ? (

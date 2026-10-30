@@ -40,9 +40,14 @@ export class DetalleOrden {
   @Column({ type: 'integer', default: 1 })
   cantidad: number;
 
-  // Teeth this line covers, each with its shade (FDI numbering).
+  // FDI numbers of the teeth this line covers; the shade is shared by all.
   @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
-  dientes: { numero: number; color: string }[];
+  dientes: number[];
+
+  // Shade of the piece for this line. Nullable only for rows created before
+  // the field became mandatory.
+  @Column({ name: 'color_diente', type: 'text', nullable: true })
+  colorDiente: string | null;
 
   // Historical price copied from servicio.precio when the order is placed.
   @Column({

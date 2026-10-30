@@ -1,9 +1,3 @@
-/** Permanent dentition, FDI two-digit numbering (11-48). */
-export interface Diente {
-  numero: number;
-  color: string;
-}
-
 export const COLOR_MAX_LENGTH = 20;
 
 /** Upper right 18-11, upper left 21-28, lower right 48-41, lower left 31-38. */
@@ -17,13 +11,13 @@ export const ARCO_INFERIOR = [
 const VALIDOS = new Set<number>([...ARCO_SUPERIOR, ...ARCO_INFERIOR]);
 
 export type ParseDientesResult =
-  | { ok: true; dientes: Diente[] }
+  | { ok: true; dientes: number[] }
   | { ok: false; error: string };
 
 /**
- * Parses the selection coming from the odontogram, either as the form field
- * (JSON string) or already parsed. Validation lives here (not only in the API
- * DTO) so each portal can point at the offending row.
+ * Parses the tooth selection of one work line, either as the form field (JSON
+ * string) or already parsed. Validation lives here (not only in the API DTO) so
+ * each portal can point at the offending row.
  */
 export function parseDientes(raw: unknown): ParseDientesResult {
   let parsed: unknown = raw;
@@ -43,26 +37,34 @@ export function parseDientes(raw: unknown): ParseDientesResult {
     return { ok: false, error: "Selecciona al menos un diente." };
   }
 
-  const dientes: Diente[] = [];
+  const dientes: number[] = [];
   const vistos = new Set<number>();
-  for (const item of parsed) {
-    const { numero, color } = (item ?? {}) as { numero?: unknown; color?: unknown };
+  for (const numero of parsed) {
+    // A tooth is just its FDI number; the shade belongs to the whole line.
     if (typeof numero !== "number" || !VALIDOS.has(numero)) {
       return { ok: false, error: "Hay un diente fuera de la numeración FDI." };
     }
     if (vistos.has(numero)) {
       return { ok: false, error: `El diente ${numero} está repetido.` };
     }
-    const tono = typeof color === "string" ? color.trim() : "";
-    if (!tono || tono.length > COLOR_MAX_LENGTH) {
-      return {
-        ok: false,
-        error: `Indica el color del diente ${numero} (máx. ${COLOR_MAX_LENGTH} caracteres).`,
-      };
-    }
     vistos.add(numero);
-    dientes.push({ numero, color: tono });
+    dientes.push(numero);
   }
 
   return { ok: true, dientes };
+}
+
+export type ParseColorResult = { ok: true; color: string } | { ok: false; error: string };
+
+/** The shade belongs to the work line: every tooth on it shares it. */
+export function parseColor(raw: unknown): ParseColorResult {
+  const color = typeof raw === "string" ? raw.trim() : "";
+  if (!color) return { ok: false, error: "Indica el color del trabajo." };
+  if (color.length > COLOR_MAX_LENGTH) {
+    return {
+      ok: false,
+      error: `El color no puede superar ${COLOR_MAX_LENGTH} caracteres.`,
+    };
+  }
+  return { ok: true, color };
 }

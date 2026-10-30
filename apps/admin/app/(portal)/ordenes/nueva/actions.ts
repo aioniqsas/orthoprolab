@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { parseDientes, type Diente } from "@repo/api-client";
+import { parseColor, parseDientes } from "@repo/api-client";
 import { API_URL } from "@/lib/api";
 
 export type CrearOrdenResult = { ok: false; error: string };
@@ -44,7 +44,8 @@ export async function crearOrden(
   const detalles: {
     servicioId: number;
     cantidad: number;
-    dientes: Diente[];
+    dientes: number[];
+    colorDiente: string;
     observaciones?: string;
   }[] = [];
   let index = 0;
@@ -61,7 +62,16 @@ export async function crearOrden(
     if (!dientes.ok) {
       return { ok: false, error: `Fila ${index + 1}: ${dientes.error}` };
     }
-    detalles.push({ servicioId, cantidad, dientes: dientes.dientes });
+    const color = parseColor(formData.get(`color_${index}`));
+    if (!color.ok) {
+      return { ok: false, error: `Fila ${index + 1}: ${color.error}` };
+    }
+    detalles.push({
+      servicioId,
+      cantidad,
+      dientes: dientes.dientes,
+      colorDiente: color.color,
+    });
     index++;
   }
 

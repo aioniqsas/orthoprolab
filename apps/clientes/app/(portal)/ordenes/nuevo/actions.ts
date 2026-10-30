@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { parseDientes } from "@repo/api-client";
+import { parseColor, parseDientes } from "@repo/api-client";
 import { API_URL } from "@/lib/api";
 
 export type CrearOrdenResult = { ok: false; error: string };
@@ -49,11 +49,12 @@ export async function crearOrden(
     return { ok: false, error: "Agregá al menos una clase de trabajo." };
   }
 
-  // Validate each line's teeth so the message names the offending row.
+  // Validate each line's teeth and shade so the message names the offending row.
   const detalles: Array<{
     servicioId: number;
     cantidad: number;
-    dientes: { numero: number; color: string }[];
+    dientes: number[];
+    colorDiente: string;
     observaciones?: string;
   }> = [];
   for (const [i, item] of crudos.entries()) {
@@ -61,16 +62,22 @@ export async function crearOrden(
       servicioId: number;
       cantidad: number;
       dientes?: unknown;
+      colorDiente?: unknown;
       observaciones?: string;
     };
     const dientes = parseDientes(linea.dientes);
     if (!dientes.ok) {
       return { ok: false, error: `Fila ${i + 1}: ${dientes.error}` };
     }
+    const color = parseColor(linea.colorDiente);
+    if (!color.ok) {
+      return { ok: false, error: `Fila ${i + 1}: ${color.error}` };
+    }
     detalles.push({
       servicioId: linea.servicioId,
       cantidad: linea.cantidad,
       dientes: dientes.dientes,
+      colorDiente: color.color,
       ...(linea.observaciones ? { observaciones: linea.observaciones } : {}),
     });
   }

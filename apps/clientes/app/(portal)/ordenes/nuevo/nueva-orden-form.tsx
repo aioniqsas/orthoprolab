@@ -3,7 +3,6 @@ import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2, ChevronRight, AlertCircle } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { Odontograma } from "@repo/ui/components/odontograma";
-import type { Diente } from "@repo/api-client";
 import type { Doctor, Servicio } from "@/lib/data/types";
 import { crearOrden } from "./actions";
 import { PacienteCedulaField } from "./_components/paciente-cedula-field";
@@ -15,7 +14,8 @@ interface Detalle {
   servicioId: string;
   servicioNombre: string;
   cantidad: number;
-  dientes: Diente[];
+  dientes: number[];
+  color: string;
   observaciones: string;
 }
 
@@ -47,7 +47,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
   function addDetalle() {
     setDetalles((prev) => [
       ...prev,
-      { servicioId: "", servicioNombre: "", cantidad: 1, dientes: [], observaciones: "" },
+      { servicioId: "", servicioNombre: "", cantidad: 1, dientes: [], color: "", observaciones: "" },
     ]);
   }
 
@@ -78,6 +78,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
       servicioId: Number(d.servicioId),
       cantidad: d.cantidad,
       dientes: d.dientes,
+      colorDiente: d.color,
       ...(d.observaciones ? { observaciones: d.observaciones } : {}),
     }));
 
@@ -263,8 +264,10 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
                   <div className="mt-3 rounded-lg border border-border bg-input/40 p-3">
                     <Odontograma
                       idPrefix={`detalle_${i}`}
-                      value={d.dientes}
-                      onChange={(dientes) => updateDetalle(i, "dientes", dientes)}
+                      dientes={d.dientes}
+                      color={d.color}
+                      onDientesChange={(dientes) => updateDetalle(i, "dientes", dientes)}
+                      onColorChange={(color) => updateDetalle(i, "color", color)}
                     />
                   </div>
                 </div>

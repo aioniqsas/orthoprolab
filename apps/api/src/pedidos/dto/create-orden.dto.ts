@@ -21,18 +21,6 @@ export const DIENTES_FDI = [
   35, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48,
 ];
 
-export class CreateDienteDto {
-  @IsInt()
-  @IsIn(DIENTES_FDI)
-  numero!: number;
-
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(20)
-  color!: string;
-}
-
 export class CreateDetalleOrdenDto {
   @IsInt()
   @Min(1)
@@ -43,12 +31,19 @@ export class CreateDetalleOrdenDto {
   @Max(99)
   cantidad!: number;
 
-  /** Teeth covered by this line; at least one, each with its shade. */
+  /** FDI numbers of the teeth covered by this line; at least one. */
   @IsArray()
   @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => CreateDienteDto)
-  dientes!: CreateDienteDto[];
+  @IsInt({ each: true })
+  @IsIn(DIENTES_FDI, { each: true })
+  dientes!: number[];
+
+  /** Shade shared by every tooth of the line (e.g. VITA "A2"). */
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  colorDiente!: string;
 
   @IsOptional()
   @IsString()

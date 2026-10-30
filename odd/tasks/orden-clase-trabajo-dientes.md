@@ -10,9 +10,12 @@ el campo de observaciones no servía para eso.
 **Decisiones**
 - Numeración FDI de dentición permanente (11-48), 32 dientes, superiores e
   inferiores.
-- Selección y color **por trabajo** (cada detalle de la orden), no por orden.
-- Color por diente, no uno por línea.
-- Dientes obligatorios en órdenes nuevas; las viejas quedan con `[]`.
+- Selección por trabajo (cada detalle de la orden), no por orden.
+- **Un solo color por trabajo**: todos los dientes de la línea comparten el tono
+  (`detalle_orden.color_diente`). `dientes` guarda sólo los números FDI.
+- El diagrama se dibuja como molde dentario: dos arcos en herradura (∩ / ∪).
+- Dientes y color obligatorios en órdenes nuevas; las viejas quedan con `[]` y
+  color nulo.
 
 **Fuera de scope**: dentición temporal (51-85), caras/piezas del diente,
 selección de dientes por línea en el catálogo, edición posterior de una orden.
@@ -38,7 +41,10 @@ selección de dientes por línea en el catálogo, edición posterior de una orde
 ## Constraints
 
 - Validación en el API (trust boundary) y en el admin (mensaje por fila).
-- `dientes` es `jsonb NOT NULL DEFAULT '[]'`; el CHECK sólo valida que sea array.
+- `dientes` es `jsonb NOT NULL DEFAULT '[]'` (array de números FDI); el CHECK
+  sólo valida que sea array.
+- `color_diente` es `text` nullable (filas viejas sin tono); el DTO lo exige en
+  órdenes nuevas.
 - Sin librerías nuevas: el diagrama es CSS grid + botones.
 - No tocar el catálogo: el modelo sigue siendo `servicio`.
 
@@ -46,10 +52,10 @@ selección de dientes por línea en el catálogo, edición posterior de una orde
 
 - [x] T1 — Textos: "Servicio(s)" → "Clase(s) de trabajo" en form, errores y detalle.
 - [x] T2 — Migración + entidad `dientes jsonb`.
-- [x] T3 — DTO con `dientes` obligatorio (FDI + color 1..20) + tests.
-- [x] T4 — Servicio: snapshot de dientes + rechazo de dientes repetidos.
-- [x] T5 — Odontograma (client) + integración por fila con color por diente.
-- [x] T6 — `parseDientes` en admin con tests (FDI, duplicados, color).
+- [x] T3 — DTO con `dientes` (FDI, sin repetir) + `colorDiente` obligatorio + tests.
+- [x] T4 — Servicio: snapshot de dientes y color + rechazo de dientes repetidos.
+- [x] T5 — Odontograma en forma de molde (client) + integración por fila.
+- [x] T6 — `parseDientes` / `parseColor` con tests (FDI, duplicados, color).
 - [x] T7 — Mostrar dientes en detalle admin, tabla de clientes y PDF.
 - [x] T8 — Portal de clientes: odontograma por línea, `dientes` en el payload,
   validación por fila y textos "clase de trabajo".
@@ -65,9 +71,11 @@ selección de dientes por línea en el catálogo, edición posterior de una orde
 
 ## Verification
 
-- `packages/api-client`: `vitest` 104 passed (6 de `dientes`); `tsc` OK; eslint OK.
-- `packages/ui`: `tsc` OK; eslint OK.
+- `packages/api-client`: `vitest` 105 passed; `tsc` OK; eslint OK.
+- `packages/ui`: `vitest` 20 passed (geometría del molde); `tsc` OK; eslint OK.
 - `apps/api`: `vitest src/pedidos src/auth` 85 passed; `tsc` OK; oxlint sin errores.
+  La suite completa deja 2 fallas preexistentes y ambientales en
+  `src/config/env.validation.spec.ts` (leen el `.env` real).
 - `apps/admin`: `vitest` 27 passed (1 falla preexistente en `helpers.spec.ts`,
   formato de fechas); `tsc` OK; eslint sin errores nuevos.
 - `apps/clientes`: `tsc` OK; eslint de los archivos tocados OK.
