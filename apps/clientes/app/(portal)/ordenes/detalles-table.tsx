@@ -11,7 +11,7 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
       columns={[
         {
           id: "servicio",
-          header: "Servicio",
+          header: "Clase de trabajo",
           render: (d) => (
             <div className="flex flex-col">
               <span>{d.servicio.nombre}</span>

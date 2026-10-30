@@ -2,11 +2,11 @@
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
-import type { Diente } from "@/lib/dientes";
+import { Odontograma } from "@repo/ui/components/odontograma";
+import type { Diente } from "@repo/api-client";
 import type { DoctorOpcion, Servicio } from "@/lib/data/types";
 import { crearOrden } from "./actions";
 import { PacienteCedulaField } from "./_components/paciente-cedula-field";
-import { Odontograma } from "./_components/odontograma";
 
 interface Props {
   doctores: DoctorOpcion[];

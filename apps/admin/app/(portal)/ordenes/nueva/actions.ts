@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { parseDientes, type Diente } from "@/lib/dientes";
+import { parseDientes, type Diente } from "@repo/api-client";
 import { API_URL } from "@/lib/api";
 
 export type CrearOrdenResult = { ok: false; error: string };

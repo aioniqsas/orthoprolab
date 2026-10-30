@@ -5,7 +5,7 @@ import {
   ARCO_SUPERIOR,
   COLOR_MAX_LENGTH,
   type Diente,
-} from "@/lib/dientes";
+} from "@repo/api-client";
 
 interface Props {
   idPrefix: string;

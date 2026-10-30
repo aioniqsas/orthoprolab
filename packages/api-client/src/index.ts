@@ -1,5 +1,6 @@
 export * from "./auth-result";
 export * from "./client";
+export * from "./dientes";
 export * from "./errors";
 export * from "./portal-session";
 export * from "./redirect";

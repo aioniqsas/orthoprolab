@@ -24,8 +24,11 @@ selección de dientes por línea en el catálogo, edición posterior de una orde
 - `apps/api/src/pedidos/dto/create-orden.dto.ts` + spec
 - `apps/api/src/pedidos/pedidos.service.ts`
 - `apps/api/src/pedidos/pdf-control-trabajos.service.ts`
-- `apps/admin/lib/dientes.ts` + spec (nuevo)
-- `apps/admin/app/(portal)/ordenes/nueva/` (form, actions, odontograma)
+- `apps/admin/lib/dientes.ts` + spec (nuevo) → movido a `packages/api-client/src/dientes.ts` + spec
+- `packages/ui/src/components/odontograma.tsx` (nuevo, compartido por ambos portales)
+- `packages/api-client/src/index.ts`
+- `apps/admin/app/(portal)/ordenes/nueva/` (form, actions)
+- `apps/clientes/app/(portal)/ordenes/nuevo/` (form, actions)
 - `apps/admin/lib/data/{types,repository,sample}.ts`
 - `apps/admin/app/(portal)/ordenes/[id]/page.tsx`
 - `apps/clientes/lib/data/types.ts`
@@ -48,6 +51,10 @@ selección de dientes por línea en el catálogo, edición posterior de una orde
 - [x] T5 — Odontograma (client) + integración por fila con color por diente.
 - [x] T6 — `parseDientes` en admin con tests (FDI, duplicados, color).
 - [x] T7 — Mostrar dientes en detalle admin, tabla de clientes y PDF.
+- [x] T8 — Portal de clientes: odontograma por línea, `dientes` en el payload,
+  validación por fila y textos "clase de trabajo".
+- [x] T9 — `Odontograma` y `parseDientes` compartidos: movidos a
+  `packages/ui` y `packages/api-client`.
 
 ## Progress
 
@@ -58,8 +65,11 @@ selección de dientes por línea en el catálogo, edición posterior de una orde
 
 ## Verification
 
+- `packages/api-client`: `vitest` 104 passed (6 de `dientes`); `tsc` OK; eslint OK.
+- `packages/ui`: `tsc` OK; eslint OK.
 - `apps/api`: `vitest src/pedidos src/auth` 85 passed; `tsc` OK; oxlint sin errores.
-- `apps/admin`: `vitest` 33 passed (1 falla preexistente en `helpers.spec.ts`,
+- `apps/admin`: `vitest` 27 passed (1 falla preexistente en `helpers.spec.ts`,
   formato de fechas); `tsc` OK; eslint sin errores nuevos.
-- `apps/clientes`: `tsc` OK; eslint del archivo tocado OK.
-- No verificado en navegador: interacción del odontograma.
+- `apps/clientes`: `tsc` OK; eslint de los archivos tocados OK.
+- No verificado en navegador: interacción del odontograma ni el envío real
+  desde el portal de clientes.

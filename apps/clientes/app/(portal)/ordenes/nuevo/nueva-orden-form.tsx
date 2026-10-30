@@ -2,6 +2,8 @@
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2, ChevronRight, AlertCircle } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
+import { Odontograma } from "@repo/ui/components/odontograma";
+import type { Diente } from "@repo/api-client";
 import type { Doctor, Servicio } from "@/lib/data/types";
 import { crearOrden } from "./actions";
 import { PacienteCedulaField } from "./_components/paciente-cedula-field";
@@ -13,6 +15,7 @@ interface Detalle {
   servicioId: string;
   servicioNombre: string;
   cantidad: number;
+  dientes: Diente[];
   observaciones: string;
 }
 
@@ -44,7 +47,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
   function addDetalle() {
     setDetalles((prev) => [
       ...prev,
-      { servicioId: "", servicioNombre: "", cantidad: 1, observaciones: "" },
+      { servicioId: "", servicioNombre: "", cantidad: 1, dientes: [], observaciones: "" },
     ]);
   }
 
@@ -52,7 +55,11 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
     setDetalles((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  function updateDetalle(i: number, field: keyof Detalle, value: string | number) {
+  function updateDetalle(
+    i: number,
+    field: keyof Detalle,
+    value: Detalle[keyof Detalle],
+  ) {
     setDetalles((prev) =>
       prev.map((d, idx) => {
         if (idx !== i) return d;
@@ -70,6 +77,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
     .map((d) => ({
       servicioId: Number(d.servicioId),
       cantidad: d.cantidad,
+      dientes: d.dientes,
       ...(d.observaciones ? { observaciones: d.observaciones } : {}),
     }));
 
@@ -136,7 +144,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
         </div>
       </div>
 
-      {/* ── Block 2: Servicios ── */}
+      {/* ── Block 2: Clases de trabajo ── */}
       <div className="border-x border-border bg-card px-6 pt-5 pb-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
@@ -144,7 +152,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
               2
             </span>
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Servicios
+              Clases de trabajo
             </span>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={addDetalle} className="h-8 text-xs gap-1.5">
@@ -159,7 +167,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
             className="w-full flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-muted-foreground hover:border-primary/40 hover:text-primary/70 hover:bg-primary/5 transition-colors"
           >
             <Plus className="size-5" aria-hidden />
-            <span className="text-sm">Agregar primer servicio</span>
+            <span className="text-sm">Agregar primera clase de trabajo</span>
           </button>
         ) : (
           <div className="flex flex-col divide-y divide-border">
@@ -184,9 +192,9 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
                         onChange={(e) => updateDetalle(i, "servicioId", e.target.value)}
                         className={fieldCls}
                         required
-                        aria-label={`Servicio ${i + 1}`}
+                        aria-label={`Clase de trabajo ${i + 1}`}
                       >
-                        <option value="">Seleccioná un servicio</option>
+                        <option value="">Seleccioná una clase de trabajo</option>
                         {servicios.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.nombre}
@@ -250,6 +258,15 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
                     rows={1}
                     className="mt-2 rounded-lg border border-border bg-input px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full resize-none transition-colors"
                   />
+
+                  {/* Dientes del trabajo */}
+                  <div className="mt-3 rounded-lg border border-border bg-input/40 p-3">
+                    <Odontograma
+                      idPrefix={`detalle_${i}`}
+                      value={d.dientes}
+                      onChange={(dientes) => updateDetalle(i, "dientes", dientes)}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -310,7 +327,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
               <span className="text-base font-semibold text-foreground">{totalFmt}</span>
             </div>
           ) : (
-            <span className="text-xs text-muted-foreground">Agregá servicios para ver el total</span>
+            <span className="text-xs text-muted-foreground">Agregá clases de trabajo para ver el total</span>
           )}
 
           <Button type="submit" disabled={isPending} className="min-w-32">

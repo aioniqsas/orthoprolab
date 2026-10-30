@@ -21,19 +21,22 @@ export type ParseDientesResult =
   | { ok: false; error: string };
 
 /**
- * Parses the JSON payload coming from the odontogram field. Validation lives
- * here (not only in the API DTO) so the form can point at the offending row.
+ * Parses the selection coming from the odontogram, either as the form field
+ * (JSON string) or already parsed. Validation lives here (not only in the API
+ * DTO) so each portal can point at the offending row.
  */
-export function parseDientes(raw: FormDataEntryValue | null): ParseDientesResult {
-  if (typeof raw !== "string" || raw.trim() === "") {
-    return { ok: false, error: "Selecciona al menos un diente." };
-  }
+export function parseDientes(raw: unknown): ParseDientesResult {
+  let parsed: unknown = raw;
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return { ok: false, error: "La selección de dientes no es válida." };
+  if (typeof raw === "string") {
+    if (raw.trim() === "") {
+      return { ok: false, error: "Selecciona al menos un diente." };
+    }
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return { ok: false, error: "La selección de dientes no es válida." };
+    }
   }
 
   if (!Array.isArray(parsed) || parsed.length === 0) {
