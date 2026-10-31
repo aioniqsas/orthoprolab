@@ -235,7 +235,7 @@ export function Odontograma({
 
       <div className="flex items-center gap-2">
         <label htmlFor={`${idPrefix}_color`} className="shrink-0 text-xs font-medium text-body">
-          Color del trabajo
+          Color de diente
         </label>
         <input
           id={`${idPrefix}_color`}
