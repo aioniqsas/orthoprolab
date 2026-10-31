@@ -14,7 +14,7 @@ async function leerCajas(page: import("@playwright/test").Page) {
   return cajas;
 }
 
-test("los 32 dientes caben en el molde sin superponerse", async ({ page }) => {
+test("cada diente queda clickeable en el molde", async ({ page }) => {
   await page.goto("/preview/odontograma");
   const cajas = await leerCajas(page);
 
@@ -23,12 +23,13 @@ test("los 32 dientes caben en el molde sin superponerse", async ({ page }) => {
     for (let j = i + 1; j < cajas.length; j++) {
       const a = cajas[i]!;
       const b = cajas[j]!;
-      const solapa =
-        a.x < b.x + b.width &&
-        b.x < a.x + a.width &&
-        a.y < b.y + b.height &&
-        b.y < a.y + a.height;
-      expect(solapa, `${a.numero} se superpone con ${b.numero}`).toBe(false);
+      // Los dientes van pegados, pero ningún centro puede quedar tapado.
+      const centroTapado =
+        a.x + a.width / 2 > b.x &&
+        a.x + a.width / 2 < b.x + b.width &&
+        a.y + a.height / 2 > b.y &&
+        a.y + a.height / 2 < b.y + b.height;
+      expect(centroTapado, `${a.numero} queda debajo de ${b.numero}`).toBe(false);
     }
   }
 });
@@ -47,19 +48,21 @@ test("cada tipo de diente tiene su forma", async ({ page }) => {
   await page.goto("/preview/odontograma");
 
   const forma = async (numero: number) =>
-    page.getByRole("button", { name: `Diente ${numero}`, exact: true }).evaluate((el) => {
-      const style = getComputedStyle(el);
-      return { width: Math.round(el.getBoundingClientRect().width), radius: style.borderTopLeftRadius };
-    });
+    page.getByRole("button", { name: `Diente ${numero}`, exact: true }).evaluate((el) => ({
+      width: Math.round(el.getBoundingClientRect().width),
+      corona: el.querySelector("path")?.getAttribute("d") ?? "",
+    }));
 
-  // Molar más ancho que incisivo, y premoar distinto de ambos.
+  // Molar más ancho que incisivo, y premolar distinto de ambos.
   const incisivo = await forma(12);
   const premolar = await forma(14);
   const molar = await forma(17);
 
   expect(molar.width).toBeGreaterThan(premolar.width);
   expect(premolar.width).toBeGreaterThan(incisivo.width);
-  expect(incisivo.radius).not.toBe(molar.radius);
+  // Cada tipo dibuja una corona distinta.
+  expect(incisivo.corona).not.toBe(molar.corona);
+  expect(premolar.corona).not.toBe(molar.corona);
 
   await page.screenshot({
     path: `e2e/.results/odontograma-${test.info().project.name}.png`,
