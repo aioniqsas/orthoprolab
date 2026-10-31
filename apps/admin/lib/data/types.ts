@@ -42,8 +42,8 @@ export interface DetalleOrden {
   id: number;
   servicio: string;
   cantidad: number;
-  /** Historical price copied from `servicio.precio`, numeric string. */
-  precioUnitario: string;
+  /** Legacy price of lines created before amounts moved to the invoice. */
+  precioUnitario: string | null;
   /** FDI-numbered teeth covered by this line. */
   dientes: number[];
   /** Shade shared by every tooth of the line. */

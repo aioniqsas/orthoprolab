@@ -49,6 +49,8 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
     getEstadosOrden(),
   ]);
 
+  // Lines created before amounts moved to the invoice still carry a price.
+  const conPrecios = orden.detalles.some((d) => d.precioUnitario !== null);
   const total = orderTotal(orden.detalles);
 
   return (
@@ -87,7 +89,10 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{d.servicio}</p>
                   <p className="text-xs text-muted-foreground tabular-nums">
-                    {d.cantidad} x {formatCop(d.precioUnitario)}
+                    Cantidad: {d.cantidad}
+                    {d.precioUnitario !== null
+                      ? ` x ${formatCop(d.precioUnitario)}`
+                      : ""}
                   </p>
                   {d.dientes.length > 0 ? (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -99,16 +104,20 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                     <p className="mt-1 text-xs text-muted-foreground">{d.observaciones}</p>
                   ) : null}
                 </div>
-                <p className="text-sm font-medium tabular-nums">
-                  {formatCop(lineSubtotal(d.cantidad, d.precioUnitario))}
-                </p>
+                {d.precioUnitario !== null ? (
+                  <p className="text-sm font-medium tabular-nums">
+                    {formatCop(lineSubtotal(d.cantidad, d.precioUnitario))}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
-          <p className="mt-2 flex items-center justify-between border-t border-border pt-4 font-heading text-lg font-semibold">
-            <span>Total</span>
-            <span className="tabular-nums">{formatCop(total)}</span>
-          </p>
+          {conPrecios ? (
+            <p className="mt-2 flex items-center justify-between border-t border-border pt-4 font-heading text-lg font-semibold">
+              <span>Total</span>
+              <span className="tabular-nums">{formatCop(total)}</span>
+            </p>
+          ) : null}
         </section>
 
         <div className="flex flex-col gap-6">

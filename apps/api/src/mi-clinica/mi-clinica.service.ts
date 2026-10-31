@@ -15,6 +15,7 @@ import { PedidosService } from '../pedidos/pedidos.service.js';
 import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { MailerControlTrabajosService } from '../pedidos/mailer-control-trabajos.service.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
+import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
@@ -35,6 +36,8 @@ export class MiClinicaService {
     private readonly pacienteDoctorRepo: Repository<PacienteDoctor>,
     @InjectRepository(Servicio)
     private readonly servicioRepo: Repository<Servicio>,
+    @InjectRepository(Clinica)
+    private readonly clinicaRepo: Repository<Clinica>,
     private readonly pedidosService: PedidosService,
     private readonly pdfControlTrabajos: PdfControlTrabajosService,
     private readonly mailerControlTrabajos: MailerControlTrabajosService,
@@ -241,14 +244,20 @@ export class MiClinicaService {
 
     const result = await this.pedidosService.cambiarEstado(ordenId, estadoId, usuarioId, (observaciones ?? '').trim() || undefined);
 
-    // Send control de trabajos de laboratorio email (best-effort).
+    // Send control de trabajos de laboratorio email (best-effort) to the user
+    // who confirms satisfaction and to the clinic's own address.
     try {
       const usuario = await this.usuarioRepo.findOneBy({ id: usuarioId });
-      const toEmail = usuario?.correo;
-      if (toEmail) {
+      const clinica = usuario?.clinicaId
+        ? await this.clinicaRepo.findOneBy({ id: usuario.clinicaId })
+        : null;
+      const destinatarios = [...new Set([usuario?.correo, clinica?.correo])].filter(
+        (correo): correo is string => Boolean(correo),
+      );
+      if (destinatarios.length > 0) {
         const ordenCompleta = await this.getOrden(usuarioId, ordenId);
         const pdfBuffer = await this.pdfControlTrabajos.generate(ordenCompleta);
-        await this.mailerControlTrabajos.sendControlTrabajos(toEmail, pdfBuffer, ordenId);
+        await this.mailerControlTrabajos.sendControlTrabajos(destinatarios, pdfBuffer, ordenId);
       }
     } catch (err) {
       // Do not fail finalization if email fails.
@@ -267,7 +276,6 @@ export class MiClinicaService {
       .leftJoinAndSelect('asig.doctor', 'doctor')
       .leftJoinAndSelect('asig.paciente', 'paciente')
       .leftJoinAndSelect('o.detalles', 'detalles')
-      .leftJoinAndSelect('detalles.servicio', 'servicio')
       .leftJoinAndSelect('o.historial', 'historial')
       .leftJoinAndSelect('historial.estadoAnterior', 'estadoAnterior')
       .leftJoinAndSelect('historial.estadoNuevo', 'estadoNuevo')

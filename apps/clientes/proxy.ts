@@ -35,6 +35,10 @@ function renewedCookieHeader(
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
+  // Dev-only visual harness for Playwright; never exposed in production.
+  if (pathname.startsWith("/preview/") && process.env.NODE_ENV !== "production") {
+    return NextResponse.next();
+  }
 
   const path = safeRedirectPath(`${pathname}${search}`, "/");
   const accessToken = request.cookies.get(AUTH_COOKIE)?.value;

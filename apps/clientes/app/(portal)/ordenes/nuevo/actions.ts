@@ -51,7 +51,7 @@ export async function crearOrden(
 
   // Validate each line's teeth and shade so the message names the offending row.
   const detalles: Array<{
-    servicioId: number;
+    servicio: string;
     cantidad: number;
     dientes: number[];
     colorDiente: string;
@@ -59,12 +59,16 @@ export async function crearOrden(
   }> = [];
   for (const [i, item] of crudos.entries()) {
     const linea = item as {
-      servicioId: number;
+      servicio?: unknown;
       cantidad: number;
       dientes?: unknown;
       colorDiente?: unknown;
       observaciones?: string;
     };
+    const servicio = typeof linea.servicio === "string" ? linea.servicio.trim() : "";
+    if (!servicio || servicio.length > 120) {
+      return { ok: false, error: `Fila ${i + 1}: escribe la clase de trabajo.` };
+    }
     const dientes = parseDientes(linea.dientes);
     if (!dientes.ok) {
       return { ok: false, error: `Fila ${i + 1}: ${dientes.error}` };
@@ -74,7 +78,7 @@ export async function crearOrden(
       return { ok: false, error: `Fila ${i + 1}: ${color.error}` };
     }
     detalles.push({
-      servicioId: linea.servicioId,
+      servicio,
       cantidad: linea.cantidad,
       dientes: dientes.dientes,
       colorDiente: color.color,

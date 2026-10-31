@@ -114,9 +114,11 @@ export default async function OrdenPage({
       {orden.detalles.length > 0 && (
         <div className="flex flex-col gap-3">
           <OrdenDetallesTable detalles={orden.detalles} />
-          <div className="flex justify-end">
-            <span className="text-sm font-semibold">Total: {total}</span>
-          </div>
+          {Number(orden.valor) > 0 && (
+            <div className="flex justify-end">
+              <span className="text-sm font-semibold">Total: {total}</span>
+            </div>
+          )}
         </div>
       )}
       {(orden.estado.codigo === "en_entrega" || orden.estado.nombre === "En entrega al cliente") && (

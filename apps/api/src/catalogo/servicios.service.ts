@@ -11,7 +11,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import type { Redis } from 'ioredis';
-import { DetalleOrden } from '../pedidos/detalle-orden.entity.js';
 import { CatalogoEventosService } from './catalogo-eventos.service.js';
 import type {
   CreateServicioDto,
@@ -84,8 +83,6 @@ export class ServiciosService {
   constructor(
     @InjectRepository(Servicio)
     private readonly servicios: Repository<Servicio>,
-    @InjectRepository(DetalleOrden)
-    private readonly detalles: Repository<DetalleOrden>,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
     @Optional() @Inject(PDF_REDIS) private readonly pdfRedis: Redis | null,
     private readonly eventos: CatalogoEventosService,
@@ -164,21 +161,13 @@ export class ServiciosService {
    */
   async remove(id: string): Promise<RemoveResult> {
     const row = await this.getOrFail(id);
-    let result: RemoveResult;
-    if (await this.detalles.existsBy({ servicioId: row.id })) {
-      row.activo = false;
-      result = {
-        kind: 'deactivated',
-        servicio: toAdmin(await this.servicios.save(row)),
-      };
-    } else {
-      await this.servicios.remove(row);
-      await this.deleteAssetQuietly(row.imagenPublicId);
-      result = { kind: 'deleted' };
-    }
+    // Order lines store the work as free text, so nothing references the
+    // catalog anymore: deleting never leaves dangling history.
+    await this.servicios.remove(row);
+    await this.deleteAssetQuietly(row.imagenPublicId);
     await this.invalidatePdf();
     this.eventos.emitir('eliminado');
-    return result;
+    return { kind: 'deleted' };
   }
 
   async setImage(id: string, buffer: Buffer): Promise<ServicioAdmin> {

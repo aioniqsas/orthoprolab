@@ -38,11 +38,21 @@ export async function adjuntarOrdenes(
   if (ordenIds.length === 0) {
     return { ok: false, error: "Selecciona al menos una orden." };
   }
+
+  // The amount is decided here: orders no longer carry a price.
+  const ordenes = ordenIds.map((ordenId) => ({
+    ordenId,
+    valor: Number(formData.get(`valor_${ordenId}`)),
+  }));
+  if (ordenes.some((o) => !Number.isFinite(o.valor) || o.valor < 0)) {
+    return { ok: false, error: "Indica el valor de cada orden seleccionada." };
+  }
+
   try {
     const res = await fetch(`${API_URL}/cuentas-cobro/${cuentaId}/ordenes`, {
       method: "POST",
       headers: await authHeaders(),
-      body: JSON.stringify({ ordenIds }),
+      body: JSON.stringify({ ordenes }),
     });
     if (!res.ok) return { ok: false, error: await extractError(res) };
     revalidateCuenta(cuentaId);

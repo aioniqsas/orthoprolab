@@ -76,7 +76,13 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
           id: "total",
           header: "Total",
           align: "right",
-          render: (o) => formatCop(o.valor),
+          // The amount is set when the order is attached to an invoice.
+          render: (o) =>
+            Number(o.valor) > 0 ? (
+              formatCop(o.valor)
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            ),
           sortValue: (o) => Number(o.valor),
         },
         {

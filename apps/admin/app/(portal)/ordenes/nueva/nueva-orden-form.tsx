@@ -3,32 +3,31 @@ import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { Odontograma } from "@repo/ui/components/odontograma";
-import type { DoctorOpcion, Servicio } from "@/lib/data/types";
+import type { DoctorOpcion } from "@/lib/data/types";
 import { crearOrden } from "./actions";
 import { PacienteCedulaField } from "./_components/paciente-cedula-field";
 
 interface Props {
   doctores: DoctorOpcion[];
-  servicios: Servicio[];
 }
 
 interface DetalleRow {
-  servicioId: string;
+  servicio: string;
   cantidad: number;
   dientes: number[];
   color: string;
 }
 
-export function NuevaOrdenForm({ doctores, servicios }: Props) {
+export function NuevaOrdenForm({ doctores }: Props) {
   const [state, formAction, isPending] = useActionState(crearOrden, null);
 
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [detalles, setDetalles] = useState<DetalleRow[]>([
-    { servicioId: "", cantidad: 1, dientes: [], color: "" },
+    { servicio: "", cantidad: 1, dientes: [], color: "" },
   ]);
 
   function addDetalle() {
-    setDetalles((prev) => [...prev, { servicioId: "", cantidad: 1, dientes: [], color: "" }]);
+    setDetalles((prev) => [...prev, { servicio: "", cantidad: 1, dientes: [], color: "" }]);
   }
 
   function removeDetalle(index: number) {
@@ -93,28 +92,21 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
             <div className="flex items-end gap-3">
               <div className="flex flex-col gap-1 flex-1">
                 <label
-                  htmlFor={`servicioId_${i}`}
+                  htmlFor={`servicio_${i}`}
                   className="text-sm font-medium text-body"
                 >
                   Clase de trabajo <span className="text-destructive">*</span>
                 </label>
-                <select
-                  id={`servicioId_${i}`}
-                  name={`servicioId_${i}`}
+                <input
+                  id={`servicio_${i}`}
+                  name={`servicio_${i}`}
                   required
-                  value={row.servicioId}
-                  onChange={(e) => updateDetalle(i, "servicioId", e.target.value)}
+                  maxLength={120}
+                  placeholder="Ej. Corona de zirconia"
+                  value={row.servicio}
+                  onChange={(e) => updateDetalle(i, "servicio", e.target.value)}
                   className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-                >
-                  <option value="">Selecciona una clase de trabajo</option>
-                  {servicios
-                    .filter((s) => s.activo)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre} — ${Number(s.precio).toLocaleString("es-CO")}
-                      </option>
-                    ))}
-                </select>
+                />
               </div>
               <div className="flex flex-col gap-1 w-24">
                 <label

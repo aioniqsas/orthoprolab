@@ -9,7 +9,6 @@ import type {
   Orden,
   PacienteConCedula,
   PacienteDoctor,
-  Servicio,
 } from "./types";
 
 async function authHeader(): Promise<HeadersInit> {
@@ -86,21 +85,6 @@ export async function listPacientesDelDoctor(doctorId: string): Promise<Paciente
     });
     if (!res.ok) return [];
     return res.json() as Promise<PacienteDoctor[]>;
-  } catch {
-    return [];
-  }
-}
-
-// ─── Servicios ──────────────────────────────────────────────────────────────
-
-export async function listServicios(): Promise<Servicio[]> {
-  try {
-    const res = await fetch(`${API_URL}/mi-clinica/servicios`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return res.json() as Promise<Servicio[]>;
   } catch {
     return [];
   }

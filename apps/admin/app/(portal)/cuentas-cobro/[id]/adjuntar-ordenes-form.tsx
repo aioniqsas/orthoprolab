@@ -49,8 +49,22 @@ export function AdjuntarOrdenesForm({ cuentaId, ordenes }: Props) {
               <span className="text-xs rounded-full bg-muted px-2 py-0.5">
                 {orden.estado.nombre}
               </span>
-              <span className="text-sm tabular-nums">
-                ${Number(orden.valor).toLocaleString("es-CO")}
+              <span className="flex items-center gap-1.5">
+                <label
+                  htmlFor={`valor-${orden.id}`}
+                  className="text-xs text-muted-foreground"
+                >
+                  Valor
+                </label>
+                <input
+                  id={`valor-${orden.id}`}
+                  name={`valor_${orden.id}`}
+                  type="number"
+                  min={0}
+                  step={1}
+                  placeholder="0"
+                  className="w-28 rounded-md border border-border bg-input px-2 py-1 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </span>
               <span className="text-xs text-muted-foreground">
                 {formatDate(orden.fechaCreacion)}

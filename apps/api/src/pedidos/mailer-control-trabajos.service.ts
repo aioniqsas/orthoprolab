@@ -9,7 +9,7 @@ export class MailerControlTrabajosService {
   private readonly logger = new Logger(MailerControlTrabajosService.name);
   constructor(private readonly config: ConfigService) {}
 
-  async sendControlTrabajos(toEmail: string, pdfBuffer: Buffer, ordenId: string): Promise<EnviarResult> {
+  async sendControlTrabajos(to: string[], pdfBuffer: Buffer, ordenId: string): Promise<EnviarResult> {
     const host = this.config.get<string>('SMTP_HOST');
     const port = this.config.get<number>('SMTP_PORT') ?? 587;
     const user = this.config.get<string>('SMTP_USER');
@@ -26,7 +26,7 @@ export class MailerControlTrabajosService {
     try {
       await transport.sendMail({
         from,
-        to: toEmail,
+        to: to.join(', '),
         subject: `Control de trabajos de laboratorio - Orden #${ordenId}`,
         text: 'Se adjunta el control de trabajos de laboratorio para la orden finalizada.',
         attachments: [{ filename: 'control-de-trabajos-de-laboratorio.pdf', content: pdfBuffer }],

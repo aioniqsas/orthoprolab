@@ -35,7 +35,6 @@ const row = (over: Partial<Servicio> = {}): Servicio =>
 
 function build(opts: {
   found?: Servicio | null;
-  referenced?: boolean;
   storage?: Partial<Record<'upload' | 'delete', Mock>>;
 }) {
   const found = opts.found === undefined ? row() : opts.found;
@@ -46,9 +45,6 @@ function build(opts: {
     existsBy: vi.fn().mockResolvedValue(false),
     find: vi.fn().mockResolvedValue([]),
     create: vi.fn((s: Partial<Servicio>) => s as Servicio),
-  };
-  const detalles = {
-    existsBy: vi.fn().mockResolvedValue(opts.referenced ?? false),
   };
   const storage: Record<'upload' | 'delete', Mock> = {
     upload: vi.fn().mockResolvedValue({
@@ -65,27 +61,15 @@ function build(opts: {
   const eventos = { emitir: vi.fn() };
   const service = new ServiciosService(
     repo as never,
-    detalles as never,
     storage as unknown as ImageStorage,
     pdfRedis as never,
     eventos as never,
   );
-  return { service, repo, detalles, storage, eventos };
+  return { service, repo, storage, eventos };
 }
 
-describe('ServiciosService.remove (delete rule)', () => {
-  it('deactivates (and keeps the row) when detalle_orden references it', async () => {
-    const { service, repo, storage } = build({ referenced: true });
-    const result = await service.remove('7');
-    expect(result.kind).toBe('deactivated');
-    expect(repo.remove).not.toHaveBeenCalled();
-    expect(repo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ activo: false }),
-    );
-    expect(storage.delete).not.toHaveBeenCalled();
-  });
-
-  it('hard deletes and removes the image when unreferenced', async () => {
+describe('ServiciosService.remove', () => {
+  it('hard deletes and removes the image', async () => {
     const { service, repo, storage } = build({
       found: row({ imagenPublicId: 'pid' }),
     });

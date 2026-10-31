@@ -8,7 +8,6 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { encryptedColumn } from '../crypto/encrypted-column.js';
-import { Servicio } from '../catalogo/servicio.entity.js';
 import { Orden } from './orden.entity.js';
 
 @Check('ck_detalle_orden_cantidad', '"cantidad" > 0')
@@ -30,12 +29,9 @@ export class DetalleOrden {
   @JoinColumn({ name: 'orden_id' })
   orden: Orden;
 
-  @Column({ name: 'servicio_id', type: 'bigint' })
-  servicioId: string;
-
-  @ManyToOne(() => Servicio, { nullable: false, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'servicio_id' })
-  servicio: Servicio;
+  // Free text: the work is typed, it does not reference the catalog.
+  @Column({ type: 'text' })
+  servicio: string;
 
   @Column({ type: 'integer', default: 1 })
   cantidad: number;
@@ -49,14 +45,15 @@ export class DetalleOrden {
   @Column({ name: 'color_diente', type: 'text', nullable: true })
   colorDiente: string | null;
 
-  // Historical price copied from servicio.precio when the order is placed.
+  // Legacy: lines created before the price moved to the invoice.
   @Column({
     name: 'precio_unitario',
     type: 'numeric',
     precision: 12,
     scale: 2,
+    nullable: true,
   })
-  precioUnitario: string;
+  precioUnitario: string | null;
 
   // Free-text clinical notes: encrypted at rest (AES-256-GCM).
   @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })

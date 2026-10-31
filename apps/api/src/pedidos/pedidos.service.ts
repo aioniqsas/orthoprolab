@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
-import { Servicio } from '../catalogo/servicio.entity.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { PacientesService } from '../pacientes/pacientes.service.js';
@@ -30,8 +29,6 @@ export class PedidosService {
     private readonly doctorRepo: Repository<Doctor>,
     @InjectRepository(PacienteDoctor)
     private readonly pacienteDoctorRepo: Repository<PacienteDoctor>,
-    @InjectRepository(Servicio)
-    private readonly servicioRepo: Repository<Servicio>,
     private readonly dataSource: DataSource,
     private readonly pacientesService: PacientesService,
     private readonly eventos: PedidosEventosService,
@@ -53,7 +50,7 @@ export class PedidosService {
       relations: {
         estado: true,
         asignacion: { doctor: true, paciente: true },
-        detalles: { servicio: true },
+        detalles: true,
         historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { fechaCreacion: 'DESC' },
@@ -67,7 +64,7 @@ export class PedidosService {
       relations: {
         estado: true,
         asignacion: { doctor: true, paciente: true },
-        detalles: { servicio: true },
+        detalles: true,
         historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { historial: { fechaCambio: 'ASC' } },
@@ -188,44 +185,27 @@ export class PedidosService {
         );
       }
 
-      // 3. Validate each service and snapshot its price.
+      // 3. Snapshot the typed work lines (no catalog, no price: the amount is
+      //    set when the order is attached to an invoice).
       type DetailSnapshot = {
-        servicioId: string;
+        servicio: string;
         cantidad: number;
-        precioUnitario: string;
         dientes: number[];
         colorDiente: string;
         observaciones: string | null;
       };
       const snapshots: DetailSnapshot[] = [];
-      let total = 0;
 
       for (const d of dto.detalles) {
-        const servicio = await manager.findOne(Servicio, {
-          where: { id: String(d.servicioId) },
-        });
-        if (!servicio) {
-          throw new BadRequestException(
-            `Servicio ${d.servicioId} no encontrado.`,
-          );
-        }
-        if (!servicio.activo) {
-          throw new BadRequestException(
-            `El servicio "${servicio.nombre}" no está activo.`,
-          );
-        }
-        const precio = Number(servicio.precio);
-        total += d.cantidad * precio;
         const numeros = new Set(d.dientes);
         if (numeros.size !== d.dientes.length) {
           throw new BadRequestException(
-            `El servicio "${servicio.nombre}" tiene dientes repetidos.`,
+            `El trabajo "${d.servicio}" tiene dientes repetidos.`,
           );
         }
         snapshots.push({
-          servicioId: servicio.id,
+          servicio: d.servicio,
           cantidad: d.cantidad,
-          precioUnitario: servicio.precio,
           dientes: [...d.dientes],
           colorDiente: d.colorDiente,
           observaciones: d.observaciones ?? null,
@@ -237,7 +217,7 @@ export class PedidosService {
         doctorId: dto.doctorId,
         pacienteId: resolvedPacienteId,
         estadoId: estadoCreada.id,
-        valor: total.toFixed(2),
+        valor: '0.00',
         urgente: dto.urgente ?? false,
         // Parse at noon UTC so any ±12h timezone still lands on the correct day.
         fechaEntrega: dto.fechaEntrega ? new Date(`${dto.fechaEntrega}T12:00:00Z`) : null,
@@ -248,9 +228,8 @@ export class PedidosService {
       for (const snap of snapshots) {
         const detalle = manager.create(DetalleOrden, {
           ordenId: savedOrden.id,
-          servicioId: snap.servicioId,
+          servicio: snap.servicio,
           cantidad: snap.cantidad,
-          precioUnitario: snap.precioUnitario,
           dientes: snap.dientes,
           colorDiente: snap.colorDiente,
           observaciones: snap.observaciones,
@@ -274,7 +253,7 @@ export class PedidosService {
         relations: {
           estado: true,
           asignacion: { doctor: true, paciente: true },
-          detalles: { servicio: true },
+          detalles: true,
           historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
         },
       });

@@ -22,9 +22,12 @@ export const DIENTES_FDI = [
 ];
 
 export class CreateDetalleOrdenDto {
-  @IsInt()
-  @Min(1)
-  servicioId!: number;
+  /** Free text: the work to perform, e.g. "Corona de zirconia". */
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  servicio!: string;
 
   @IsInt()
   @Min(1)

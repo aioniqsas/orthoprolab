@@ -14,14 +14,14 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
           header: "Clase de trabajo",
           render: (d) => (
             <div className="flex flex-col">
-              <span>{d.servicio.nombre}</span>
+              <span>{d.servicio}</span>
               {d.observaciones && (
                 <span className="text-xs text-muted-foreground">{d.observaciones}</span>
               )}
             </div>
           ),
-          searchValue: (d) => `${d.servicio.nombre} ${d.observaciones ?? ""}`,
-          sortValue: (d) => d.servicio.nombre,
+          searchValue: (d) => `${d.servicio} ${d.observaciones ?? ""}`,
+          sortValue: (d) => d.servicio,
         },
         {
           id: "dientes",
@@ -57,24 +57,32 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
           header: "P. unitario",
           align: "right",
           render: (d) =>
-            Number(d.precioUnitario).toLocaleString("es-CO", {
-              style: "currency",
-              currency: "COP",
-              minimumFractionDigits: 0,
-            }),
-          sortValue: (d) => Number(d.precioUnitario),
+            d.precioUnitario === null ? (
+              <span className="text-xs text-muted-foreground">—</span>
+            ) : (
+              Number(d.precioUnitario).toLocaleString("es-CO", {
+                style: "currency",
+                currency: "COP",
+                minimumFractionDigits: 0,
+              })
+            ),
+          sortValue: (d) => Number(d.precioUnitario ?? 0),
         },
         {
           id: "subtotal",
           header: "Subtotal",
           align: "right",
           render: (d) =>
-            (Number(d.precioUnitario) * d.cantidad).toLocaleString("es-CO", {
-              style: "currency",
-              currency: "COP",
-              minimumFractionDigits: 0,
-            }),
-          sortValue: (d) => Number(d.precioUnitario) * d.cantidad,
+            d.precioUnitario === null ? (
+              <span className="text-xs text-muted-foreground">—</span>
+            ) : (
+              (Number(d.precioUnitario) * d.cantidad).toLocaleString("es-CO", {
+                style: "currency",
+                currency: "COP",
+                minimumFractionDigits: 0,
+              })
+            ),
+          sortValue: (d) => Number(d.precioUnitario ?? 0) * d.cantidad,
         },
       ]}
       empty={<p className="text-sm text-muted-foreground">Sin detalles.</p>}

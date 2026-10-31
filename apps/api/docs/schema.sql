@@ -117,12 +117,12 @@ CREATE TABLE public.cuenta_cobro_orden (
 CREATE TABLE public.detalle_orden (
     id bigint NOT NULL,
     orden_id bigint NOT NULL,
-    servicio_id bigint NOT NULL,
     cantidad integer DEFAULT 1 NOT NULL,
-    precio_unitario numeric(12,2) NOT NULL,
+    precio_unitario numeric(12,2),
     observaciones text,
     color_diente text,
     dientes jsonb DEFAULT '[]'::jsonb NOT NULL,
+    servicio text NOT NULL,
     CONSTRAINT ck_detalle_orden_cantidad CHECK ((cantidad > 0)),
     CONSTRAINT ck_detalle_orden_dientes CHECK ((jsonb_typeof(dientes) = 'array'::text)),
     CONSTRAINT ck_detalle_orden_precio CHECK ((precio_unitario >= (0)::numeric))
@@ -881,14 +881,6 @@ ALTER TABLE ONLY public.paciente_doctor
 
 ALTER TABLE ONLY public.orden
     ADD CONSTRAINT "FK_a3fd26abb795b984a7b710ff131" FOREIGN KEY (estado_id) REFERENCES public.estado_orden(id) ON DELETE RESTRICT;
-
-
---
--- Name: detalle_orden FK_b7ae239aa4cc9255d0ecda4e133; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.detalle_orden
-    ADD CONSTRAINT "FK_b7ae239aa4cc9255d0ecda4e133" FOREIGN KEY (servicio_id) REFERENCES public.servicio(id) ON DELETE RESTRICT;
 
 
 --

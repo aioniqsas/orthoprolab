@@ -72,9 +72,9 @@ interface RawPaciente {
 
 interface RawDetalleOrden {
   id: string;
-  servicio: { id: string; nombre: string; precio: string };
+  servicio: string;
   cantidad: number;
-  precioUnitario: string;
+  precioUnitario: string | null;
   dientes?: number[] | null;
   colorDiente?: string | null;
   observaciones: string | null;
@@ -131,7 +131,7 @@ function mapOrden(raw: RawOrden): Orden {
     fechaEntrega: raw.fechaEntrega,
     detalles: raw.detalles.map((d) => ({
       id: Number(d.id),
-      servicio: d.servicio.nombre,
+      servicio: d.servicio,
       cantidad: d.cantidad,
       precioUnitario: d.precioUnitario,
       dientes: d.dientes ?? [],

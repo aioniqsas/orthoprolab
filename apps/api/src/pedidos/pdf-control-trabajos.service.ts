@@ -5,7 +5,7 @@ import PDFDocument from 'pdfkit';
 import type { Orden } from './orden.entity.js';
 
 interface DeepDetalle {
-  servicio?: { nombre?: string };
+  servicio?: string;
   dientes?: number[];
   colorDiente?: string | null;
 }
@@ -41,7 +41,7 @@ export class PdfControlTrabajosService {
     const tiposTrabajo =
       (o.detalles ?? [])
         .map((d) => {
-          const nombre = d.servicio?.nombre;
+          const nombre = d.servicio;
           if (!nombre) return null;
           const dientes = (d.dientes ?? []).join(', ');
           const color = d.colorDiente ? ` (${d.colorDiente})` : '';

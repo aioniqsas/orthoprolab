@@ -30,8 +30,11 @@ function fromCents(cents: number): string {
 }
 
 /** Line subtotal = cantidad x precio_unitario, as a 2-decimal string. */
-export function lineSubtotal(cantidad: number, precioUnitario: string): string {
-  return fromCents(cantidad * toCents(precioUnitario));
+export function lineSubtotal(
+  cantidad: number,
+  precioUnitario: string | null,
+): string {
+  return fromCents(cantidad * toCents(precioUnitario ?? "0"));
 }
 
 /** Order total = sum of the line subtotals, as a 2-decimal string. */
@@ -39,7 +42,10 @@ export function orderTotal(
   detalles: Pick<DetalleOrden, "cantidad" | "precioUnitario">[],
 ): string {
   return fromCents(
-    detalles.reduce((sum, d) => sum + d.cantidad * toCents(d.precioUnitario), 0),
+    detalles.reduce(
+      (sum, d) => sum + d.cantidad * toCents(d.precioUnitario ?? "0"),
+      0,
+    ),
   );
 }
 

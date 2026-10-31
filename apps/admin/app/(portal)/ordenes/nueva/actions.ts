@@ -21,7 +21,7 @@ const errorFrom = (body: unknown, fallback: string): string => {
  *
  * FormData fields:
  *   doctorId, pacienteId, fechaEntrega (optional), urgente (optional "on")
- *   servicioId_0, cantidad_0, servicioId_1, cantidad_1, …
+ *   servicio_0, cantidad_0, servicio_1, cantidad_1, …
  */
 export async function crearOrden(
   _prevState: CrearOrdenResult | null,
@@ -42,18 +42,21 @@ export async function crearOrden(
 
   // Collect dynamic line items.
   const detalles: {
-    servicioId: number;
+    servicio: string;
     cantidad: number;
     dientes: number[];
     colorDiente: string;
     observaciones?: string;
   }[] = [];
   let index = 0;
-  while (formData.has(`servicioId_${index}`)) {
-    const servicioId = Number(formData.get(`servicioId_${index}`));
+  while (formData.has(`servicio_${index}`)) {
+    const servicio = String(formData.get(`servicio_${index}`) ?? "").trim();
     const cantidad = Number(formData.get(`cantidad_${index}`));
-    if (!servicioId || servicioId < 1) {
-      return { ok: false, error: `Fila ${index + 1}: selecciona una clase de trabajo válida.` };
+    if (!servicio) {
+      return { ok: false, error: `Fila ${index + 1}: escribe la clase de trabajo.` };
+    }
+    if (servicio.length > 120) {
+      return { ok: false, error: `Fila ${index + 1}: la clase de trabajo es demasiado larga.` };
     }
     if (!cantidad || cantidad < 1 || cantidad > 99) {
       return { ok: false, error: `Fila ${index + 1}: la cantidad debe estar entre 1 y 99.` };
@@ -67,7 +70,7 @@ export async function crearOrden(
       return { ok: false, error: `Fila ${index + 1}: ${color.error}` };
     }
     detalles.push({
-      servicioId,
+      servicio,
       cantidad,
       dientes: dientes.dientes,
       colorDiente: color.color,
