@@ -64,6 +64,23 @@ el catálogo.
 - [x] T10 — Control de trabajos por correo también a la clínica.
 - [x] T11 — Playwright: layout del molde en móvil, tablet y escritorio.
 
+## Reintentos (Redis)
+
+- **Correos**: los tres remitentes (`control de trabajos`, `cuenta de cobro`,
+  `auth`) encolan en la cola `mail` (BullMQ) con 6 intentos y backoff
+  exponencial. El worker `MailProcessor` es el único que habla SMTP. Si SMTP no
+  está configurado no se encola (no tiene sentido reintentar).
+- **Peticiones HTTP**: `instalarReintentos()` parchea `fetch` una vez por
+  proceso (vía `instrumentation.ts` de cada portal). Toda petición mutante al
+  API lleva `Idempotency-Key`, reintenta 3 veces los fallos transitorios
+  (red, 502/503/504) y, si no alcanza, encola en `http-retry` a través de
+  `POST /internal/retry`.
+- `IdempotencyInterceptor` guarda en Redis la respuesta de toda petición
+  mutante con clave (24h) y la devuelve tal cual al repetirse; sólo cachea
+  respuestas < 400.
+- `HttpRetryProcessor` reejecuta la petición contra el API con la cookie del
+  usuario original; un 5xx reintenta, un 4xx no.
+
 ## Progress
 
 - `bun run db:migrate` aplicado en local (`AddDientes…` y `ReplaceServicio…`).
