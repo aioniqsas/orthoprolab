@@ -10,9 +10,9 @@ export default async function PacientesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-title">Pacientes</h1>
-        <ActionButton render={<Link href="/pacientes/nuevo" />}>
-          Nuevo paciente
-        </ActionButton>
+        <Link href="/pacientes/nuevo">
+          <ActionButton>Nuevo paciente</ActionButton>
+        </Link>
       </div>
 
       {pacientes.length === 0 ? (
