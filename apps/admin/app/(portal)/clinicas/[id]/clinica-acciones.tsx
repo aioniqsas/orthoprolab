@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,7 @@ export function ClinicaAcciones({ id }: { id: string }) {
   return (
     <div className="flex flex-col items-end gap-2">
       <Dialog>
-        <DialogTrigger render={<Button variant="destructive">Eliminar</Button>} />
+        <DialogTrigger render={<ActionButton intent="danger" >Eliminar</ActionButton>} />
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>¿Eliminar clínica?</DialogTitle>
@@ -45,10 +46,10 @@ export function ClinicaAcciones({ id }: { id: string }) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline">Cancelar</Button>} />
-            <Button variant="destructive" disabled={pending} onClick={handleDelete}>
+            <DialogClose render={<ActionButton intent="outline" >Cancelar</ActionButton>} />
+            <ActionButton intent="danger"  disabled={pending} onClick={handleDelete}>
               {pending ? "Eliminando…" : "Sí, eliminar"}
-            </Button>
+            </ActionButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

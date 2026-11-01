@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { FullWidthStack } from "@repo/ui/section";
 import { NuevoDoctorForm } from "./nuevo-doctor-form";
 
 export const metadata: Metadata = { title: "Nuevo doctor" };
 
 export default function NuevoDoctorPage() {
   return (
-    <section className="flex flex-col gap-6 max-w-2xl">
+    <FullWidthStack>
       <div className="flex flex-col gap-1">
         <Link
           href="/doctores"
@@ -18,6 +19,6 @@ export default function NuevoDoctorPage() {
         <h1 className="text-2xl font-semibold">Nuevo doctor</h1>
       </div>
       <NuevoDoctorForm />
-    </section>
+    </FullWidthStack>
   );
 }

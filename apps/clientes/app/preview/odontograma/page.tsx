@@ -12,7 +12,7 @@ export default function PreviewOdontogramaPage() {
   const [color, setColor] = useState("A2");
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-none flex-col gap-6 p-6">
       <h1 className="text-lg font-semibold">Preview del odontograma</h1>
       <div className="rounded-xl border border-border bg-card p-4">
         <Odontograma

@@ -1,7 +1,8 @@
 "use client";
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { Odontograma } from "@repo/ui/components/odontograma";
 import type { DoctorOpcion } from "@/lib/data/types";
 import { crearOrden } from "./actions";
@@ -130,16 +131,16 @@ export function NuevaOrdenForm({ doctores }: Props) {
                 />
               </div>
               {detalles.length > 1 && (
-                <Button
+                <ActionButton intent="ghost"
                   type="button"
-                  variant="ghost"
+                  
                   size="icon"
                   onClick={() => removeDetalle(i)}
                   aria-label="Eliminar fila"
                   className="mb-0.5"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden />
-                </Button>
+                </ActionButton>
               )}
             </div>
 
@@ -155,15 +156,15 @@ export function NuevaOrdenForm({ doctores }: Props) {
           </div>
         ))}
 
-        <Button
+        <ActionButton intent="outline"
           type="button"
-          variant="outline"
+          
           onClick={addDetalle}
           className="self-start"
         >
           <Plus className="h-4 w-4 mr-1" aria-hidden />
           Agregar clase de trabajo
-        </Button>
+        </ActionButton>
       </div>
 
       {/* Opciones adicionales */}
@@ -203,10 +204,10 @@ export function NuevaOrdenForm({ doctores }: Props) {
       )}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
+        <ActionButton type="submit" disabled={isPending}>
           {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />}
           Crear orden
-        </Button>
+        </ActionButton>
       </div>
     </form>
   );

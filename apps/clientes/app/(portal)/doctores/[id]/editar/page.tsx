@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { FullWidthStack } from "@repo/ui/section";
 import { getDoctor } from "@/lib/data/repository";
 import { EditarDoctorForm } from "./editar-doctor-form";
 
@@ -17,7 +18,7 @@ export default async function EditarDoctorPage({
   if (!doctor) notFound();
 
   return (
-    <section className="flex flex-col gap-6 max-w-2xl">
+    <FullWidthStack>
       <div className="flex flex-col gap-1">
         <Link
           href={`/doctores/${id}`}
@@ -28,6 +29,6 @@ export default async function EditarDoctorPage({
         <h1 className="text-2xl font-semibold">Editar doctor</h1>
       </div>
       <EditarDoctorForm doctor={doctor} />
-    </section>
+    </FullWidthStack>
   );
 }

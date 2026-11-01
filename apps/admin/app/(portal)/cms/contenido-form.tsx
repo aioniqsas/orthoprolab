@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useActionState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { WEB_URL } from "@/lib/site-url";
@@ -29,9 +30,9 @@ export function ContenidoForm({ contenido }: { contenido: ContenidoAdmin }) {
       ))}
 
       <div className="sticky bottom-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-        <Button type="submit" disabled={pending}>
+        <ActionButton type="submit" disabled={pending}>
           {pending ? "Guardando…" : "Guardar cambios"}
-        </Button>
+        </ActionButton>
         {state?.ok ? (
           <p role="status" className="text-sm text-muted-foreground">
             Contenido guardado.

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Pencil } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
+import { FullWidthStack, Section } from "@repo/ui/section";
 import { getDoctor } from "@/lib/data/repository";
 import { DoctorAcciones } from "./doctor-acciones";
 
@@ -27,7 +28,7 @@ export default async function DoctorPage({
   if (!doctor) notFound();
 
   return (
-    <section className="flex flex-col gap-6 max-w-2xl">
+    <FullWidthStack>
       <div className="flex flex-col gap-1">
         <Link
           href="/doctores"
@@ -47,14 +48,14 @@ export default async function DoctorPage({
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
+      <Section className="flex flex-col gap-4">
         <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Datos</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nombres" value={doctor.nombres} />
           <Field label="Apellidos" value={doctor.apellidos} />
           {doctor.correo ? <Field label="Correo" value={doctor.correo} /> : null}
         </div>
-      </div>
+      </Section>
 
       <div className="flex items-center justify-between gap-4">
         <Link
@@ -70,6 +71,6 @@ export default async function DoctorPage({
           />
         ) : null}
       </div>
-    </section>
+    </FullWidthStack>
   );
 }

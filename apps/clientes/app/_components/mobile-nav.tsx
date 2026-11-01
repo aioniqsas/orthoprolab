@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { MenuIcon } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import {
   Sheet,
   SheetContent,
@@ -18,7 +19,7 @@ export function MobileNav() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
-        render={<Button variant="outline" size="icon" className="lg:hidden" />}
+        render={<ActionButton intent="outline"  size="icon" className="lg:hidden" />}
         aria-label="Abrir menú de navegación"
       >
         <MenuIcon aria-hidden />

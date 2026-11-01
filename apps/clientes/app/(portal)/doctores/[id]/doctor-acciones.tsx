@@ -1,7 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import {
   Dialog,
   DialogContent,
@@ -38,9 +39,9 @@ export function DoctorAcciones({ doctorId, nombre }: Props) {
 
   return (
     <>
-      <Button variant="destructive" onClick={() => setOpen(true)}>
+      <ActionButton intent="danger"  onClick={() => setOpen(true)}>
         Desactivar doctor
-      </Button>
+      </ActionButton>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -57,14 +58,14 @@ export function DoctorAcciones({ doctorId, nombre }: Props) {
           ) : null}
 
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" disabled={isPending}>Cancelar</Button>} />
-            <Button
-              variant="destructive"
+            <DialogClose render={<ActionButton intent="outline"  disabled={isPending}>Cancelar</ActionButton>} />
+            <ActionButton intent="danger"
+              
               disabled={isPending}
               onClick={handleDesactivar}
             >
               {isPending ? "Desactivando…" : "Sí, desactivar"}
-            </Button>
+            </ActionButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

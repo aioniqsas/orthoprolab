@@ -2,7 +2,8 @@
 import { use, useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { forgotPassword, resetPassword } from "./actions";
 
 const inputCls =
@@ -74,10 +75,10 @@ function ForgotForm() {
             </p>
           )}
 
-          <Button type="submit" disabled={isPending} className="w-full">
+          <ActionButton type="submit" disabled={isPending} className="w-full">
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />}
             Enviar enlace
-          </Button>
+          </ActionButton>
         </form>
 
         <Link
@@ -144,10 +145,10 @@ function ResetForm({ token }: { token: string }) {
             </p>
           )}
 
-          <Button type="submit" disabled={isPending} className="w-full">
+          <ActionButton type="submit" disabled={isPending} className="w-full">
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />}
             Guardar contraseña
-          </Button>
+          </ActionButton>
         </form>
       </div>
     </div>

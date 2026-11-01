@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 
 /** Button for an action that needs a backend that is not connected yet. */
 export function DisabledAction({
@@ -15,9 +16,9 @@ export function DisabledAction({
 }) {
   return (
     <span title={reason} className="inline-flex">
-      <Button variant={variant} disabled aria-describedby={id}>
+      <ActionButton variant={variant} disabled aria-describedby={id}>
         {children}
-      </Button>
+      </ActionButton>
       <span id={id} className="sr-only">
         {reason}
       </span>

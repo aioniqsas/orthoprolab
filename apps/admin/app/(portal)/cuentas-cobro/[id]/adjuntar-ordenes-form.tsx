@@ -1,7 +1,8 @@
 "use client";
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import type { OrdenDisponible } from "@/lib/data/types";
 import { formatDate } from "@/lib/data/helpers";
 import { adjuntarOrdenes } from "./actions";
@@ -86,12 +87,12 @@ export function AdjuntarOrdenesForm({ cuentaId, ordenes }: Props) {
       ) : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
+        <ActionButton type="submit" disabled={isPending}>
           {isPending ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />
           ) : null}
           Adjuntar seleccionadas
-        </Button>
+        </ActionButton>
       </div>
     </form>
   );

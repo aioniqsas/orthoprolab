@@ -1,7 +1,8 @@
 "use client";
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2, ChevronRight, AlertCircle } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { Odontograma } from "@repo/ui/components/odontograma";
 import type { Doctor } from "@/lib/data/types";
 import { crearOrden } from "./actions";
@@ -134,9 +135,9 @@ export function NuevaOrdenForm({ doctores }: Props) {
               Clases de trabajo
             </span>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={addDetalle} className="h-8 text-xs gap-1.5">
+          <ActionButton intent="outline" type="button"  size="sm" onClick={addDetalle} className="h-8 text-xs gap-1.5">
             <Plus className="size-3.5" aria-hidden /> Agregar
-          </Button>
+          </ActionButton>
         </div>
 
         {detalles.length === 0 ? (
@@ -273,13 +274,13 @@ export function NuevaOrdenForm({ doctores }: Props) {
 
         {/* Submit row */}
         <div className="mt-5 flex items-center justify-end gap-3 pt-4 border-t border-border">
-          <Button type="submit" disabled={isPending} className="min-w-32">
+          <ActionButton type="submit" disabled={isPending} className="min-w-32">
             {isPending ? (
               <><Loader2 className="size-4 animate-spin mr-1.5" aria-hidden />Creando…</>
             ) : (
               "Crear orden"
             )}
-          </Button>
+          </ActionButton>
         </div>
       </div>
     </form>

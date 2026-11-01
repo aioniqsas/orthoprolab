@@ -1,7 +1,8 @@
 "use client";
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import type { ClinicaDetalle } from "@/lib/data/types";
 import { editarClinica } from "../actions";
 
@@ -55,10 +56,10 @@ export function EditarClinicaForm({ clinica }: { clinica: ClinicaDetalle }) {
       ) : null}
 
       <div className="flex justify-end gap-3">
-        <Button type="submit" disabled={isPending}>
+        <ActionButton type="submit" disabled={isPending}>
           {isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
           Guardar cambios
-        </Button>
+        </ActionButton>
       </div>
     </form>
   );

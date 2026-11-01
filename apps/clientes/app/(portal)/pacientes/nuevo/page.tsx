@@ -2,7 +2,8 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { crearPaciente } from "./actions";
 
 const inputCls =
@@ -61,10 +62,10 @@ export default function NuevoPacientePage() {
           >
             Cancelar
           </Link>
-          <Button type="submit" disabled={isPending}>
+          <ActionButton type="submit" disabled={isPending}>
             {isPending && <Loader2 className="size-4 animate-spin mr-1" aria-hidden />}
             Guardar
-          </Button>
+          </ActionButton>
         </div>
       </form>
     </div>
