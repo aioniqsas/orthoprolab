@@ -333,7 +333,16 @@ export class PedidosService {
         orden.urgente = dto.urgente;
       }
       if (dto.fechaEntrega !== undefined) {
-        orden.fechaEntrega = dto.fechaEntrega ? new Date(`${dto.fechaEntrega}T12:00:00Z`) : null;
+        if (dto.fechaEntrega === null || dto.fechaEntrega === '') {
+          orden.fechaEntrega = null;
+        } else if (typeof dto.fechaEntrega === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dto.fechaEntrega)) {
+          orden.fechaEntrega = new Date(`${dto.fechaEntrega}T12:00:00Z`);
+        } else if (dto.fechaEntrega) {
+          orden.fechaEntrega = new Date(String(dto.fechaEntrega));
+          if (Number.isNaN(orden.fechaEntrega.getTime())) orden.fechaEntrega = null;
+        } else {
+          orden.fechaEntrega = null;
+        }
       }
 
       if (dto.detalles) {

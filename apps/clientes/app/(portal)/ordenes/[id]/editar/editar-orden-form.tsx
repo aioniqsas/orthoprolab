@@ -69,7 +69,7 @@ export function EditarOrdenForm({ orden }: { orden: Orden }) {
         body: JSON.stringify({
           detalles,
           urgente,
-          fechaEntrega: fechaEntrega || null,
+          fechaEntrega: fechaEntrega ? fechaEntrega : null,
         }),
       });
       if (!res.ok) {

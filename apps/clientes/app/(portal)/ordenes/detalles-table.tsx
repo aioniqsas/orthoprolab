@@ -52,38 +52,7 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
           render: (d) => d.cantidad,
           sortValue: (d) => d.cantidad,
         },
-        {
-          id: "precio",
-          header: "P. unitario",
-          align: "right",
-          render: (d) =>
-            d.precioUnitario === null ? (
-              <span className="text-xs text-muted-foreground">—</span>
-            ) : (
-              Number(d.precioUnitario).toLocaleString("es-CO", {
-                style: "currency",
-                currency: "COP",
-                minimumFractionDigits: 0,
-              })
-            ),
-          sortValue: (d) => Number(d.precioUnitario ?? 0),
-        },
-        {
-          id: "subtotal",
-          header: "Subtotal",
-          align: "right",
-          render: (d) =>
-            d.precioUnitario === null ? (
-              <span className="text-xs text-muted-foreground">—</span>
-            ) : (
-              (Number(d.precioUnitario) * d.cantidad).toLocaleString("es-CO", {
-                style: "currency",
-                currency: "COP",
-                minimumFractionDigits: 0,
-              })
-            ),
-          sortValue: (d) => Number(d.precioUnitario ?? 0) * d.cantidad,
-        },
+
       ]}
       empty={<p className="text-sm text-muted-foreground">Sin detalles.</p>}
     />
