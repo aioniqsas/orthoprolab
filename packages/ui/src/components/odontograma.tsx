@@ -3,11 +3,12 @@
 import { ARCO_INFERIOR, ARCO_SUPERIOR, COLOR_MAX_LENGTH } from "@repo/api-client";
 
 interface Props {
-  idPrefix: string;
+  idPrefix?: string;
   dientes: number[];
-  color: string;
-  onDientesChange: (dientes: number[]) => void;
-  onColorChange: (color: string) => void;
+  color?: string;
+  onDientesChange?: (dientes: number[]) => void;
+  onColorChange?: (color: string) => void;
+  readOnly?: boolean;
 }
 
 /** Proportions of a dental arch inside the box that holds it. */
@@ -160,15 +161,17 @@ function FormaDiente({ numero, activo }: { numero: number; activo: boolean }) {
 }
 
 export function Odontograma({
-  idPrefix,
-  dientes,
-  color,
+  idPrefix = "odontograma",
+  dientes = [],
+  color = "",
   onDientesChange,
   onColorChange,
+  readOnly = false,
 }: Props) {
   const seleccionado = new Set(dientes);
 
   function toggle(numero: number) {
+    if (readOnly || !onDientesChange) return;
     onDientesChange(
       seleccionado.has(numero)
         ? dientes.filter((diente) => diente !== numero)
@@ -192,6 +195,20 @@ export function Odontograma({
 
         {numeros.map((numero, indice) => {
           const activo = seleccionado.has(numero);
+          const style = {
+            ...posicionEnArco(indice, esInferior),
+            width: `${anchoDiente(numero)}%`,
+            transform: `translate(-50%, -50%) rotate(${rotacionDiente(indice, esInferior)}deg)`,
+          };
+
+          if (readOnly) {
+            return (
+              <div key={`${numero}-tooth`} style={style} className="absolute aspect-square pointer-events-none">
+                <FormaDiente numero={numero} activo={activo} />
+              </div>
+            );
+          }
+
           return (
             <button
               key={`${numero}-tooth`}
@@ -200,11 +217,7 @@ export function Odontograma({
               aria-label={`Diente ${numero}`}
               title={`Diente ${numero}`}
               onClick={() => toggle(numero)}
-              style={{
-                ...posicionEnArco(indice, esInferior),
-                width: `${anchoDiente(numero)}%`,
-                transform: `translate(-50%, -50%) rotate(${rotacionDiente(indice, esInferior)}deg)`,
-              }}
+              style={style}
               className="absolute aspect-square focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight"
             >
               <FormaDiente numero={numero} activo={activo} />
@@ -233,25 +246,38 @@ export function Odontograma({
         {arco(ARCO_INFERIOR, "Inferior", true)}
       </div>
 
-      <div className="flex items-center gap-2">
-        <label htmlFor={`${idPrefix}_color`} className="shrink-0 text-xs font-medium text-body">
-          Color de diente
-        </label>
-        <input
-          id={`${idPrefix}_color`}
-          value={color}
-          maxLength={COLOR_MAX_LENGTH}
-          placeholder="Ej. A2"
-          onChange={(event) => onColorChange(event.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-        />
-      </div>
+      {readOnly ? (
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          {color ? <p>Color de diente: {color}</p> : null}
+          <p>
+            {dientes.length === 0
+              ? "Sin dientes seleccionados."
+              : `Dientes: ${[...dientes].sort((a, b) => a - b).join(", ")}`}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <label htmlFor={`${idPrefix}_color`} className="shrink-0 text-xs font-medium text-body">
+              Color de diente
+            </label>
+            <input
+              id={`${idPrefix}_color`}
+              value={color}
+              maxLength={COLOR_MAX_LENGTH}
+              placeholder="Ej. A2"
+              onChange={(event) => onColorChange?.(event.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
+            />
+          </div>
 
-      <p className="text-xs text-muted-foreground">
-        {dientes.length === 0
-          ? "Selecciona los dientes sobre los que se realiza el trabajo."
-          : `Dientes: ${[...dientes].sort((a, b) => a - b).join(", ")}`}
-      </p>
+          <p className="text-xs text-muted-foreground">
+            {dientes.length === 0
+              ? "Selecciona los dientes sobre los que se realiza el trabajo."
+              : `Dientes: ${[...dientes].sort((a, b) => a - b).join(", ")}`}
+          </p>
+        </>
+      )}
     </div>
   );
 }

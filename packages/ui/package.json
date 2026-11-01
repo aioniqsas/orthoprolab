@@ -7,6 +7,7 @@
     "./hooks/*": "./src/hooks/*.ts",
     "./styles/*": "./src/styles/*",
     "./auth/*": "./src/auth/*.tsx",
+    "./odontograma": "./src/components/odontograma.tsx",
     "./*": "./src/*.tsx"
   },
   "scripts": {

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { Odontograma } from "@repo/ui/odontograma";
 import { isAdmin } from "@/lib/auth-guard";
 import {
   estadoLabel,
@@ -79,46 +80,70 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
       </dl>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <section aria-labelledby="detalles" className="rounded-xl border border-border bg-card p-5">
-          <h2 id="detalles" className="font-heading text-lg font-semibold">
-            Clases de trabajo
-          </h2>
-          <ul className="mt-4 flex flex-col divide-y divide-border">
-            {orden.detalles.map((d) => (
-              <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{d.servicio}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    Cantidad: {d.cantidad}
-                    {d.precioUnitario !== null
-                      ? ` x ${formatCop(d.precioUnitario)}`
-                      : ""}
-                  </p>
-                  {d.dientes.length > 0 ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Dientes: {d.dientes.join(", ")}
-                      {d.colorDiente ? ` — Color: ${d.colorDiente}` : ""}
+        <div className="flex flex-col gap-6">
+          {orden.detalles.some((d) => d.dientes.length > 0) ? (
+            <section aria-labelledby="odontograma" className="rounded-xl border border-border bg-card p-5">
+              <h2 id="odontograma" className="font-heading text-lg font-semibold">
+                Dientes a trabajar
+              </h2>
+              <div className="mt-4 flex flex-col gap-6">
+                {orden.detalles.map((d) => (
+                  d.dientes.length > 0 ? (
+                    <div key={`odo-${d.id}`} className="flex flex-col gap-2">
+                      <p className="text-sm font-medium">{d.servicio}</p>
+                      <Odontograma
+                        readOnly
+                        dientes={d.dientes}
+                        color={d.colorDiente ?? ""}
+                      />
+                    </div>
+                  ) : null
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section aria-labelledby="detalles" className="rounded-xl border border-border bg-card p-5">
+            <h2 id="detalles" className="font-heading text-lg font-semibold">
+              Clases de trabajo
+            </h2>
+            <ul className="mt-4 flex flex-col divide-y divide-border">
+              {orden.detalles.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{d.servicio}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      Cantidad: {d.cantidad}
+                      {d.precioUnitario !== null
+                        ? ` x ${formatCop(d.precioUnitario)}`
+                        : ""}
+                    </p>
+                    {d.dientes.length > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Dientes: {d.dientes.join(", ")}
+                        {d.colorDiente ? ` — Color: ${d.colorDiente}` : ""}
+                      </p>
+                    ) : null}
+                    {d.observaciones ? (
+                      <p className="mt-1 text-xs text-muted-foreground">{d.observaciones}</p>
+                    ) : null}
+                  </div>
+                  {d.precioUnitario !== null ? (
+                    <p className="text-sm font-medium tabular-nums">
+                      {formatCop(lineSubtotal(d.cantidad, d.precioUnitario))}
                     </p>
                   ) : null}
-                  {d.observaciones ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{d.observaciones}</p>
-                  ) : null}
-                </div>
-                {d.precioUnitario !== null ? (
-                  <p className="text-sm font-medium tabular-nums">
-                    {formatCop(lineSubtotal(d.cantidad, d.precioUnitario))}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          {conPrecios ? (
-            <p className="mt-2 flex items-center justify-between border-t border-border pt-4 font-heading text-lg font-semibold">
-              <span>Total</span>
-              <span className="tabular-nums">{formatCop(total)}</span>
-            </p>
-          ) : null}
-        </section>
+                </li>
+              ))}
+            </ul>
+            {conPrecios ? (
+              <p className="mt-2 flex items-center justify-between border-t border-border pt-4 font-heading text-lg font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums">{formatCop(total)}</span>
+              </p>
+            ) : null}
+          </section>
+        </div>
 
         <div className="flex flex-col gap-6">
           <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">

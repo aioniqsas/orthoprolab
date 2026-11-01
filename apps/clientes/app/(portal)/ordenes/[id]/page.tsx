@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { Odontograma } from "@repo/ui/odontograma";
 import { getOrden } from "@/lib/data/repository";
 import { OrdenesLive } from "../ordenes-live";
 import { DevolverOrdenForm } from "../devolver-orden-form";
@@ -107,6 +108,25 @@ export default async function OrdenPage({
               </li>
             ))}
           </ol>
+        </section>
+      )}
+
+      {/* Dientes a trabajar */}
+      {orden.detalles.some((d) => d.dientes && d.dientes.length > 0) && (
+        <section aria-labelledby="odontograma-cliente" className="rounded-xl border border-border bg-card p-5">
+          <h2 id="odontograma-cliente" className="font-heading text-lg font-semibold">
+            Dientes a trabajar
+          </h2>
+          <div className="mt-4 flex flex-col gap-6">
+            {orden.detalles.map((d) =>
+              d.dientes && d.dientes.length > 0 ? (
+                <div key={`odo-${d.id}`} className="flex flex-col gap-2">
+                  <p className="text-sm font-medium">{d.servicio}</p>
+                  <Odontograma readOnly dientes={d.dientes} color={d.colorDiente ?? ""} />
+                </div>
+              ) : null,
+            )}
+          </div>
         </section>
       )}
 
