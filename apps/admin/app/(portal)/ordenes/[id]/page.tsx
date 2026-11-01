@@ -21,6 +21,7 @@ import { ListSkeleton } from "../../../_components/list-skeleton";
 import { PageHeader } from "../../../_components/page-header";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AccionesOrden } from "./acciones-orden";
+import { OrdenesLive } from "../ordenes-live";
 
 export const metadata: Metadata = { title: "Detalle de orden" };
 
@@ -58,6 +59,7 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <FullWidthStack>
+      <OrdenesLive />
       <PageHeader
         title={`Orden #${orden.id}`}
       />
