@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
 import { Orden } from './orden.entity.js';
 import { PedidosEventosService } from './pedidos-eventos.service.js';
 import type { CreateOrdenDto } from './dto/create-orden.dto.js';
+import type { UpdateOrdenDto } from './dto/update-orden.dto.js';
 
 @Injectable()
 export class PedidosService {
@@ -310,6 +312,112 @@ export class PedidosService {
 
     // Reload with estado relation for callers (the transaction result only has
     // the state we set, but keep shape consistent).
+    const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
+    this.eventos.emitir('estado', String(result.id), doctor?.clinicaId);
+    return result;
+  }
+
+  /** Edit an order only while it is in 'creada' state. */
+  async update(id: string, dto: UpdateOrdenDto): Promise<Orden> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const orden = await manager.findOne(Orden, {
+        where: { id },
+        relations: { estado: true },
+      });
+      if (!orden) throw new NotFoundException('Orden no encontrada.');
+      if (orden.estado?.codigo !== 'creada') {
+        throw new ForbiddenException('Solo se puede editar una orden en estado Creada.');
+      }
+
+      if (dto.urgente !== undefined) {
+        orden.urgente = dto.urgente;
+      }
+      if (dto.fechaEntrega !== undefined) {
+        orden.fechaEntrega = dto.fechaEntrega ? new Date(`${dto.fechaEntrega}T12:00:00Z`) : null;
+      }
+
+      if (dto.detalles) {
+        await manager.delete(DetalleOrden, { ordenId: orden.id });
+        for (const d of dto.detalles) {
+          const numeros = new Set(d.dientes);
+          if (numeros.size !== d.dientes.length) {
+            throw new BadRequestException(
+              `El trabajo "${d.servicio}" tiene dientes repetidos.`,
+            );
+          }
+          const detalle = manager.create(DetalleOrden, {
+            ordenId: orden.id,
+            servicio: d.servicio,
+            cantidad: d.cantidad,
+            dientes: [...d.dientes],
+            colorDiente: d.colorDiente,
+            observaciones: d.observaciones ?? null,
+          });
+          await manager.save(DetalleOrden, detalle);
+        }
+      }
+
+      await manager.save(Orden, orden);
+
+      const full = await manager.findOne(Orden, {
+        where: { id: orden.id },
+        relations: {
+          estado: true,
+          asignacion: { doctor: true, paciente: true },
+          detalles: true,
+          historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
+        },
+      });
+      if (!full) throw new NotFoundException('Orden no encontrada tras actualizar.');
+      return full;
+    });
+
+    const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
+    this.eventos.emitir('actualizada', String(result.id), doctor?.clinicaId);
+    return result;
+  }
+
+  /** Cancel an order only while it is in 'creada' state. */
+  async cancelar(id: string, usuarioId: string, observaciones?: string): Promise<Orden> {
+    const estadoCanceladaId = await this.getEstadoIdByCodigo('cancelada');
+    if (!estadoCanceladaId) {
+      throw new BadRequestException('Estado cancelada no encontrado.');
+    }
+    const result = await this.dataSource.transaction(async (manager) => {
+      const orden = await manager.findOne(Orden, {
+        where: { id },
+        relations: { estado: true },
+      });
+      if (!orden) throw new NotFoundException('Orden no encontrada.');
+      if (orden.estado?.codigo !== 'creada') {
+        throw new ForbiddenException('Solo se puede cancelar una orden en estado Creada.');
+      }
+
+      const entrada = manager.create(HistorialEstadoOrden, {
+        ordenId: orden.id,
+        estadoAnteriorId: orden.estadoId,
+        estadoNuevoId: estadoCanceladaId,
+        usuarioId,
+        observaciones: observaciones?.trim() || null,
+      });
+      await manager.save(HistorialEstadoOrden, entrada);
+
+      orden.estadoId = estadoCanceladaId;
+      await manager.save(Orden, orden);
+
+      const full = await manager.findOne(Orden, {
+        where: { id: orden.id },
+        relations: {
+          estado: true,
+          asignacion: { doctor: true, paciente: true },
+          detalles: true,
+          historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
+        },
+      });
+      if (!full) throw new NotFoundException('Orden no encontrada tras cancelar.');
+      return full;
+    });
+
     const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
     this.eventos.emitir('estado', String(result.id), doctor?.clinicaId);
     return result;

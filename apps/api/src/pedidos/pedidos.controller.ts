@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
@@ -9,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Sse,
@@ -19,6 +21,7 @@ import type { AuthenticatedRequest } from '../auth/index.js';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto.js';
 import { CreateOrdenDto } from './dto/create-orden.dto.js';
+import { UpdateOrdenDto } from './dto/update-orden.dto.js';
 import { PedidosService } from './pedidos.service.js';
 import type { Orden } from './orden.entity.js';
 import { interval, map, merge, type Observable } from 'rxjs';
@@ -109,5 +112,23 @@ export class PedidosController {
       req.user.id,
       dto.observaciones,
     );
+  }
+
+  @Put(':id')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrdenDto,
+  ): Promise<Orden> {
+    return this.pedidos.update(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  cancelar(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto?: { observaciones?: string },
+  ): Promise<Orden> {
+    return this.pedidos.cancelar(id, req.user.id, dto?.observaciones);
   }
 }

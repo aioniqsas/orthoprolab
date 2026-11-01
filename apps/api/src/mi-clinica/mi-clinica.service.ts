@@ -168,6 +168,14 @@ export class MiClinicaService {
     return this.pedidosService.create(dto, usuarioId);
   }
 
+  async updateOrden(ordenId: string, dto: import('../pedidos/dto/update-orden.dto.js').UpdateOrdenDto) {
+    return this.pedidosService.update(ordenId, dto);
+  }
+
+  async cancelarOrden(ordenId: string, usuarioId: string, observaciones?: string) {
+    return this.pedidosService.cancelar(ordenId, usuarioId, observaciones);
+  }
+
   async listAllPacientes(
     usuarioId: string,
   ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {
