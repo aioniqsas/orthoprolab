@@ -286,6 +286,9 @@ export class PedidosService {
         relations: { estado: true },
       });
       if (!orden) throw new NotFoundException('Orden no encontrada.');
+      if (orden.estado?.codigo === 'cancelada') {
+        throw new ForbiddenException('No se puede cambiar el estado de una orden cancelada.');
+      }
 
       const nuevoEstado = await manager.findOne(EstadoOrden, {
         where: { id: estadoId },
