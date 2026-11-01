@@ -94,9 +94,11 @@ function punto(fraccion: number, radioExtra: number, esInferior: boolean): Punto
   const angulo = anguloEn(fraccion);
   const centroY = esInferior ? CENTRO_Y_INFERIOR : CENTRO_Y_SUPERIOR;
   const sentido = esInferior ? 1 : -1;
+  const left = CENTRO_X + (RADIO_X + radioExtra) * Math.cos(angulo);
+  const top = centroY + sentido * (RADIO_Y + radioExtra) * Math.sin(angulo);
   return {
-    left: `${CENTRO_X + (RADIO_X + radioExtra) * Math.cos(angulo)}%`,
-    top: `${centroY + sentido * (RADIO_Y + radioExtra) * Math.sin(angulo)}%`,
+    left: `${left.toFixed(6)}%`,
+    top: `${top.toFixed(6)}%`,
   };
 }
 
@@ -117,7 +119,8 @@ export function rotacionDiente(indice: number, esInferior: boolean): number {
   const x = Number.parseFloat(left);
   const y = Number.parseFloat(top);
   const centroY = esInferior ? CENTRO_Y_INFERIOR : CENTRO_Y_SUPERIOR;
-  return (Math.atan2(y - centroY, x - CENTRO_X) * 180) / Math.PI + 90;
+  const rot = (Math.atan2(y - centroY, x - CENTRO_X) * 180) / Math.PI + 90;
+  return Number(rot.toFixed(6));
 }
 
 /** Crown outline, root up and occlusal edge down. */
