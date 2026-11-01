@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActionButton } from "@repo/ui/action-button";
 import { listPacientes } from "@/lib/data/repository";
 import { PacientesTable } from "./pacientes-table";
 
@@ -9,12 +10,9 @@ export default async function PacientesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-title">Pacientes</h1>
-        <Link
-          href="/pacientes/nuevo"
-          className="rounded-lg bg-highlight px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
-        >
+        <ActionButton render={<Link href="/pacientes/nuevo" />}>
           Nuevo paciente
-        </Link>
+        </ActionButton>
       </div>
 
       {pacientes.length === 0 ? (
