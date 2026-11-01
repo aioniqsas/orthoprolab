@@ -195,8 +195,10 @@ export function Odontograma({
 
         {numeros.map((numero, indice) => {
           const activo = seleccionado.has(numero);
+          const pos = posicionEnArco(indice, esInferior);
           const style = {
-            ...posicionEnArco(indice, esInferior),
+            left: pos.left,
+            top: pos.top,
             width: `${anchoDiente(numero)}%`,
             transform: `translate(-50%, -50%) rotate(${rotacionDiente(indice, esInferior)}deg)`,
           };
@@ -225,16 +227,19 @@ export function Odontograma({
           );
         })}
 
-        {numeros.map((numero, indice) => (
-          <span
-            key={`${numero}-label`}
-            aria-hidden
-            style={posicionEtiqueta(indice, esInferior)}
-            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-[9px] font-medium tabular-nums text-muted-foreground"
-          >
-            {numero}
-          </span>
-        ))}
+        {numeros.map((numero, indice) => {
+          const lab = posicionEtiqueta(indice, esInferior);
+          return (
+            <span
+              key={`${numero}-label`}
+              aria-hidden
+              style={{ left: lab.left, top: lab.top }}
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-[9px] font-medium tabular-nums text-muted-foreground"
+            >
+              {numero}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
