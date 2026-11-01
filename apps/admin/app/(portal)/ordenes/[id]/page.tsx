@@ -20,6 +20,7 @@ import { EstadoBadge, UrgenteBadge } from "../../../_components/estado-badge";
 import { ListSkeleton } from "../../../_components/list-skeleton";
 import { PageHeader } from "../../../_components/page-header";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
+import { AccionesOrden } from "./acciones-orden";
 
 export const metadata: Metadata = { title: "Detalle de orden" };
 
@@ -60,9 +61,12 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
       <PageHeader
         title={`Orden #${orden.id}`}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <EstadoBadge estado={orden.estado} />
-        {orden.urgente ? <UrgenteBadge /> : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <EstadoBadge estado={orden.estado} />
+          {orden.urgente ? <UrgenteBadge /> : null}
+        </div>
+        <AccionesOrden ordenId={String(orden.id)} puedeEditar={orden.estado === "creada"} />
       </div>
 
       <Section as="div" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

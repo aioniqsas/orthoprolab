@@ -9,6 +9,7 @@ import { OrdenesLive } from "../ordenes-live";
 import { DevolverOrdenForm } from "../devolver-orden-form";
 import { ConfirmarSatisfaccionForm } from "../confirmar-satisfaccion-form";
 import { OrdenDetallesTable } from "../detalles-table";
+import { AccionesOrden } from "./acciones-orden";
 
 export const metadata: Metadata = { title: "Orden" };
 
@@ -48,19 +49,22 @@ export default async function OrdenPage({
         >
           <ChevronLeft className="size-4" aria-hidden /> Órdenes
         </Link>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Orden #{orden.id}</h1>
-          <span
-            className="rounded-full px-3 py-1 text-xs font-medium text-white"
-            style={{ backgroundColor: orden.estado.color ?? "#6b7280" }}
-          >
-            {orden.estado.nombre}
-          </span>
-          {orden.urgente && (
-            <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-              Urgente
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">Orden #{orden.id}</h1>
+            <span
+              className="rounded-full px-3 py-1 text-xs font-medium text-white"
+              style={{ backgroundColor: orden.estado.color ?? "#6b7280" }}
+            >
+              {orden.estado.nombre}
             </span>
-          )}
+            {orden.urgente && (
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                Urgente
+              </span>
+            )}
+          </div>
+          <AccionesOrden ordenId={String(orden.id)} puedeEditar={orden.estado?.codigo === "creada" || orden.estado?.nombre === "Creada"} />
         </div>
       </div>
 
