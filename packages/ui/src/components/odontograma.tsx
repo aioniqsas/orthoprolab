@@ -240,8 +240,8 @@ export function Odontograma({
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="mx-auto flex w-full max-w-[320px] flex-col gap-3">
+    <div className="flex flex-col gap-3 w-full">
+      <div className="mx-auto flex w-full max-w-[420px] flex-col gap-3">
         {arco(ARCO_SUPERIOR, "Superior", false)}
         {arco(ARCO_INFERIOR, "Inferior", true)}
       </div>

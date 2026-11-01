@@ -8,6 +8,7 @@
     "./styles/*": "./src/styles/*",
     "./auth/*": "./src/auth/*.tsx",
     "./odontograma": "./src/components/odontograma.tsx",
+    "./section": "./src/components/section.tsx",
     "./*": "./src/*.tsx"
   },
   "scripts": {

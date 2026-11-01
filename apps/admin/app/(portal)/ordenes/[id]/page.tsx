@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Odontograma } from "@repo/ui/odontograma";
+import { FullWidthStack, Section } from "@repo/ui/section";
 import { isAdmin } from "@/lib/auth-guard";
 import {
   estadoLabel,
@@ -55,7 +56,7 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
   const total = orderTotal(orden.detalles);
 
   return (
-    <div className="flex flex-col gap-6">
+    <FullWidthStack>
       <PageHeader
         title={`Orden #${orden.id}`}
       />
@@ -64,7 +65,7 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
         {orden.urgente ? <UrgenteBadge /> : null}
       </div>
 
-      <dl className="grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2 lg:grid-cols-4">
+      <Section as="div" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Doctor", fullName(orden.doctor)],
           ["Clínica", clinica?.nombre ?? "Sin clínica"],
@@ -77,12 +78,12 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
             <dd className="text-sm font-medium">{value}</dd>
           </div>
         ))}
-      </dl>
+      </Section>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="flex flex-col gap-6">
+      <div className="grid w-full gap-6 lg:grid-cols-[2fr_1fr]">
+        <FullWidthStack>
           {orden.detalles.some((d) => d.dientes.length > 0) ? (
-            <section aria-labelledby="odontograma" className="rounded-xl border border-border bg-card p-5">
+            <Section aria-labelledby="odontograma">
               <h2 id="odontograma" className="font-heading text-lg font-semibold">
                 Dientes a trabajar
               </h2>
@@ -100,10 +101,10 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                   ) : null
                 ))}
               </div>
-            </section>
+            </Section>
           ) : null}
 
-          <section aria-labelledby="detalles" className="rounded-xl border border-border bg-card p-5">
+          <Section aria-labelledby="detalles">
             <h2 id="detalles" className="font-heading text-lg font-semibold">
               Clases de trabajo
             </h2>
@@ -142,11 +143,11 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                 <span className="tabular-nums">{formatCop(total)}</span>
               </p>
             ) : null}
-          </section>
-        </div>
+          </Section>
+        </FullWidthStack>
 
-        <div className="flex flex-col gap-6">
-          <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">
+        <FullWidthStack>
+          <Section aria-labelledby="historial">
             <h2 id="historial" className="font-heading text-lg font-semibold">
               Historial de estados
             </h2>
@@ -173,15 +174,15 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                 </li>
               ))}
             </ol>
-          </section>
+          </Section>
 
           <CambiarEstadoForm
             ordenId={String(orden.id)}
             estadoDbId={orden.estadoDbId}
             estados={estados}
           />
-        </div>
+        </FullWidthStack>
       </div>
-    </div>
+    </FullWidthStack>
   );
 }

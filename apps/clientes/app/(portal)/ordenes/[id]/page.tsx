@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Odontograma } from "@repo/ui/odontograma";
+import { FullWidthStack, Section } from "@repo/ui/section";
 import { getOrden } from "@/lib/data/repository";
 import { OrdenesLive } from "../ordenes-live";
 import { DevolverOrdenForm } from "../devolver-orden-form";
@@ -38,7 +39,7 @@ export default async function OrdenPage({
   });
 
   return (
-    <section className="flex flex-col gap-6 max-w-3xl">
+    <FullWidthStack>
       <OrdenesLive />
       <div className="flex flex-col gap-1">
         <Link
@@ -64,7 +65,7 @@ export default async function OrdenPage({
       </div>
 
       {/* Summary card */}
-      <div className="rounded-xl border border-border bg-card p-5 grid gap-4 sm:grid-cols-2">
+      <Section as="div" className="grid gap-4 sm:grid-cols-2">
         {doctor && (
           <Field
             label="Doctor"
@@ -82,11 +83,11 @@ export default async function OrdenPage({
             value={new Date(orden.fechaEntrega).toLocaleDateString("es-CO")}
           />
         )}
-      </div>
+      </Section>
 
       {/* Historial de estados */}
       {orden.historial && orden.historial.length > 0 && (
-        <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">
+        <Section aria-labelledby="historial">
           <h2 id="historial" className="font-heading text-lg font-semibold">Historial de estados</h2>
           <ol className="mt-4 flex flex-col gap-4 border-s border-border ps-4">
             {orden.historial
@@ -108,12 +109,12 @@ export default async function OrdenPage({
               </li>
             ))}
           </ol>
-        </section>
+        </Section>
       )}
 
       {/* Dientes a trabajar */}
       {orden.detalles.some((d) => d.dientes && d.dientes.length > 0) && (
-        <section aria-labelledby="odontograma-cliente" className="rounded-xl border border-border bg-card p-5">
+        <Section aria-labelledby="odontograma-cliente">
           <h2 id="odontograma-cliente" className="font-heading text-lg font-semibold">
             Dientes a trabajar
           </h2>
@@ -127,19 +128,19 @@ export default async function OrdenPage({
               ) : null,
             )}
           </div>
-        </section>
+        </Section>
       )}
 
       {/* Detalles */}
       {orden.detalles.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <FullWidthStack className="gap-3">
           <OrdenDetallesTable detalles={orden.detalles} />
           {Number(orden.valor) > 0 && (
             <div className="flex justify-end">
               <span className="text-sm font-semibold">Total: {total}</span>
             </div>
           )}
-        </div>
+        </FullWidthStack>
       )}
       {(orden.estado.codigo === "en_entrega" || orden.estado.nombre === "En entrega al cliente") && (
         <>
@@ -147,6 +148,6 @@ export default async function OrdenPage({
           <DevolverOrdenForm ordenId={orden.id} />
         </>
       )}
-    </section>
+    </FullWidthStack>
   );
 }
