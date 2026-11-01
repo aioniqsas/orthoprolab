@@ -8,6 +8,7 @@ import type { FindOptionsWhere, Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
+import { Paciente } from '../pacientes/paciente.entity.js';
 import { PacientesService } from '../pacientes/pacientes.service.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { DetalleOrden } from './detalle-orden.entity.js';
@@ -133,7 +134,6 @@ export class PedidosService {
     // Resolve pacienteId before entering the transaction so that
     // PacientesService uses its own connection context.
     let resolvedPacienteId: string;
-    let ensureLink = false;
 
     if (dto.pacienteId !== undefined) {
       resolvedPacienteId = String(dto.pacienteId);
@@ -143,7 +143,6 @@ export class PedidosService {
         dto.pacienteNombre,
       );
       resolvedPacienteId = p.id;
-      ensureLink = true;
     } else {
       throw new BadRequestException(
         'Proporciona pacienteId o (pacienteCedula + pacienteNombre).',
@@ -151,28 +150,25 @@ export class PedidosService {
     }
 
     const result = await this.dataSource.transaction(async (manager) => {
-      // When patient was resolved inline, ensure the PacienteDoctor link exists.
-      if (ensureLink) {
-        const existing = await manager.findOne(PacienteDoctor, {
-          where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
-        });
-        if (!existing) {
-          const link = manager.create(PacienteDoctor, {
-            pacienteId: resolvedPacienteId,
-            doctorId: dto.doctorId,
-          });
-          await manager.save(PacienteDoctor, link);
-        }
+      // 1. A patient may be treated by doctors of different clinics, so the
+      //    doctor↔patient link is created on demand instead of being required.
+      const paciente = await manager.findOne(Paciente, {
+        where: { id: resolvedPacienteId },
+      });
+      if (!paciente) {
+        throw new BadRequestException(
+          `Paciente ${resolvedPacienteId} no encontrado.`,
+        );
       }
-
-      // 1. Validate that the patient is assigned to this doctor.
       const asignacion = await manager.findOne(PacienteDoctor, {
         where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
       });
       if (!asignacion) {
-        throw new BadRequestException(
-          'El paciente no está asignado a este doctor.',
-        );
+        const link = manager.create(PacienteDoctor, {
+          pacienteId: resolvedPacienteId,
+          doctorId: dto.doctorId,
+        });
+        await manager.save(PacienteDoctor, link);
       }
 
       // 2. Load the initial state.
