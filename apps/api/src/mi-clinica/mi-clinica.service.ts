@@ -168,18 +168,13 @@ export class MiClinicaService {
     return this.pedidosService.create(dto, usuarioId);
   }
 
-  async updateOrden(ordenId: string, dto: import('../pedidos/dto/update-orden.dto.js').UpdateOrdenDto) {
-    // Ownership check
-    const orden = await this.getOrden((await this.resolveUsuarioId()) || '', ordenId).catch(() => null);
-    // getOrden requires usuarioId; better use getOrden by looking up
+  async updateOrden(usuarioId: string, ordenId: string, dto: import('../pedidos/dto/update-orden.dto.js').UpdateOrdenDto) {
+    await this.getOrden(usuarioId, ordenId);
     return this.pedidosService.update(ordenId, dto);
   }
 
-  private async resolveUsuarioId() {
-    return null;
-  }
-
   async cancelarOrden(ordenId: string, usuarioId: string, observaciones?: string) {
+    await this.getOrden(usuarioId, ordenId);
     return this.pedidosService.cancelar(ordenId, usuarioId, observaciones);
   }
 

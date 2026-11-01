@@ -134,10 +134,11 @@ export class MiClinicaController {
 
   @Put('ordenes/:id')
   updateOrden(
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: import('../pedidos/dto/update-orden.dto.js').UpdateOrdenDto,
   ) {
-    return this.miClinica.updateOrden(id, dto);
+    return this.miClinica.updateOrden(req.user.id, id, dto);
   }
 
   @Delete('ordenes/:id')
