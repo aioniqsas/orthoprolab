@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Download } from "lucide-react";
+import { buttonVariants } from "@repo/ui/components/button";
 import { Odontograma } from "@repo/ui/odontograma";
 import { formatearFecha, formatearFechaHora } from "@repo/api-client";
 import { FullWidthStack, Section } from "@repo/ui/section";
@@ -72,6 +73,15 @@ async function OrdenDetalle({ params }: { params: Promise<{ id: string }> }) {
               </span>
             )}
           </div>
+          {orden.estado.codigo === "terminada" ? (
+            <a
+              href={`/api-proxy/mi-clinica/ordenes/${orden.id}/control-trabajos`}
+              download
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download aria-hidden className="size-4" /> Control de trabajos
+            </a>
+          ) : null}
           <AccionesOrden
             ordenId={String(orden.id)}
             puedeEditar={orden.estado?.codigo === "creada" || orden.estado?.nombre === "Creada"}
