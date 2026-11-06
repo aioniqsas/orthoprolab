@@ -49,6 +49,14 @@ Al adjuntar órdenes, `GET /cuentas-cobro/:id/ordenes-disponibles` devuelve solo
 
 `CuentasCobroEventosService` avisa cuando una cuenta cambia (creada, actualizada, pago registrado o anulado, PDF, envío) y dos streams SSE protegidos por el guard de sesión lo publican: `GET /cuentas-cobro/eventos` (administrador, con `tipo` y `cuentaId`) y `GET /mi-clinica/cuentas-cobro/eventos` (clínica, solo con `tipo`, para no filtrar ids de otras clínicas). Cada portal expone un puente en `app/api/cuentas-cobro/eventos/route.ts` que reenvía la cookie de sesión y un componente `cuentas-live.tsx` que llama `router.refresh()` al recibir el evento `cuenta-cobro`. Mismo patrón que el catálogo del sitio público, con su misma limitación: el bus es en memoria, así que con varias réplicas del API hace falta Redis pub/sub.
 
+## PWA: instalar los portales
+
+Los dos portales son instalables. Cada uno sirve su `app/manifest.ts` (`/manifest.webmanifest`) con `start_url` propio —`/ordenes` en Admin, `/` en Clientes—, `display: standalone`, `theme_color` `#171717` y los iconos de `public/icons` (192, 512 y un `maskable`). La marca es un arco dental en el color de acento (`#48fbc1`) sobre fondo oscuro; no había logo en el repositorio, así que es un reemplazo barato: cambiar los PNG en `public/icons` basta.
+
+El service worker (`public/sw.js`, idéntico en ambos y versionado con `VERSION`) **solo cachea estáticos**: `/_next/static/*` (con hash de contenido) e `/icons/*`. Nunca guarda documentos HTML ni respuestas de API: un portal autenticado cacheado dejaría una pantalla de otro usuario en un dispositivo compartido. Sin red, una navegación cae en `public/offline.html`, que se precachea en la instalación y no pasa por el gate de sesión de `proxy.ts` (el matcher ignora las rutas con extensión).
+
+`PwaRegistro` (en `app/_components`) registra el service worker **solo con `NODE_ENV=production`**: en `next dev` interfiere con HMR y produce resultados que no son los del despliegue. Para probar el PWA en local: `bun run build && bun run start` en la app y abrir `http://localhost:3001 o 3002` — sobre HTTP el navegador solo permite el service worker en `localhost`, y la instalación real exige HTTPS. `next.config.ts` fuerza `Cache-Control: no-cache` en `/sw.js` para que una versión vieja no se quede pegada.
+
 ## Known limitations and follow-ups
 
 - Unknown ids render the not-found page with HTTP 200 in the admin app (with `cacheComponents`, the layout's auth gate streams first). The portal is `noindex`.
