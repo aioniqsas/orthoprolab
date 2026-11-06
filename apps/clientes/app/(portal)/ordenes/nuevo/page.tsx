@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -6,7 +7,15 @@ import { NuevaOrdenForm } from "./nueva-orden-form";
 
 export const metadata: Metadata = { title: "Nueva orden" };
 
-export default async function NuevaOrdenPage() {
+export default function NuevaOrdenPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
+      <NuevaOrden />
+    </Suspense>
+  );
+}
+
+async function NuevaOrden() {
   const doctores = await listDoctores(false);
 
   return (

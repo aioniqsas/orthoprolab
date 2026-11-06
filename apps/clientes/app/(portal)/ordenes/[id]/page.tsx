@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -22,11 +23,15 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default async function OrdenPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function OrdenPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
+      <OrdenDetalle params={params} />
+    </Suspense>
+  );
+}
+
+async function OrdenDetalle({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const orden = await getOrden(id);
   if (!orden) notFound();

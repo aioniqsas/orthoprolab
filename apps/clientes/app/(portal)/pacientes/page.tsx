@@ -1,9 +1,18 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ActionButton } from "@repo/ui/action-button";
 import { listPacientes } from "@/lib/data/repository";
 import { PacientesTable } from "./pacientes-table";
 
-export default async function PacientesPage() {
+export default function PacientesPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
+      <Pacientes />
+    </Suspense>
+  );
+}
+
+async function Pacientes() {
   const pacientes = await listPacientes();
 
   return (
