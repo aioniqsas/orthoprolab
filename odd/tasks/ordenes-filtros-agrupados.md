@@ -15,10 +15,10 @@ La lista de órdenes de los dos portales filtra por tres grupos en vez de por lo
 
 - [x] T1 — `@repo/api-client`: `GRUPOS_ORDEN` y `grupoDeEstado()` con prueba unitaria. (S1) — `840088e`
 - [x] T2 — `@repo/ui`: `initialFilterValues` en `DataTable`. Sin prueba: es un valor inicial de estado, no lógica con ramas. (S2) — `840088e`
-- [x] T3 — Admin: filtro por grupo con Activas por defecto; los contadores no cambian. (S1, S2, S3)
-- [x] T4 — Admin: la columna Estado muestra distintivo en estados finales; el selector revierte el intento fallido y no ofrece `cancelada`. (S4)
-- [x] T5 — Clientes: mismo filtro por grupo con Activas por defecto. (S1, S2)
-- [x] T6 — Docs: `docs/portals.md`. (S1, S2)
+- [x] T3 — Admin: filtro por grupo con Activas por defecto; los contadores no cambian. (S1, S2, S3) — `48b505f`
+- [x] T4 — Admin: la columna Estado muestra distintivo en estados finales; el selector revierte el intento fallido y no ofrece `cancelada`. (S4) — `48b505f`
+- [x] T5 — Clientes: mismo filtro por grupo con Activas por defecto. (S1, S2) — `48b505f`
+- [x] T6 — Docs: `docs/portals.md`. (S1, S2) — `48b505f`
 
 ### Verificación observada
 
