@@ -118,7 +118,18 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
       filters={filters}
       initialFilterValues={{ grupo: "activas" }}
       initialSort={{ id: "creada", dir: "asc" }}
-      empty={<p className="text-sm text-muted-foreground">No hay órdenes registradas aún.</p>}
+      empty={
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
+          <p className="font-heading text-lg font-semibold">
+            {ordenes.length === 0 ? "Todavía no hay órdenes" : "No hay órdenes con estos filtros"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {ordenes.length === 0
+              ? "Cuando crees una orden aparecerá aquí."
+              : "Prueba con otra búsqueda o limpia los filtros."}
+          </p>
+        </div>
+      }
     />
   );
 }
