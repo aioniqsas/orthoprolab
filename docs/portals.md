@@ -51,3 +51,9 @@ Las dos listas filtran por tres grupos definidos en `@repo/api-client` (`GRUPOS_
 - Registration fields from the Stitch design that the API does not accept (clinic data, professional licence, terms acceptance) are omitted; remember-session is not supported.
 - Browser-only behaviour (silent refresh effect, redirect after submit, countdown, mobile sidebar) is covered by unit and SSR tests only; run a manual pass in a browser.
 - `packages/api-client` and `packages/ui` use `moduleResolution: Bundler` with extensionless imports because Turbopack does not map `./x.js` to `.ts` in transpiled workspace packages.
+
+## Fechas y zona horaria
+
+La base y los tres procesos Node operan en `America/Bogota`: los scripts `dev`/`start`/`build` de cada app fijan `TZ=America/Bogota`, y la migración `SetDatabaseTimezoneBogota` deja `timezone = 'America/Bogota'` como valor por defecto de sesión. `timestamptz` sigue guardando instantes; el `TimeZone` solo decide qué significa «hoy» para `CURRENT_DATE`, `now()::date`, `date_trunc` y los casts a `date`.
+
+El formato y los días se resuelven con `@repo/api-client` (`src/fechas.ts`): `formatearFecha` / `formatearFechaHora` muestran la zona del negocio, y `hoyNegocio()` / `diaNegocio()` la aplican de forma explícita con `Intl.DateTimeFormat(..., { timeZone })`, sin depender del `TZ` del proceso. Los portales no deben usar `toLocaleDateString` / `toLocaleString` para fechas ni `new Date().toISOString().slice(0, 10)` para «hoy». `orden.fecha_entrega` guarda un día calendario a las 12:00 UTC (07:00 en Bogotá) y su CHECK compara días calendario, no instantes.

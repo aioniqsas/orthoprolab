@@ -309,6 +309,7 @@ Editable copy of the public site (see [contenido.md](./contenido.md)). Key/value
 - **Composite FK** `orden (paciente_id, doctor_id) -> paciente_doctor (paciente_id, doctor_id)`: an order can only exist for a patient assigned to that doctor.
 - **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or its calendar day in `America/Bogota` >= the creation day, so a same-day delivery is valid), `ck_servicio_precio_no_negativo` (>= 0), `ck_servicio_imagen_url_cloudinary` (image URL is null or a Cloudinary https URL).
 - **Unique constraints**: `rol.nombre`, `servicio.nombre`, `servicio.slug` (`uq_servicio_slug`), `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
+- **Timezone**: la sesión se abre con `timezone = 'America/Bogota'` (migración `SetDatabaseTimezoneBogota`), así que `fecha_emision DATE DEFAULT CURRENT_DATE` y los casts `::date` usan el día de Bogotá, no el de UTC. Los instantes guardados no cambian.
 - **Functional unique index** `uq_usuario_correo_lower` on `lower(correo)`: case-insensitive unique email.
 - **Unique index** `uq_sesion_refresco_token_hash` on `sesion_refresco.token_hash`; support indexes `idx_sesion_refresco_usuario`, `idx_sesion_refresco_familia`, `idx_sesion_refresco_expira`.
 - **Unique index** `uq_usuario_cedula_hash` on `usuario.cedula_hash`.
