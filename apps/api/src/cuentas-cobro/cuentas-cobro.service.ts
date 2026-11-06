@@ -413,19 +413,21 @@ export class CuentasCobroService {
 
   /**
    * Returns orders whose doctor belongs to this billing account's clinic and
-   * are not yet attached to any active (non-anulada) billing account.
+   * are not yet attached to any active (non-anulada) billing account — the
+   * current one included, so an attached order never shows up as available
+   * again.
    */
   async findOrdenesDisponibles(cuentaCobroId: string): Promise<Orden[]> {
     const cuenta = await this.cuentaCobroRepo.findOne({ where: { id: cuentaCobroId } });
     if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
 
-    // Subquery: orden IDs already in an active billing account (excluding the current one)
+    // Only anulada frees an order: an order already billed by any active account
+    // is not available, and that includes this account's own.
     const subQb = this.cuentaCobroOrdenRepo
       .createQueryBuilder('cco')
       .select('cco.ordenId')
       .innerJoin('cco.cuentaCobro', 'cc')
-      .where('cc.estado != :anulada', { anulada: 'anulada' })
-      .andWhere('cco.cuentaCobroId != :cuentaCobroId', { cuentaCobroId });
+      .where('cc.estado != :anulada', { anulada: 'anulada' });
 
     return this.ordenRepo
       .createQueryBuilder('o')
@@ -437,7 +439,7 @@ export class CuentasCobroService {
         { clinicaId: cuenta.clinicaId },
       )
       .andWhere(`o.id NOT IN (${subQb.getQuery()})`)
-      .setParameters(subQb.getParameters())
+      .setParameters({ ...subQb.getParameters(), clinicaId: cuenta.clinicaId })
       .orderBy('o.fechaCreacion', 'DESC')
       .getMany();
   }
