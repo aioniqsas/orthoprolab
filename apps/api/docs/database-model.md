@@ -368,7 +368,7 @@ Questions:
 1. Are those roles and states right? What are the real names and permissions?
 2. A doctor has ONE clinic today. Do doctors work in several clinics? (An N:M `doctor_clinica` would be a later migration.)
 3. Patient cedula is nullable (minors, foreigners). Is another identifier needed?
-4. What happens after `terminada`: `entregada`, `cancelada`, `devuelta`? Which transitions are allowed and who may perform them?
+4. ~~What happens after `terminada`: `entregada`, `cancelada`, `devuelta`? Which transitions are allowed and who may perform them?~~ **Resuelto:** `cancelada` y `terminada` son estados finales (`es_final = true`) y no admiten transición posterior. Una orden se puede cancelar desde cualquier estado no final (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`), desde el portal Administrador o el de Clientes, solo por la acción de cancelación (`DELETE /ordenes/:id`, `DELETE /mi-clinica/ordenes/:id`), que registra el motivo en `historial_estado_orden`. `PATCH /ordenes/:id/estado` rechaza `cancelada` como destino. Editar la orden sigue permitido solo en `creada`.
 5. Which status changes trigger a notification (WhatsApp)? To whom?
 6. Can an assistant create orders on behalf of a doctor?
 7. Retention period for patient and order data.

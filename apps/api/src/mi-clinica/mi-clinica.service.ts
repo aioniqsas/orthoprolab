@@ -223,8 +223,10 @@ export class MiClinicaService {
     }
     // Ownership check.
     const orden = await this.getOrden(usuarioId, ordenId);
-    if (orden.estado?.codigo === 'cancelada') {
-      throw new ForbiddenException('No se puede cambiar el estado de una orden cancelada.');
+    if (orden.estado?.esFinal) {
+      throw new ForbiddenException(
+        `No se puede cambiar el estado de una orden en estado "${orden.estado.nombre}".`,
+      );
     }
 
     if (orden.estado?.codigo !== 'en_entrega') {
@@ -245,8 +247,10 @@ export class MiClinicaService {
     observaciones?: string,
   ): Promise<Orden> {
     const orden = await this.getOrden(usuarioId, ordenId);
-    if (orden.estado?.codigo === 'cancelada') {
-      throw new ForbiddenException('No se puede cambiar el estado de una orden cancelada.');
+    if (orden.estado?.esFinal) {
+      throw new ForbiddenException(
+        `No se puede cambiar el estado de una orden en estado "${orden.estado.nombre}".`,
+      );
     }
 
     if (orden.estado?.codigo !== 'en_entrega') {

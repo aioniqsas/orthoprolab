@@ -286,8 +286,11 @@ export class PedidosService {
         relations: { estado: true },
       });
       if (!orden) throw new NotFoundException('Orden no encontrada.');
-      if (orden.estado?.codigo === 'cancelada') {
-        throw new ForbiddenException('No se puede cambiar el estado de una orden cancelada.');
+      // Los estados marcados como finales no admiten salida.
+      if (orden.estado?.esFinal) {
+        throw new ForbiddenException(
+          `No se puede cambiar el estado de una orden en estado "${orden.estado.nombre}".`,
+        );
       }
 
       const nuevoEstado = await manager.findOne(EstadoOrden, {
@@ -295,6 +298,10 @@ export class PedidosService {
       });
       if (!nuevoEstado) {
         throw new BadRequestException('Estado de orden no válido.');
+      }
+      // Anular una orden exige el motivo y el flujo de cancelación.
+      if (nuevoEstado.codigo === 'cancelada') {
+        throw new BadRequestException('Para anular una orden usa la acción de cancelación.');
       }
 
       const entrada = manager.create(HistorialEstadoOrden, {
@@ -389,7 +396,7 @@ export class PedidosService {
     return result;
   }
 
-  /** Cancel an order only while it is in 'creada' state. */
+  /** Cancel an order from any non-final state. */
   async cancelar(id: string, usuarioId: string, observaciones?: string): Promise<Orden> {
     const estadoCanceladaId = await this.getEstadoIdByCodigo('cancelada');
     if (!estadoCanceladaId) {
@@ -401,8 +408,10 @@ export class PedidosService {
         relations: { estado: true },
       });
       if (!orden) throw new NotFoundException('Orden no encontrada.');
-      if (orden.estado?.codigo !== 'creada') {
-        throw new ForbiddenException('Solo se puede cancelar una orden en estado Creada.');
+      if (orden.estado?.esFinal) {
+        throw new ForbiddenException(
+          `No se puede cancelar una orden en estado "${orden.estado.nombre}".`,
+        );
       }
 
       const entrada = manager.create(HistorialEstadoOrden, {

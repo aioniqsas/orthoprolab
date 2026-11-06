@@ -1,7 +1,10 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PedidosService } from './pedidos.service.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { Paciente } from '../pacientes/paciente.entity.js';
+import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
+import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
+import { Orden } from './orden.entity.js';
 
 const dto = {
   doctorId: '7',
@@ -75,5 +78,136 @@ describe('PedidosService.create · paciente de otra clínica', () => {
     await expect(service.create(dto as never, 'usuario-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+});
+
+/**
+ * Builds the service over a fake transaction manager for the state machine.
+ * `estadoActual` is the order's current state; `estadoDestino` is what
+ * `cambiarEstado` resolves from the catalog by id.
+ */
+function montarEstados(opciones: {
+  estadoActual: { codigo: string; nombre: string; esFinal: boolean };
+  estadoDestino?: { codigo: string; nombre: string };
+}) {
+  const guardados: { entidad: unknown; valor: unknown }[] = [];
+  const orden = {
+    id: '5',
+    doctorId: '7',
+    estadoId: '2',
+    estado: opciones.estadoActual,
+    detalles: [],
+  };
+
+  const manager = {
+    findOne: vi.fn(async (entidad: unknown) => {
+      if (entidad === Orden) return orden;
+      if (entidad === EstadoOrden) return { id: '10', ...opciones.estadoDestino };
+      return null;
+    }),
+    create: vi.fn((_entidad: unknown, valor: unknown) => valor),
+    save: vi.fn(async (entidad: unknown, valor: unknown) => {
+      guardados.push({ entidad, valor });
+      return valor;
+    }),
+  };
+
+  const service = new PedidosService(
+    {} as never,
+    {} as never,
+    { findOne: vi.fn(async () => ({ id: '4' })) } as never,
+    { findOne: vi.fn(async () => ({ id: '7', clinicaId: '1' })) } as never,
+    {} as never,
+    { transaction: (cb: (m: unknown) => unknown) => cb(manager) } as never,
+    {} as never,
+    { emitir: vi.fn() } as never,
+  );
+
+  return { service, guardados };
+}
+
+describe('PedidosService.cancelar · ventana de cancelación', () => {
+  it('cancela una orden que ya fue recibida y guarda el motivo en el historial', async () => {
+    const { service, guardados } = montarEstados({
+      estadoActual: { codigo: 'recibida', nombre: 'Recibida', esFinal: false },
+    });
+
+    await service.cancelar('5', 'usuario-1', 'El paciente desistió');
+
+    const historial = guardados.find((g) => g.entidad === HistorialEstadoOrden);
+    expect(historial?.valor).toMatchObject({
+      ordenId: '5',
+      estadoNuevoId: '4',
+      observaciones: 'El paciente desistió',
+    });
+  });
+
+  it('rechaza cancelar una orden ya cancelada y no escribe historial', async () => {
+    const { service, guardados } = montarEstados({
+      estadoActual: { codigo: 'cancelada', nombre: 'Cancelada', esFinal: true },
+    });
+
+    await expect(service.cancelar('5', 'usuario-1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(guardados).toHaveLength(0);
+  });
+
+  it('rechaza cancelar una orden terminada', async () => {
+    const { service } = montarEstados({
+      estadoActual: { codigo: 'terminada', nombre: 'Terminada', esFinal: true },
+    });
+
+    await expect(service.cancelar('5', 'usuario-1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+});
+
+describe('PedidosService.cambiarEstado · estados definitivos', () => {
+  it('no permite sacar una orden terminada de su estado', async () => {
+    const { service, guardados } = montarEstados({
+      estadoActual: { codigo: 'terminada', nombre: 'Terminada', esFinal: true },
+      estadoDestino: { codigo: 'recibida', nombre: 'Recibida' },
+    });
+
+    await expect(service.cambiarEstado('5', '10', 'usuario-1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(guardados).toHaveLength(0);
+  });
+
+  it('no permite volver de cancelada a recibida', async () => {
+    const { service } = montarEstados({
+      estadoActual: { codigo: 'cancelada', nombre: 'Cancelada', esFinal: true },
+      estadoDestino: { codigo: 'recibida', nombre: 'Recibida' },
+    });
+
+    await expect(service.cambiarEstado('5', '10', 'usuario-1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('rechaza anular por el cambio de estado genérico', async () => {
+    const { service } = montarEstados({
+      estadoActual: { codigo: 'en_proceso', nombre: 'En proceso', esFinal: false },
+      estadoDestino: { codigo: 'cancelada', nombre: 'Cancelada' },
+    });
+
+    await expect(service.cambiarEstado('5', '10', 'usuario-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('sigue permitiendo una transición normal entre estados no finales', async () => {
+    const { service, guardados } = montarEstados({
+      estadoActual: { codigo: 'en_proceso', nombre: 'En proceso', esFinal: false },
+      estadoDestino: { codigo: 'en_entrega', nombre: 'En entrega al cliente' },
+    });
+
+    await service.cambiarEstado('5', '10', 'usuario-1');
+
+    const historial = guardados.find((g) => g.entidad === HistorialEstadoOrden);
+    expect(historial?.valor).toMatchObject({ ordenId: '5', estadoNuevoId: '10' });
   });
 });
