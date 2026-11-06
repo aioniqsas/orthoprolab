@@ -37,17 +37,21 @@ export function EstadoFilaSelect({ ordenId, estadoActualCodigo, estados: estados
   }, [estadosProp]);
 
   const currentId = estados.find((e) => e.codigo === estadoActualCodigo)?.id ?? "";
+  // Anular tiene su propia acción con motivo; la fila no la ofrece.
+  const opciones = estados.filter((e) => e.codigo !== "cancelada");
 
   const [val, setVal] = useState(currentId);
   useEffect(() => { setVal(currentId); }, [estadoActualCodigo, currentId, estados]);
+  // Si el API rechaza el cambio, el selector vuelve al estado real.
+  const seleccionado = state && !state.ok ? currentId : val;
 
   return (
     <form action={formAction} className="flex flex-col gap-1">
       <input type="hidden" name="ordenId" value={ordenId} />
       <select
         name="estadoId"
-        value={val || currentId || ""}
-        disabled={pending || estados.length === 0}
+        value={seleccionado || currentId || ""}
+        disabled={pending || opciones.length === 0}
         onChange={(e) => {
           setVal(e.target.value);
           const form = e.currentTarget.closest("form");
@@ -55,7 +59,7 @@ export function EstadoFilaSelect({ ordenId, estadoActualCodigo, estados: estados
         }}
         className="h-6 w-32 rounded bg-transparent border border-input px-1 py-0 text-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 cursor-pointer"
       >
-        {estados.map((e) => (
+        {opciones.map((e) => (
           <option key={e.id} value={e.id}>
             {e.nombre}
           </option>

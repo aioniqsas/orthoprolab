@@ -35,6 +35,12 @@ The catalog (`/catalogo`) is fully backed by the API: list, create, edit, deacti
 
 Una orden final no se reabre: el API responde 403 al cambiar de estado desde `cancelada` o `terminada`, rechaza `cancelada` como destino de `PATCH /ordenes/:id/estado` (la anulación solo ocurre por `DELETE /ordenes/:id` o `DELETE /mi-clinica/ordenes/:id`, que guardan el motivo) y el detalle del portal Administrador sustituye el formulario de estado por un aviso de estado definitivo. Referencia: `apps/api/docs/database-model.md` (§6, pregunta 4).
 
+En la lista, la columna Estado del Administrador muestra un distintivo en las órdenes finales y un selector solo en las que admiten cambio; el selector no ofrece `cancelada` y revierte al estado real si el API rechaza el cambio.
+
+### Filtros por grupo
+
+Las dos listas filtran por tres grupos definidos en `@repo/api-client` (`GRUPOS_ORDEN` / `grupoDeEstado`): **Activas** (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`), **Terminadas** (`terminada`) y **Canceladas** (`cancelada`), más la opción que desactiva el filtro. Ambos portales abren en **Activas**; los contadores por estado del Administrador siguen contando todas las órdenes. El valor inicial se declara con `initialFilterValues` en `DataTable` (`@repo/ui`).
+
 ## Known limitations and follow-ups
 
 - Unknown ids render the not-found page with HTTP 200 in the admin app (with `cacheComponents`, the layout's auth gate streams first). The portal is `noindex`.

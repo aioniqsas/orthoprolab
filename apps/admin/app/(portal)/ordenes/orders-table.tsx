@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn, DataTableFilter } from "@repo/ui/components/data-table";
-import { estadoLabel, formatCop, formatDate, fullName } from "@/lib/data/helpers";
-import { ESTADOS_ORDEN } from "@/lib/data/types";
+import { grupoDeEstado } from "@repo/api-client";
+import { esEstadoFinal, formatCop, formatDate, fullName } from "@/lib/data/helpers";
 import type { Orden } from "@/lib/data/types";
 import { EstadoBadge, UrgenteBadge } from "../../_components/estado-badge";
 import { EstadoFilaSelect } from "./estado-fila-select";
@@ -12,11 +12,16 @@ import { EstadoFilaSelect } from "./estado-fila-select";
 
 const filters: DataTableFilter<Orden>[] = [
   {
-    id: "estado",
+    id: "grupo",
     label: "Estado",
-    allLabel: "Todos los estados",
-    options: ESTADOS_ORDEN.map((estado) => ({ value: estado, label: estadoLabel(estado) })),
-    match: (o, value) => o.estado === value,
+    allLabel: "Todas las órdenes",
+    // Tres grupos en vez de siete estados: menos opciones, menos ruido.
+    options: [
+      { value: "activas", label: "Activas" },
+      { value: "terminadas", label: "Terminadas" },
+      { value: "canceladas", label: "Canceladas" },
+    ],
+    match: (o, value) => grupoDeEstado(o.estado) === value,
   },
   {
     id: "urgencia",
@@ -63,7 +68,18 @@ export function OrdersTable({ ordenes, estados }: { ordenes: Orden[]; estados: {
   {
     id: "estado",
     header: "Estado",
-    render: (o) => <EstadoFilaSelect key={o.id} ordenId={String(o.id)} estadoActualCodigo={o.estado} estados={estados} />,
+    // Un estado final no admite cambios: se muestra como distintivo.
+    render: (o) =>
+      esEstadoFinal(o.estado) ? (
+        <EstadoBadge estado={o.estado} />
+      ) : (
+        <EstadoFilaSelect
+          key={o.id}
+          ordenId={String(o.id)}
+          estadoActualCodigo={o.estado}
+          estados={estados}
+        />
+      ),
   },
   {
     id: "total",
@@ -97,6 +113,7 @@ export function OrdersTable({ ordenes, estados }: { ordenes: Orden[]; estados: {
       columns={columns}
       rowKey={(o) => String(o.id)}
       initialSort={{ id: "creada", dir: "asc" }}
+      initialFilterValues={{ grupo: "activas" }}
       search={{
         placeholder: "Buscar por número, doctor o paciente",
         label: "Buscar por número, doctor o paciente",

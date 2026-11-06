@@ -2,7 +2,23 @@
 
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
+import type { DataTableFilter } from "@repo/ui/components/data-table";
+import { grupoDeEstado } from "@repo/api-client";
 import type { Orden } from "@/lib/data/types";
+
+const filters: DataTableFilter<Orden>[] = [
+  {
+    id: "grupo",
+    label: "Estado",
+    allLabel: "Todas las órdenes",
+    options: [
+      { value: "activas", label: "Activas" },
+      { value: "terminadas", label: "Terminadas" },
+      { value: "canceladas", label: "Canceladas" },
+    ],
+    match: (o, value) => grupoDeEstado(o.estado.codigo) === value,
+  },
+];
 
 function estadoBadge(nombre: string, color: string | null) {
   return (
@@ -99,6 +115,8 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
         },
       ]}
       search={{ placeholder: "Buscar por número, doctor o paciente", label: "Buscar por número, doctor o paciente" }}
+      filters={filters}
+      initialFilterValues={{ grupo: "activas" }}
       initialSort={{ id: "creada", dir: "asc" }}
       empty={<p className="text-sm text-muted-foreground">No hay órdenes registradas aún.</p>}
     />
