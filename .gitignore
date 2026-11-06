@@ -45,3 +45,6 @@ yarn-error.log*
 e2e/.results/
 test-results/
 playwright-report/
+
+# Logs locales del portal (los escribe apps/admin/lib/logger.ts)
+logs/

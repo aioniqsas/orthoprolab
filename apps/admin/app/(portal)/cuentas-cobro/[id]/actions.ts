@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { API_URL } from "@/lib/api";
+import { conRegistro, registrar } from "@/lib/logger";
 
 export type ActionResult = { ok: boolean; error?: string };
 export type PdfResult = { ok: boolean; pdfUrl?: string; error?: string };
@@ -21,6 +22,36 @@ async function authHeaders(): Promise<HeadersInit> {
 function revalidateCuenta(id: string) {
   revalidatePath("/cuentas-cobro");
   revalidatePath(`/cuentas-cobro/${id}`);
+}
+
+/** fetch a la API que deja rastro del estado y del cuerpo cuando falla. */
+async function pedirApi(
+  ref: string,
+  ambito: string,
+  ruta: string,
+  init: RequestInit,
+): Promise<Response> {
+  const inicio = Date.now();
+  const res = await fetch(`${API_URL}${ruta}`, init);
+  if (!res.ok) {
+    const cuerpo = await res
+      .clone()
+      .text()
+      .catch(() => "");
+    registrar({
+      nivel: "warn",
+      ambito,
+      ref,
+      mensaje: "respuesta-no-ok",
+      datos: {
+        ruta,
+        status: res.status,
+        duracionMs: Date.now() - inicio,
+        cuerpo: cuerpo.slice(0, 500),
+      },
+    });
+  }
+  return res;
 }
 
 async function extractError(res: Response): Promise<string> {
@@ -92,19 +123,28 @@ export async function registrarPago(
 }
 
 export async function generarPdf(cuentaId: string): Promise<PdfResult> {
-  try {
-    const res = await fetch(`${API_URL}/cuentas-cobro/${cuentaId}/pdf`, {
-      method: "POST",
-      headers: await authHeaders(),
-      body: JSON.stringify({}),
-    });
-    if (!res.ok) return { ok: false, error: await extractError(res) };
-    const data = (await res.json()) as { pdfUrl?: string };
-    revalidateCuenta(cuentaId);
-    return { ok: true, pdfUrl: data.pdfUrl };
-  } catch {
-    return { ok: false, error: "No se pudo conectar con el servidor" };
-  }
+  return conRegistro("cuentas-cobro.generarPdf", { cuentaId }, async (ref) => {
+    try {
+      const res = await pedirApi(ref, "cuentas-cobro.generarPdf", `/cuentas-cobro/${cuentaId}/pdf`, {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) return { ok: false, error: await extractError(res) };
+      const data = (await res.json()) as { pdfUrl?: string };
+      revalidateCuenta(cuentaId);
+      return { ok: true, pdfUrl: data.pdfUrl };
+    } catch (error) {
+      registrar({
+        nivel: "error",
+        ambito: "cuentas-cobro.generarPdf",
+        ref,
+        mensaje: "fetch-fallido",
+        datos: { cuentaId, error: error instanceof Error ? error.message : String(error) },
+      });
+      return { ok: false, error: "No se pudo conectar con el servidor" };
+    }
+  });
 }
 
 export async function enviarEmail(
@@ -116,18 +156,27 @@ export async function enviarEmail(
   if (!email) {
     return { ok: false, error: "Ingresa un correo electrónico." };
   }
-  try {
-    const res = await fetch(`${API_URL}/cuentas-cobro/${cuentaId}/enviar`, {
-      method: "POST",
-      headers: await authHeaders(),
-      body: JSON.stringify({ email }),
-    });
-    if (!res.ok) return { ok: false, error: await extractError(res) };
-    revalidateCuenta(cuentaId);
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "No se pudo conectar con el servidor" };
-  }
+  return conRegistro("cuentas-cobro.enviarEmail", { cuentaId, email }, async (ref) => {
+    try {
+      const res = await pedirApi(ref, "cuentas-cobro.enviarEmail", `/cuentas-cobro/${cuentaId}/enviar`, {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) return { ok: false, error: await extractError(res) };
+      revalidateCuenta(cuentaId);
+      return { ok: true };
+    } catch (error) {
+      registrar({
+        nivel: "error",
+        ambito: "cuentas-cobro.enviarEmail",
+        ref,
+        mensaje: "fetch-fallido",
+        datos: { cuentaId, error: error instanceof Error ? error.message : String(error) },
+      });
+      return { ok: false, error: "No se pudo conectar con el servidor" };
+    }
+  });
 }
 
 export async function anularPago(
