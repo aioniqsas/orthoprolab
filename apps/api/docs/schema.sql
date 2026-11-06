@@ -335,7 +335,7 @@ CREATE TABLE public.orden (
     fecha_entrega timestamp with time zone,
     fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL,
     doctor_id bigint,
-    CONSTRAINT ck_orden_fecha_entrega CHECK (((fecha_entrega IS NULL) OR (fecha_entrega >= fecha_creacion))),
+    CONSTRAINT ck_orden_fecha_entrega CHECK (((fecha_entrega IS NULL) OR (((fecha_entrega AT TIME ZONE 'America/Bogota'::text))::date >= ((fecha_creacion AT TIME ZONE 'America/Bogota'::text))::date))),
     CONSTRAINT ck_orden_valor_no_negativo CHECK ((valor >= (0)::numeric))
 );
 
