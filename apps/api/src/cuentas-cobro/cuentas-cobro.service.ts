@@ -16,6 +16,7 @@ import { MetodoPagoBancario } from './metodo-pago-bancario.entity.js';
 import { PdfCuentaCobroService } from './pdf-cuenta-cobro.service.js';
 import { MailerCuentaCobroService } from './mailer-cuenta-cobro.service.js';
 import { ComprobanteStorageService } from './comprobante-storage.service.js';
+import { CuentasCobroEventosService } from './cuentas-cobro-eventos.service.js';
 import { detectComprobanteType } from './comprobante-upload.interceptor.js';
 import { Orden } from '../pedidos/orden.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
@@ -49,6 +50,7 @@ export class CuentasCobroService {
     private readonly pdfService: PdfCuentaCobroService,
     private readonly mailerService: MailerCuentaCobroService,
     private readonly comprobanteStorage: ComprobanteStorageService,
+    private readonly eventos: CuentasCobroEventosService,
   ) {}
 
   findAll(clinicaId?: string): Promise<CuentaCobro[]> {
@@ -85,7 +87,7 @@ export class CuentasCobroService {
   }
 
   async create(dto: CreateCuentaCobroDto, usuarioId: string): Promise<CuentaCobro> {
-    return this.dataSource.transaction(async (em) => {
+    const creada = await this.dataSource.transaction(async (em) => {
       const year = new Date().getFullYear(); // shortcut: kept native for year only
 
       const [row] = await em.query<{ count: string }[]>(
@@ -108,6 +110,9 @@ export class CuentasCobroService {
 
       return em.save(cuenta);
     });
+
+    this.eventos.emitir('creada', creada.id);
+    return creada;
   }
 
   async update(id: string, dto: UpdateCuentaCobroDto): Promise<CuentaCobro> {
@@ -129,14 +134,16 @@ export class CuentasCobroService {
     }
 
     await this.cuentaCobroRepo.update({ id }, updates);
-    return (await this.findOne(id))!;
+    const actualizada = (await this.findOne(id))!;
+    this.eventos.emitir('actualizada', actualizada.id);
+    return actualizada;
   }
 
   async adjuntarOrdenes(
     cuentaCobroId: string,
     dto: AdjuntarOrdenesDto,
   ): Promise<CuentaCobro> {
-    return this.dataSource.transaction(async (em) => {
+    const adjuntada = await this.dataSource.transaction(async (em) => {
       const cuenta = await em.findOne(CuentaCobro, { where: { id: cuentaCobroId } });
       if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
 
@@ -208,6 +215,9 @@ export class CuentasCobroService {
 
       return (await this.findOne(cuentaCobroId))!;
     });
+
+    this.eventos.emitir('actualizada', adjuntada.id);
+    return adjuntada;
   }
 
   async desadjuntarOrden(
@@ -226,6 +236,7 @@ export class CuentasCobroService {
 
     const cuenta = await this.findOne(cuentaCobroId);
     if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
+    this.eventos.emitir('actualizada', cuenta.id);
     return cuenta;
   }
 
@@ -280,7 +291,9 @@ export class CuentasCobroService {
     });
 
     // Read after commit: the transaction's writes are invisible to the global repo.
-    return (await this.findOne(cuentaCobroId))!;
+    const conPago = (await this.findOne(cuentaCobroId))!;
+    this.eventos.emitir('pago', conPago.id);
+    return conPago;
   }
 
   listMetodosPagoBancarios(): Promise<MetodoPagoBancario[]> {
@@ -357,6 +370,7 @@ export class CuentasCobroService {
       }
     }
 
+    this.eventos.emitir('pago', cuenta.id);
     return cuenta;
   }
 
@@ -392,7 +406,9 @@ export class CuentasCobroService {
       await em.update(CuentaCobro, { id: cuentaCobroId }, { estado: nuevoEstado });
     });
 
-    return (await this.findOne(cuentaCobroId))!;
+    const anulada = (await this.findOne(cuentaCobroId))!;
+    this.eventos.emitir('pago', anulada.id);
+    return anulada;
   }
 
   /**
@@ -457,7 +473,10 @@ export class CuentasCobroService {
           : {}),
       },
     );
-    return (await this.findOne(id))!;
+
+    const conPdf = (await this.findOne(id))!;
+    this.eventos.emitir('pdf', conPdf.id);
+    return conPdf;
   }
 
   /**
@@ -488,6 +507,8 @@ export class CuentasCobroService {
     const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
 
     const result = await this.mailerService.sendCuentaCobro(cuenta, pdfBuffer, dto.email);
+
+    this.eventos.emitir('enviada', cuenta.id);
 
     const envio = this.envioCuentaCobroRepo.create({
       cuentaCobroId: cuenta.id,

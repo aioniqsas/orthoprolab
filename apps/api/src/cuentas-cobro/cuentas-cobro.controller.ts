@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -10,11 +11,15 @@ import {
   Post,
   Query,
   Req,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
+import type { MessageEvent } from '@nestjs/common';
+import { interval, map, merge, type Observable } from 'rxjs';
 import type { AuthenticatedRequest } from '../auth/index.js';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { CuentasCobroService } from './cuentas-cobro.service.js';
+import { CuentasCobroEventosService } from './cuentas-cobro-eventos.service.js';
 import { CreateCuentaCobroDto } from './dto/create-cuenta-cobro.dto.js';
 import { AdjuntarOrdenesDto } from './dto/adjuntar-ordenes.dto.js';
 import { EnviarCuentaCobroDto } from './dto/enviar-cuenta-cobro.dto.js';
@@ -25,11 +30,35 @@ import { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
 @UseGuards(RolesGuard)
 @Roles('administrador')
 export class CuentasCobroController {
-  constructor(private readonly service: CuentasCobroService) {}
+  constructor(
+    private readonly service: CuentasCobroService,
+    private readonly eventos: CuentasCobroEventosService,
+  ) {}
 
   @Get()
   findAll(@Query('doctorId') doctorId?: string) {
     return this.service.findAll(doctorId);
+  }
+
+  /** Change trigger for the admin portal: any billing account changed. */
+  @Sse('eventos')
+  @Header('Cache-Control', 'no-cache, no-transform')
+  @Header('X-Accel-Buffering', 'no')
+  cambios(): Observable<MessageEvent> {
+    const SSE_HEARTBEAT_MS = 25_000;
+    return merge(
+      this.eventos.cambios$.pipe(
+        map(
+          (cambio): MessageEvent => ({
+            type: 'cuenta-cobro',
+            data: { tipo: cambio.tipo, cuentaId: cambio.cuentaId },
+          }),
+        ),
+      ),
+      interval(SSE_HEARTBEAT_MS).pipe(
+        map((): MessageEvent => ({ type: 'ping', data: {} })),
+      ),
+    );
   }
 
   @Post()

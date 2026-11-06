@@ -24,6 +24,7 @@ import { Roles, RolesGuard } from '../auth/index.js';
 import { NoStoreInterceptor } from '../security/index.js';
 import { CuentasCobroService } from '../cuentas-cobro/cuentas-cobro.service.js';
 import { ComprobanteUploadInterceptor } from '../cuentas-cobro/comprobante-upload.interceptor.js';
+import { CuentasCobroEventosService } from '../cuentas-cobro/cuentas-cobro-eventos.service.js';
 import { RegistrarComprobanteDto } from '../cuentas-cobro/dto/registrar-comprobante.dto.js';
 import { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
@@ -42,6 +43,7 @@ export class MiClinicaController {
     private readonly miClinica: MiClinicaService,
     private readonly cuentasCobro: CuentasCobroService,
     private readonly eventos: PedidosEventosService,
+    private readonly eventosCuentas: CuentasCobroEventosService,
   ) {}
 
   @Get('doctores')
@@ -195,6 +197,24 @@ export class MiClinicaController {
   @Get('cuentas-cobro')
   listCuentasCobro(@Req() req: AuthenticatedRequest) {
     return this.miClinica.listCuentasCobro(req.user.id);
+  }
+
+  /** Change trigger for the client portal: the clinic refreshes its own list. */
+  @Sse('cuentas-cobro/eventos')
+  @Header('Cache-Control', 'no-cache, no-transform')
+  @Header('X-Accel-Buffering', 'no')
+  cuentasCobroEventos(): Observable<MessageEvent> {
+    const SSE_HEARTBEAT_MS = 25_000;
+    return merge(
+      // No ids: a clinic only needs "one of yours changed", never another
+      // clinic's account id.
+      this.eventosCuentas.cambios$.pipe(
+        map((cambio): MessageEvent => ({ type: 'cuenta-cobro', data: { tipo: cambio.tipo } })),
+      ),
+      interval(SSE_HEARTBEAT_MS).pipe(
+        map((): MessageEvent => ({ type: 'ping', data: {} })),
+      ),
+    );
   }
 
   @Get('cuentas-cobro/:id')
