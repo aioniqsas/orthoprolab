@@ -68,3 +68,69 @@ export function parseColor(raw: unknown): ParseColorResult {
   }
   return { ok: true, color };
 }
+
+/** Nombre de la pieza según el segundo dígito FDI (1 = incisivo central … 8 = tercer molar). */
+const NOMBRE_PIEZA: Record<number, string> = {
+  1: "incisivo central",
+  2: "incisivo lateral",
+  3: "canino",
+  4: "primer premolar",
+  5: "segundo premolar",
+  6: "primer molar",
+  7: "segundo molar",
+  8: "tercer molar",
+};
+
+/** Cuadrante según el primer dígito FDI. */
+const CUADRANTE: Record<number, string> = {
+  1: "superior derecho",
+  2: "superior izquierdo",
+  3: "inferior izquierdo",
+  4: "inferior derecho",
+};
+
+/** Clase de pieza, para los resúmenes de varias selecciones. */
+const CLASE_PIEZA: Record<string, { singular: string; plural: string }> = {
+  incisivo: { singular: "incisivo", plural: "incisivos" },
+  canino: { singular: "canino", plural: "caninos" },
+  premolar: { singular: "premolar", plural: "premolares" },
+  molar: { singular: "molar", plural: "molares" },
+};
+
+const claseDe = (tipo: number): string =>
+  tipo <= 2 ? "incisivo" : tipo === 3 ? "canino" : tipo <= 5 ? "premolar" : "molar";
+
+/** Nombre completo de una pieza: `14` → "primer premolar superior derecho". */
+export function nombreDiente(numero: number): string {
+  const pieza = NOMBRE_PIEZA[numero % 10];
+  const cuadrante = CUADRANTE[Math.floor(numero / 10)];
+  if (!pieza || !cuadrante) return `diente ${numero}`;
+  return `${pieza} ${cuadrante}`;
+}
+
+/**
+ * Resumen legible de una selección: "primer premolar superior derecho" para una
+ * sola pieza y "2 premolares y 3 molares" para varias.
+ */
+export function resumenDientes(dientes: readonly number[]): string {
+  const unicos = [...new Set(dientes)].sort((a, b) => a - b);
+  if (unicos.length === 0) return "";
+  if (unicos.length === 1) return nombreDiente(unicos[0]!);
+
+  const conteo = new Map<string, number>();
+  for (const numero of unicos) {
+    const clase = claseDe(numero % 10);
+    conteo.set(clase, (conteo.get(clase) ?? 0) + 1);
+  }
+
+  const orden = ["incisivo", "canino", "premolar", "molar"].filter((clase) => conteo.has(clase));
+  const partes = orden.map((clase) => {
+    const cantidad = conteo.get(clase)!;
+    const nombre = CLASE_PIEZA[clase]!;
+    return `${cantidad} ${cantidad === 1 ? nombre.singular : nombre.plural}`;
+  });
+
+  return partes.length <= 1
+    ? partes.join("")
+    : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
+}

@@ -103,3 +103,4 @@ el catálogo.
 ## Log
 
 - **L1** — «Listo, el control de trabajos solo se lo vamos a mandar a la clínica porque tengo entendido que lo estamos mandando al médico y a... y a la clínica, no, mandémoslo solo a la clínica.» Cambia el destinatario de `sendControlTrabajos`: pasa de `[usuario.correo, clinica.correo]` a `clinica.correo`.
+- **L2** — Texto de selección del odontograma: antes `Dientes: 14`, que no explica nada y usa plural con una sola pieza. Ahora el formulario titula «Dientes a trabajar» y la línea muestra `Diente 14 — primer premolar superior derecho`; con varias piezas, los números y un resumen por clase (`4 premolares y 1 molar`). Helpers `nombreDiente` / `resumenDientes` en `@repo/api-client` con pruebas.

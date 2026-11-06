@@ -1,6 +1,6 @@
 "use client";
 
-import { ARCO_INFERIOR, ARCO_SUPERIOR, COLOR_MAX_LENGTH } from "@repo/api-client";
+import { ARCO_INFERIOR, ARCO_SUPERIOR, COLOR_MAX_LENGTH, resumenDientes } from "@repo/api-client";
 
 interface Props {
   idPrefix?: string;
@@ -147,6 +147,32 @@ function Fisure({ numero }: { numero: number }) {
   return <path d="M12 10v6m0 0-3.5 4M12 16l3.5 4M8 13h8" />;
 }
 
+/**
+ * Selección legible: número FDI más su significado. Una sola pieza muestra el
+ * nombre completo; varias, los números y un resumen por clase.
+ */
+function TextoDientes({ dientes, vacio }: { dientes: number[]; vacio: string }) {
+  const ordenados = [...new Set(dientes)].sort((a, b) => a - b);
+  if (ordenados.length === 0) {
+    return <p className="text-xs text-muted-foreground">{vacio}</p>;
+  }
+  const resumen = resumenDientes(ordenados);
+  if (ordenados.length === 1) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Diente {ordenados[0]} — {resumen}
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-muted-foreground">
+      Dientes: {ordenados.join(", ")}
+      <br />
+      {resumen}
+    </p>
+  );
+}
+
 function FormaDiente({ numero, activo }: { numero: number; activo: boolean }) {
   return (
     <svg
@@ -257,11 +283,7 @@ export function Odontograma({
       {readOnly ? (
         <div className="flex flex-col gap-1 text-xs text-muted-foreground">
           {color ? <p>Color de diente: {color}</p> : null}
-          <p>
-            {dientes.length === 0
-              ? "Sin dientes seleccionados."
-              : `Dientes: ${[...dientes].sort((a, b) => a - b).join(", ")}`}
-          </p>
+          <TextoDientes dientes={dientes} vacio="Sin dientes seleccionados." />
         </div>
       ) : (
         <>
@@ -279,11 +301,7 @@ export function Odontograma({
             />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            {dientes.length === 0
-              ? "Selecciona los dientes sobre los que se realiza el trabajo."
-              : `Dientes: ${[...dientes].sort((a, b) => a - b).join(", ")}`}
-          </p>
+          <TextoDientes dientes={dientes} vacio="Selecciona los dientes a trabajar." />
         </>
       )}
     </div>
