@@ -1,7 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
 import { Odontograma } from "@repo/ui/components/odontograma";
 import type { DoctorOpcion } from "@/lib/data/types";
@@ -144,6 +143,7 @@ export function NuevaOrdenForm({ doctores }: Props) {
               )}
             </div>
 
+            <p className="text-xs font-medium text-body">Dientes a trabajar</p>
             <Odontograma
               idPrefix={`detalle_${i}`}
               dientes={row.dientes}

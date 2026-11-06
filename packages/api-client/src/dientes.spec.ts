@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseColor, parseDientes } from "./dientes";
+import { nombreDiente, parseColor, parseDientes, resumenDientes } from "./dientes";
 
 describe("parseDientes", () => {
   it("accepts a valid selection", () => {
@@ -41,5 +41,41 @@ describe("parseColor", () => {
     expect(parseColor("   ").ok).toBe(false);
     expect(parseColor(null).ok).toBe(false);
     expect(parseColor("A".repeat(21)).ok).toBe(false);
+  });
+});
+
+describe("nombreDiente", () => {
+  it("nombra la pieza con su tipo y su cuadrante", () => {
+    expect(nombreDiente(14)).toBe("primer premolar superior derecho");
+    expect(nombreDiente(11)).toBe("incisivo central superior derecho");
+    expect(nombreDiente(23)).toBe("canino superior izquierdo");
+    expect(nombreDiente(46)).toBe("primer molar inferior derecho");
+    expect(nombreDiente(38)).toBe("tercer molar inferior izquierdo");
+  });
+
+  it("no revienta con un código inválido", () => {
+    expect(nombreDiente(99)).toBe("diente 99");
+  });
+});
+
+describe("resumenDientes", () => {
+  it("devuelve el nombre completo cuando hay una sola pieza", () => {
+    expect(resumenDientes([14])).toBe("primer premolar superior derecho");
+    // Acepta duplicados sin repetir la pieza.
+    expect(resumenDientes([14, 14])).toBe("primer premolar superior derecho");
+  });
+
+  it("agrupa por clase con singular y plural correctos", () => {
+    expect(resumenDientes([14, 15, 24, 25, 26])).toBe("4 premolares y 1 molar");
+    expect(resumenDientes([11, 21])).toBe("2 incisivos");
+    expect(resumenDientes([13, 46])).toBe("1 canino y 1 molar");
+  });
+
+  it("ordena las clases de incisivo a molar", () => {
+    expect(resumenDientes([46, 13, 11])).toBe("1 incisivo, 1 canino y 1 molar");
+  });
+
+  it("devuelve vacío sin piezas", () => {
+    expect(resumenDientes([])).toBe("");
   });
 });
