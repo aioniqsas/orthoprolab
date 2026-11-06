@@ -41,6 +41,12 @@ En la lista, la columna Estado del Administrador muestra un distintivo en las ó
 
 Las dos listas filtran por tres grupos definidos en `@repo/api-client` (`GRUPOS_ORDEN` / `grupoDeEstado`): **Activas** (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`), **Terminadas** (`terminada`) y **Canceladas** (`cancelada`), más la opción que desactiva el filtro. Ambos portales abren en **Activas**; los contadores por estado del Administrador siguen contando todas las órdenes. El valor inicial se declara con `initialFilterValues` en `DataTable` (`@repo/ui`).
 
+## Cuentas de cobro: tiempo real, grupos y paginación
+
+Las dos listas usan `DataTable` (`@repo/ui`) con **un** filtro agrupado, definido en `@repo/api-client` (`GRUPOS_CUENTA` / `grupoDeCuenta`): **Pendientes** (`borrador`, `emitida`, `pagada_parcial`), **Pagadas** (`pagada`) y **Canceladas** (`anulada`), más la opción sin filtro. Ambos portales abren en **Pendientes**. Un borrador todavía no se emitió y un pago parcial todavía debe dinero, así que los dos son trabajo pendiente. La clínica nunca recibe `borrador`: `GET /mi-clinica/cuentas-cobro` lo excluye. Paginación y búsqueda son de cliente; el endpoint devuelve la lista completa.
+
+`CuentasCobroEventosService` avisa cuando una cuenta cambia (creada, actualizada, pago registrado o anulado, PDF, envío) y dos streams SSE protegidos por el guard de sesión lo publican: `GET /cuentas-cobro/eventos` (administrador, con `tipo` y `cuentaId`) y `GET /mi-clinica/cuentas-cobro/eventos` (clínica, solo con `tipo`, para no filtrar ids de otras clínicas). Cada portal expone un puente en `app/api/cuentas-cobro/eventos/route.ts` que reenvía la cookie de sesión y un componente `cuentas-live.tsx` que llama `router.refresh()` al recibir el evento `cuenta-cobro`. Mismo patrón que el catálogo del sitio público, con su misma limitación: el bus es en memoria, así que con varias réplicas del API hace falta Redis pub/sub.
+
 ## Known limitations and follow-ups
 
 - Unknown ids render the not-found page with HTTP 200 in the admin app (with `cacheComponents`, the layout's auth gate streams first). The portal is `noindex`.
