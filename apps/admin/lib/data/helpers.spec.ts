@@ -81,7 +81,8 @@ describe("labels and dates", () => {
   });
 
   it("formats dates in the Bogota time zone", () => {
-    expect(formatDate("2025-10-02T03:00:00.000Z")).toBe("1 de oct de 2025");
+    // 03:00 UTC del 2 de octubre son las 22:00 del 1 en Bogotá.
+    expect(formatDate("2025-10-02T03:00:00.000Z")).toBe("1 de octubre de 2025");
     expect(formatDate(null)).toBe("Sin fecha");
   });
 });

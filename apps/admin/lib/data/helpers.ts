@@ -1,5 +1,4 @@
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatearFecha, formatearFechaHora } from "@repo/api-client";
 import { ESTADOS_ORDEN } from "./types";
 import type { Clinica, DetalleOrden, EstadoOrden, Orden } from "./types";
 
@@ -67,11 +66,11 @@ export function formatCop(value: string | number): string {
 }
 
 export function formatDate(iso: string | null): string {
-  return iso ? format(parseISO(iso), "d 'de' MMMM 'de' yyyy", { locale: es }) : "Sin fecha";
+  return formatearFecha(iso, "Sin fecha");
 }
 
 export function formatDateTime(iso: string): string {
-  return iso ? format(parseISO(iso), "d MMM yyyy HH:mm", { locale: es }) : "—";
+  return formatearFechaHora(iso, "—");
 }
 
 /** Lowercase and strip accents so searches ignore case and diacritics. */

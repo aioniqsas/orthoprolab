@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Odontograma } from "@repo/ui/odontograma";
+import { formatearFecha, formatearFechaHora } from "@repo/api-client";
 import { FullWidthStack, Section } from "@repo/ui/section";
 import { getOrden } from "@/lib/data/repository";
 import { OrdenesLive } from "../ordenes-live";
@@ -90,12 +91,12 @@ async function OrdenDetalle({ params }: { params: Promise<{ id: string }> }) {
         {paciente && <Field label="Paciente" value={paciente.nombre} />}
         <Field
           label="Fecha de creación"
-          value={new Date(orden.fechaCreacion).toLocaleDateString("es-CO")}
+          value={formatearFecha(orden.fechaCreacion, "—")}
         />
         {orden.fechaEntrega && (
           <Field
             label="Fecha de entrega"
-            value={new Date(orden.fechaEntrega).toLocaleDateString("es-CO")}
+            value={formatearFecha(orden.fechaEntrega, "—")}
           />
         )}
       </Section>
@@ -116,7 +117,7 @@ async function OrdenDetalle({ params }: { params: Promise<{ id: string }> }) {
                     : `Se creó con estado "${h.estadoNuevo.nombre}"`}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(h.fechaCambio).toLocaleString("es-CO")}
+                  {formatearFechaHora(h.fechaCambio)}
                 </p>
                 {h.observaciones ? (
                   <p className="mt-1 text-xs text-muted-foreground">Motivo: {h.observaciones}</p>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { formatearFecha, hoyNegocio } from "@repo/api-client";
 import { getCuentaCobro, listMetodosPagoBancarios } from "@/lib/data/repository";
 import type { CuentaCobroDetalle, EstadoCuentaCobro, MetodoPagoBancario } from "@/lib/data/types";
 import { ComprobanteForm } from "./comprobante-form";
@@ -42,7 +43,7 @@ function formatCop(value: string): string {
 }
 
 function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString("es-CO") : "—";
+  return formatearFecha(value, "—");
 }
 
 function EstadoBadge({ estado }: { estado: EstadoCuentaCobro }) {
@@ -155,7 +156,7 @@ function CuentaDetalle({
           </p>
           <ComprobanteForm
             cuentaId={cuenta.id}
-            hoy={new Date().toISOString().slice(0, 10)}
+            hoy={hoyNegocio()}
           />
         </section>
       ) : (

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableFilter } from "@repo/ui/components/data-table";
-import { grupoDeEstado } from "@repo/api-client";
+import { formatearFecha, grupoDeEstado } from "@repo/api-client";
 import type { Orden } from "@/lib/data/types";
 
 const filters: DataTableFilter<Orden>[] = [
@@ -32,8 +32,7 @@ function estadoBadge(nombre: string, color: string | null) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("es-CO");
+  return formatearFecha(value, "—");
 }
 
 function formatCop(value: string) {
