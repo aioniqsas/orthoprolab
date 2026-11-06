@@ -47,8 +47,8 @@ el catálogo.
 - `dientes` es `jsonb NOT NULL DEFAULT '[]'` (array de números FDI).
 - `color_diente` nullable: filas viejas sin tono; el DTO lo exige en órdenes nuevas.
 - Sin librerías nuevas de UI: el molde es CSS grid/posicionamiento absoluto.
-- El correo del control de trabajos se manda al usuario que confirma y a la
-  clínica, sin romper la finalización si falla.
+- El correo del control de trabajos se manda **solo a la clínica**, sin romper
+  la finalización si falla.
 
 ## Tasks
 
@@ -99,3 +99,7 @@ el catálogo.
   ningún diente se superpone, no hay scroll horizontal, cada tipo conserva su
   forma. Capturas en `e2e/.results/`.
 - No probado con SMTP real: el envío del PDF a la clínica queda best-effort.
+
+## Log
+
+- **L1** — «Listo, el control de trabajos solo se lo vamos a mandar a la clínica porque tengo entendido que lo estamos mandando al médico y a... y a la clínica, no, mandémoslo solo a la clínica.» Cambia el destinatario de `sendControlTrabajos`: pasa de `[usuario.correo, clinica.correo]` a `clinica.correo`.

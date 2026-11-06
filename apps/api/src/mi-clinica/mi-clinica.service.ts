@@ -264,20 +264,16 @@ export class MiClinicaService {
 
     const result = await this.pedidosService.cambiarEstado(ordenId, estadoId, usuarioId, (observaciones ?? '').trim() || undefined);
 
-    // Send control de trabajos de laboratorio email (best-effort) to the user
-    // who confirms satisfaction and to the clinic's own address.
+    // Send the control de trabajos only to the clinic (best-effort).
     try {
       const usuario = await this.usuarioRepo.findOneBy({ id: usuarioId });
       const clinica = usuario?.clinicaId
         ? await this.clinicaRepo.findOneBy({ id: usuario.clinicaId })
         : null;
-      const destinatarios = [...new Set([usuario?.correo, clinica?.correo])].filter(
-        (correo): correo is string => Boolean(correo),
-      );
-      if (destinatarios.length > 0) {
+      if (clinica?.correo) {
         const ordenCompleta = await this.getOrden(usuarioId, ordenId);
         const pdfBuffer = await this.pdfControlTrabajos.generate(ordenCompleta);
-        await this.mailerControlTrabajos.sendControlTrabajos(destinatarios, pdfBuffer, ordenId);
+        await this.mailerControlTrabajos.sendControlTrabajos(clinica.correo, pdfBuffer, ordenId);
       }
     } catch (err) {
       // Do not fail finalization if email fails.
