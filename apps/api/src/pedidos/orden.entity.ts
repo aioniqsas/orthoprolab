@@ -21,7 +21,7 @@ import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 @Check('ck_orden_valor_no_negativo', '"valor" >= 0')
 @Check(
   'ck_orden_fecha_entrega',
-  '"fecha_entrega" IS NULL OR "fecha_entrega" >= "fecha_creacion"',
+  `"fecha_entrega" IS NULL OR ("fecha_entrega" AT TIME ZONE 'America/Bogota')::date >= ("fecha_creacion" AT TIME ZONE 'America/Bogota')::date`,
 )
 @Entity('orden')
 export class Orden {

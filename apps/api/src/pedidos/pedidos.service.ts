@@ -18,6 +18,7 @@ import { Orden } from './orden.entity.js';
 import { PedidosEventosService } from './pedidos-eventos.service.js';
 import type { CreateOrdenDto } from './dto/create-orden.dto.js';
 import type { UpdateOrdenDto } from './dto/update-orden.dto.js';
+import { diaBogota, parseFechaEntrega } from './fecha-entrega.js';
 
 @Injectable()
 export class PedidosService {
@@ -217,8 +218,7 @@ export class PedidosService {
         estadoId: estadoCreada.id,
         valor: '0.00',
         urgente: dto.urgente ?? false,
-        // Parse at noon UTC so any ±12h timezone still lands on the correct day.
-        fechaEntrega: dto.fechaEntrega ? new Date(`${dto.fechaEntrega}T12:00:00Z`) : null,
+        fechaEntrega: parseFechaEntrega(dto.fechaEntrega),
       });
       const savedOrden = await manager.save(Orden, orden);
 
@@ -343,16 +343,10 @@ export class PedidosService {
         orden.urgente = dto.urgente;
       }
       if (dto.fechaEntrega !== undefined) {
-        if (dto.fechaEntrega === null || dto.fechaEntrega === '') {
-          orden.fechaEntrega = null;
-        } else if (typeof dto.fechaEntrega === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dto.fechaEntrega)) {
-          orden.fechaEntrega = new Date(`${dto.fechaEntrega}T12:00:00Z`);
-        } else if (dto.fechaEntrega) {
-          orden.fechaEntrega = new Date(String(dto.fechaEntrega));
-          if (Number.isNaN(orden.fechaEntrega.getTime())) orden.fechaEntrega = null;
-        } else {
-          orden.fechaEntrega = null;
-        }
+        orden.fechaEntrega = parseFechaEntrega(
+          dto.fechaEntrega,
+          diaBogota(orden.fechaCreacion),
+        );
       }
 
       if (dto.detalles) {

@@ -124,7 +124,7 @@ erDiagram
         numeric valor "CHECK >= 0"
         boolean urgente
         timestamptz fecha_creacion
-        timestamptz fecha_entrega "CHECK >= fecha_creacion"
+        timestamptz fecha_entrega "CHECK dia >= dia(fecha_creacion) en Bogota"
         timestamptz fecha_actualizacion
     }
     detalle_orden {
@@ -270,7 +270,7 @@ Catalog of lab services. Migration `AddCatalogFieldsToServicio` added `slug`, `i
 | valor | numeric(12,2) | no | Default 0, CHECK >= 0, maintained by the service |
 | urgente | boolean | no | Default false |
 | fecha_creacion | timestamptz | no | Default `now()` |
-| fecha_entrega | timestamptz | yes | CHECK null or >= `fecha_creacion` |
+| fecha_entrega | timestamptz | yes | Día calendario a las 12:00 UTC; CHECK null or day(Bogotá) >= day(`fecha_creacion`) |
 | fecha_actualizacion | timestamptz | no | Default `now()` |
 
 ### detalle_orden
@@ -307,7 +307,7 @@ Editable copy of the public site (see [contenido.md](./contenido.md)). Key/value
 
 ### Enforced by the database
 - **Composite FK** `orden (paciente_id, doctor_id) -> paciente_doctor (paciente_id, doctor_id)`: an order can only exist for a patient assigned to that doctor.
-- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or >= `fecha_creacion`), `ck_servicio_precio_no_negativo` (>= 0), `ck_servicio_imagen_url_cloudinary` (image URL is null or a Cloudinary https URL).
+- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or its calendar day in `America/Bogota` >= the creation day, so a same-day delivery is valid), `ck_servicio_precio_no_negativo` (>= 0), `ck_servicio_imagen_url_cloudinary` (image URL is null or a Cloudinary https URL).
 - **Unique constraints**: `rol.nombre`, `servicio.nombre`, `servicio.slug` (`uq_servicio_slug`), `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
 - **Functional unique index** `uq_usuario_correo_lower` on `lower(correo)`: case-insensitive unique email.
 - **Unique index** `uq_sesion_refresco_token_hash` on `sesion_refresco.token_hash`; support indexes `idx_sesion_refresco_usuario`, `idx_sesion_refresco_familia`, `idx_sesion_refresco_expira`.
