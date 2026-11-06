@@ -25,7 +25,15 @@ const nextConfig: NextConfig = {
     return [{ source: "/api-proxy/:path*", destination: `${apiUrl}/:path*` }];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // El navegador debe pedir el service worker en cada carga: si queda
+      // cacheado, una versión vieja se queda pegada.
+      {
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+      },
+    ];
   },
   turbopack: {
     rules: {

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sin conexión | OrthoPro Lab</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #171717;
+        color: #e5e7eb;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        text-align: center;
+        padding: 2rem;
+      }
+      main { max-width: 28rem; display: flex; flex-direction: column; gap: 1rem; }
+      h1 { font-size: 1.25rem; margin: 0; color: #48fbc1; }
+      p { margin: 0; line-height: 1.6; color: #b6bebf; }
+      button {
+        margin-top: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        border: 0;
+        border-radius: 0.5rem;
+        background: #48fbc1;
+        color: #171717;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Sin conexión</h1>
+      <p>
+        No hay red disponible. Los portales necesitan conexión para mostrar datos
+        actualizados; no se guarda información de pacientes en este dispositivo.
+      </p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+    </main>
+  </body>
+</html>

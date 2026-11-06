@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // El navegador debe pedir el service worker en cada carga: si queda
+      // cacheado, una versión vieja se queda pegada.
+      {
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+      },
       // The dashboard preview frames this response itself, so it allows
       // same-origin framing instead of DENY.
       {
