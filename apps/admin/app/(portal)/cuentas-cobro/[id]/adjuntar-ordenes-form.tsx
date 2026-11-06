@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
@@ -15,6 +15,18 @@ interface Props {
 export function AdjuntarOrdenesForm({ cuentaId, ordenes }: Props) {
   const boundAction = adjuntarOrdenes.bind(null, cuentaId);
   const [state, formAction, isPending] = useActionState(boundAction, null);
+  const [seleccionadas, setSeleccionadas] = useState<ReadonlySet<string>>(new Set());
+
+  const todasSeleccionadas = ordenes.length > 0 && seleccionadas.size === ordenes.length;
+  const alternarTodas = (marcar: boolean) =>
+    setSeleccionadas(marcar ? new Set(ordenes.map((o) => o.id)) : new Set());
+  const alternarUna = (id: string, marcar: boolean) =>
+    setSeleccionadas((previas) => {
+      const siguientes = new Set(previas);
+      if (marcar) siguientes.add(id);
+      else siguientes.delete(id);
+      return siguientes;
+    });
 
   if (ordenes.length === 0) {
     return (
@@ -26,6 +38,22 @@ export function AdjuntarOrdenesForm({ cuentaId, ordenes }: Props) {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+        <input
+          type="checkbox"
+          id="todas-las-ordenes"
+          className="rounded border-border"
+          checked={todasSeleccionadas}
+          onChange={(e) => alternarTodas(e.target.checked)}
+        />
+        <label htmlFor="todas-las-ordenes" className="cursor-pointer text-sm font-medium">
+          Seleccionar todas las órdenes ({ordenes.length})
+        </label>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {seleccionadas.size} seleccionada{seleccionadas.size === 1 ? "" : "s"}
+        </span>
+      </div>
+
       <ul className="flex flex-col gap-2">
         {ordenes.map((orden) => (
           <li
@@ -38,6 +66,8 @@ export function AdjuntarOrdenesForm({ cuentaId, ordenes }: Props) {
               name="ordenId"
               value={orden.id}
               className="rounded border-border"
+              checked={seleccionadas.has(orden.id)}
+              onChange={(e) => alternarUna(orden.id, e.target.checked)}
             />
             <label
               htmlFor={`orden-${orden.id}`}
