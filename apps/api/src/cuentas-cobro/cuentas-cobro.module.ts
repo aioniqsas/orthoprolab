@@ -10,6 +10,7 @@ import { PedidosModule } from '../pedidos/pedidos.module.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import { CuentasCobroService } from './cuentas-cobro.service.js';
 import { CuentasCobroController } from './cuentas-cobro.controller.js';
+import { CuentasCobroEventosService } from './cuentas-cobro-eventos.service.js';
 import { PdfCuentaCobroService } from './pdf-cuenta-cobro.service.js';
 import { MailerCuentaCobroService } from './mailer-cuenta-cobro.service.js';
 import { ComprobanteStorageService } from './comprobante-storage.service.js';
@@ -30,12 +31,17 @@ import { ComprobanteUploadInterceptor } from './comprobante-upload.interceptor.j
   ],
   providers: [
     CuentasCobroService,
+    CuentasCobroEventosService,
     PdfCuentaCobroService,
     MailerCuentaCobroService,
     ComprobanteStorageService,
     ComprobanteUploadInterceptor,
   ],
   controllers: [CuentasCobroController],
-  exports: [CuentasCobroService, ComprobanteUploadInterceptor],
+  exports: [
+    CuentasCobroService,
+    CuentasCobroEventosService,
+    ComprobanteUploadInterceptor,
+  ],
 })
 export class CuentasCobroModule {}

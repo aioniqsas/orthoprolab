@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn, DataTableFilter } from "@repo/ui/components/data-table";
+import { GRUPO_CUENTA_LABELS, grupoDeCuenta } from "@repo/api-client";
+import type { GrupoCuenta } from "@repo/api-client";
 import { formatDate } from "@/lib/data/helpers";
 import type { CuentaCobro, EstadoCuentaCobro } from "@/lib/data/types";
 
@@ -93,19 +95,14 @@ const columns: DataTableColumn<CuentaCobro>[] = [
 
 const filters: DataTableFilter<CuentaCobro>[] = [
   {
-    id: "estado",
+    id: "grupo",
     label: "Estado",
     allLabel: "Todos los estados",
-    options: (
-      [
-        "borrador",
-        "emitida",
-        "pagada_parcial",
-        "pagada",
-        "anulada",
-      ] as EstadoCuentaCobro[]
-    ).map((e) => ({ value: e, label: ESTADO_LABELS[e] })),
-    match: (c, value) => c.estado === value,
+    options: (Object.keys(GRUPO_CUENTA_LABELS) as GrupoCuenta[]).map((grupo) => ({
+      value: grupo,
+      label: GRUPO_CUENTA_LABELS[grupo],
+    })),
+    match: (c, value) => grupoDeCuenta(c.estado) === value,
   },
 ];
 
@@ -120,6 +117,8 @@ export function CuentasTable({ cuentas }: { cuentas: CuentaCobro[] }) {
         label: "Buscar por número o doctor",
       }}
       filters={filters}
+      initialFilterValues={{ grupo: "pendientes" }}
+      pageSizeOptions={[10, 25, 50]}
       renderCard={(c) => (
         <li className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-start justify-between gap-3">
