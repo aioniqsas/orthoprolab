@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { CuentaCobro } from './cuenta-cobro.entity.js';
 import { CuentaCobroOrden } from './cuenta-cobro-orden.entity.js';
 import { EnvioCuentaCobro } from './envio-cuenta-cobro.entity.js';
@@ -18,6 +18,7 @@ import { MailerCuentaCobroService } from './mailer-cuenta-cobro.service.js';
 import { ComprobanteStorageService } from './comprobante-storage.service.js';
 import { detectComprobanteType } from './comprobante-upload.interceptor.js';
 import { Orden } from '../pedidos/orden.entity.js';
+import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateCuentaCobroDto } from './dto/create-cuenta-cobro.dto.js';
 import type { AdjuntarOrdenesDto } from './dto/adjuntar-ordenes.dto.js';
@@ -49,6 +50,7 @@ export class CuentasCobroService {
     private readonly pdfService: PdfCuentaCobroService,
     private readonly mailerService: MailerCuentaCobroService,
     private readonly comprobanteStorage: ComprobanteStorageService,
+    private readonly pdfControlTrabajos: PdfControlTrabajosService,
   ) {}
 
   findAll(clinicaId?: string): Promise<CuentaCobro[]> {
@@ -149,9 +151,22 @@ export class CuentasCobroService {
       // client saw the PDF. Freeze edits at emitida if a stale PDF becomes a real problem.
 
       for (const { ordenId, valor } of dto.ordenes) {
-        const orden = await em.findOne(Orden, { where: { id: String(ordenId) } });
+        const orden = await em.findOne(Orden, {
+          where: { id: String(ordenId) },
+          relations: { estado: true },
+        });
         if (!orden) {
           throw new NotFoundException(`Orden ${ordenId} no encontrada.`);
+        }
+
+        // Solo se cobra trabajo aceptado por el cliente: `terminada` es el único
+        // estado que exige su confirmación, y `cancelada` nunca es facturable.
+        if (orden.estado?.codigo !== 'terminada') {
+          throw new BadRequestException(
+            `Solo se cobran órdenes terminadas. La orden ${ordenId} está en estado "${
+              orden.estado?.nombre ?? 'desconocido'
+            }".`,
+          );
         }
 
         // Ownership check: verify order's doctor belongs to this clinic
@@ -421,7 +436,8 @@ export class CuentasCobroService {
         { clinicaId: cuenta.clinicaId },
       )
       .andWhere(`o.id NOT IN (${subQb.getQuery()})`)
-      .setParameters(subQb.getParameters())
+      .andWhere('estado.codigo = :terminada')
+      .setParameters({ ...subQb.getParameters(), terminada: 'terminada' })
       .orderBy('o.fechaCreacion', 'DESC')
       .getMany();
   }
@@ -487,7 +503,42 @@ export class CuentasCobroService {
     }
     const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
 
-    const result = await this.mailerService.sendCuentaCobro(cuenta, pdfBuffer, dto.email);
+    // Cada orden incluida viaja con su control de trabajos: la clínica recibe
+    // en un solo correo la cuenta y el respaldo del trabajo cobrado.
+    const adjuntas = await this.cuentaCobroOrdenRepo.find({
+      where: { cuentaCobroId: cuenta.id },
+    });
+    const ordenes = adjuntas.length
+      ? await this.ordenRepo.find({
+          where: { id: In(adjuntas.map((a) => a.ordenId)) },
+          relations: {
+            estado: true,
+            asignacion: { doctor: true, paciente: true },
+            detalles: true,
+            historial: { estadoNuevo: true },
+          },
+          order: { id: 'ASC' },
+        })
+      : [];
+
+    const controles: { filename: string; buffer: Buffer }[] = [];
+    for (const orden of ordenes) {
+      try {
+        controles.push({
+          filename: `control-de-trabajos-orden-${orden.id}.pdf`,
+          buffer: await this.pdfControlTrabajos.generate(orden),
+        });
+      } catch (err) {
+        // Un control que falla no debe impedir el envío de la cuenta.
+        this.logger.warn(
+          `Control de trabajos omitido para la orden ${orden.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    const result = await this.mailerService.sendCuentaCobro(cuenta, pdfBuffer, dto.email, controles);
 
     const envio = this.envioCuentaCobroRepo.create({
       cuentaCobroId: cuenta.id,

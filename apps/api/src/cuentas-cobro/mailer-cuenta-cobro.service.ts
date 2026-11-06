@@ -32,6 +32,7 @@ export class MailerCuentaCobroService {
     cuenta: CuentaCobro,
     pdfBuffer: Buffer,
     toEmail: string,
+    adjuntos: { filename: string; buffer: Buffer }[] = [],
   ): Promise<EnviarResult> {
     const host = this.config.get<string>('SMTP_HOST');
     const port = this.config.get<number>('SMTP_PORT') ?? 587;
@@ -96,6 +97,10 @@ export class MailerCuentaCobroService {
           filename: `cuenta_${cuenta.numero.replace(/-/g, '_')}.pdf`,
           contentBase64: pdfBuffer.toString('base64'),
         },
+        ...adjuntos.map((adjunto) => ({
+          filename: adjunto.filename,
+          contentBase64: adjunto.buffer.toString('base64'),
+        })),
       ],
     });
     if (encolado.sent) return encolado;
@@ -112,6 +117,11 @@ export class MailerCuentaCobroService {
             content: pdfBuffer,
             contentType: 'application/pdf',
           },
+          ...adjuntos.map((adjunto) => ({
+            filename: adjunto.filename,
+            content: adjunto.buffer,
+            contentType: 'application/pdf',
+          })),
         ],
       });
       return { sent: true };
