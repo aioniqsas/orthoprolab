@@ -32,6 +32,8 @@ describe('PdfControlTrabajosService.generate', () => {
 
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     expect(pdf.length).toBeGreaterThan(1000);
+    // El odontograma se incrusta como imagen (sharp declarada en apps/api).
+    expect(pdf.toString('latin1')).toContain('/Subtype /Image');
     // Fin de archivo: el documento se cerró con doc.end().
     expect(pdf.subarray(-6).toString()).toContain('%%EOF');
   });

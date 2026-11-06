@@ -14,7 +14,7 @@ El PDF del control de trabajos pasa a mostrar el detalle de cada clase de trabaj
 ## Tasks
 
 - [x] T1 — Figura del odontograma como SVG determinista, sin dependencias: vive en `apps/api/src/pedidos/odontograma-svg.ts` (no en `@repo/api-client`, porque el API no resuelve ese paquete sin `bun install`) + 6 pruebas. (S2)
-- [x] T2 — `apps/api/src/pedidos/odontograma-png.ts`: rasteriza con `sharp` cargada dinámicamente. **Pendiente `bun add sharp` en `apps/api`**: sin ella el PDF se emite sin la figura y deja un aviso en el log. (S2)
+- [x] T2 — `apps/api/src/pedidos/odontograma-png.ts`: rasteriza con `sharp` cargada dinámicamente. `sharp@0.35.5` instalada con `bun add sharp` en `apps/api`; sin ella el PDF se emite sin la figura y deja un aviso. (S2)
 - [x] T3 — PDF: clases de trabajo con detalle por línea, imagen del odontograma y pruebas con fecha, en ese orden. (S1, S3, S4)
 - [x] T4 — Docs y verificación. (S1–S4)
 
@@ -23,7 +23,9 @@ El PDF del control de trabajos pasa a mostrar el detalle de cada clase de trabaj
 - `vitest run --pool=threads src/pedidos/odontograma-svg.spec.ts src/pedidos/pdf-control-trabajos.service.spec.ts` → 8/8: 32 dientes con numeración FDI, solo los de la orden resaltados, color configurable, SVG determinista, arcadas que no se superponen, PDF válido (`%PDF-` … `%%EOF`) con y sin líneas/devoluciones.
 - `tsc --noEmit` limpio en `apps/api`; `oxlint --type-aware src/pedidos/` sin hallazgos.
 - La ruta degradada se observó de verdad: con `sharp` ausente el log emite «Odontograma omitido del PDF: Cannot find package 'sharp'» y el PDF igual se genera.
-- **No verificado**: el PNG dentro del PDF (requiere `sharp`), y la inspección visual del documento (no hay visor ni rasterizador en el entorno).
+- Con `sharp` instalada: `odontograma-png.spec.ts` verifica un PNG real de 600×420, y la prueba del PDF confirma que el documento incrusta una imagen (`/Subtype /Image`).
+- `bun install --frozen-lockfile` → «Checked 852 installs across 983 packages (no changes)»: el lockfile quedó consistente para CI.
+- **No verificado**: la inspección visual del documento final (no hay visor de PDF en el entorno).
 
 ## Log
 
