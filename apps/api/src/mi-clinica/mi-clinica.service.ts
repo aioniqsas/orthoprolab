@@ -283,6 +283,22 @@ export class MiClinicaService {
     return result;
   }
 
+  /**
+   * Control de trabajos de una orden terminada, para descargar desde el portal
+   * sin depender del correo. Se genera al momento: los datos de una orden
+   * terminada ya no cambian (ni la orden ni su historial admiten cambios).
+   */
+  async controlTrabajos(usuarioId: string, ordenId: string): Promise<Buffer> {
+    // getOrden aplica la verificación de pertenencia a la clínica.
+    const orden = await this.getOrden(usuarioId, ordenId);
+    if (orden.estado?.codigo !== 'terminada') {
+      throw new BadRequestException(
+        'El control de trabajos está disponible cuando la orden está terminada.',
+      );
+    }
+    return this.pdfControlTrabajos.generate(orden);
+  }
+
   async getOrden(usuarioId: string, ordenId: string): Promise<Orden> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
     const orden = await this.ordenRepo

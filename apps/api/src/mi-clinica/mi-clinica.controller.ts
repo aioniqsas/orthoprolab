@@ -31,6 +31,7 @@ import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
 import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
 import { interval, map, merge, type Observable } from 'rxjs';
+import { StreamableFile } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 
 @Controller('mi-clinica')
@@ -130,6 +131,15 @@ export class MiClinicaController {
     @Body() dto: CreateOrdenDto,
   ) {
     return this.miClinica.createOrden(req.user.id, dto);
+  }
+
+  @Get('ordenes/:id/control-trabajos')
+  async controlTrabajos(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    const pdf = await this.miClinica.controlTrabajos(req.user.id, id);
+    return new StreamableFile(pdf, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="control-de-trabajos-orden-${id}.pdf"`,
+    });
   }
 
   @Put('ordenes/:id')

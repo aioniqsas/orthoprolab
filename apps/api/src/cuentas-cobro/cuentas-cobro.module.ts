@@ -6,6 +6,7 @@ import { Pago } from './pago.entity.js';
 import { EnvioCuentaCobro } from './envio-cuenta-cobro.entity.js';
 import { MetodoPagoBancario } from './metodo-pago-bancario.entity.js';
 import { Orden } from '../pedidos/orden.entity.js';
+import { PedidosModule } from '../pedidos/pedidos.module.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import { CuentasCobroService } from './cuentas-cobro.service.js';
 import { CuentasCobroController } from './cuentas-cobro.controller.js';
@@ -16,6 +17,7 @@ import { ComprobanteUploadInterceptor } from './comprobante-upload.interceptor.j
 
 @Module({
   imports: [
+    PedidosModule,
     TypeOrmModule.forFeature([
       CuentaCobro,
       CuentaCobroOrden,
