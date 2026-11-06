@@ -17,6 +17,13 @@ export function estadoLabel(estado: EstadoOrden): string {
   return ESTADO_LABELS[estado];
 }
 
+/** `cancelada` and `terminada` are irreversible (ver `apps/api/docs/database-model.md`). */
+const ESTADOS_FINALES = new Set<EstadoOrden>(["cancelada", "terminada"]);
+
+export function esEstadoFinal(estado: EstadoOrden): boolean {
+  return ESTADOS_FINALES.has(estado);
+}
+
 /** Parses a `numeric(12,2)` string into integer cents (no float drift). */
 function toCents(value: string): number {
   const [whole = "0", frac = ""] = value.split(".");

@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ActionButton } from "@repo/ui/action-button";
-import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
   DialogClose,
@@ -16,14 +15,22 @@ import {
 } from "@repo/ui/components/dialog";
 import { API_URL } from "@/lib/api";
 
-export function AccionesOrden({ ordenId, puedeEditar }: { ordenId: string; puedeEditar: boolean }) {
+export function AccionesOrden({
+  ordenId,
+  puedeEditar,
+  puedeCancelar,
+}: {
+  ordenId: string;
+  puedeEditar: boolean;
+  puedeCancelar: boolean;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [obs, setObs] = useState("");
 
-  if (!puedeEditar) return null;
+  if (!puedeEditar && !puedeCancelar) return null;
 
   async function cancelar() {
     setPending(true);
@@ -51,16 +58,19 @@ export function AccionesOrden({ ordenId, puedeEditar }: { ordenId: string; puede
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <ActionButton intent="outline" onClick={() => router.push(`/ordenes/${ordenId}/editar`)}>
-        Editar orden
-      </ActionButton>
-      <Dialog open={open} onOpenChange={setOpen}>
+      {puedeEditar ? (
+        <ActionButton intent="outline" onClick={() => router.push(`/ordenes/${ordenId}/editar`)}>
+          Editar orden
+        </ActionButton>
+      ) : null}
+      {puedeCancelar ? (
+        <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger render={<ActionButton intent="danger">Cancelar orden</ActionButton>} />
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancelar orden</DialogTitle>
             <DialogDescription>
-              Solo se puede cancelar si aún está en estado Creada. Esta acción no se puede deshacer.
+              La orden quedará cancelada de forma definitiva: no podrá volver a otro estado.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
@@ -83,6 +93,7 @@ export function AccionesOrden({ ordenId, puedeEditar }: { ordenId: string; puede
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      ) : null}
     </div>
   );
 }

@@ -38,6 +38,8 @@ export default async function OrdenPage({
     currency: "COP",
     minimumFractionDigits: 0,
   });
+  // Una orden cancelada o terminada no vuelve a otro estado.
+  const estadoFinal = ["cancelada", "terminada"].includes(orden.estado.codigo ?? "");
 
   return (
     <FullWidthStack>
@@ -64,7 +66,11 @@ export default async function OrdenPage({
               </span>
             )}
           </div>
-          <AccionesOrden ordenId={String(orden.id)} puedeEditar={orden.estado?.codigo === "creada" || orden.estado?.nombre === "Creada"} />
+          <AccionesOrden
+            ordenId={String(orden.id)}
+            puedeEditar={orden.estado?.codigo === "creada" || orden.estado?.nombre === "Creada"}
+            puedeCancelar={!estadoFinal}
+          />
         </div>
       </div>
 

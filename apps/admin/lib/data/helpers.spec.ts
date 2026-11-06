@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  esEstadoFinal,
   estadoLabel,
   filterClinicas,
   filterOrdenes,
@@ -67,6 +68,16 @@ describe("labels and dates", () => {
     expect(estadoLabel("terminada")).toBe("Terminada");
     expect(estadoLabel("cancelada")).toBe("Cancelada");
     expect(estadoLabel("devuelta_correccion")).toBe("Devuelta");
+  });
+
+  it("marks only cancelada and terminada as final states", () => {
+    expect(esEstadoFinal("cancelada")).toBe(true);
+    expect(esEstadoFinal("terminada")).toBe(true);
+    expect(esEstadoFinal("creada")).toBe(false);
+    expect(esEstadoFinal("recibida")).toBe(false);
+    expect(esEstadoFinal("en_proceso")).toBe(false);
+    expect(esEstadoFinal("en_entrega")).toBe(false);
+    expect(esEstadoFinal("devuelta_correccion")).toBe(false);
   });
 
   it("formats dates in the Bogota time zone", () => {

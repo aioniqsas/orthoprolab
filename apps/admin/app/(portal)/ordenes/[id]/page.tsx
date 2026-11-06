@@ -7,6 +7,7 @@ import { Odontograma } from "@repo/ui/odontograma";
 import { FullWidthStack, Section } from "@repo/ui/section";
 import { isAdmin } from "@/lib/auth-guard";
 import {
+  esEstadoFinal,
   estadoLabel,
   formatCop,
   formatDate,
@@ -52,6 +53,9 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
     listClinicas().then((cs) => cs.find((c) => String(c.id) === orden.doctor.clinicaId)),
     getEstadosOrden(),
   ]);
+  // Un estado final no admite cambios: el selector solo ofrece salidas reales.
+  const estadoFinal = esEstadoFinal(orden.estado);
+  const estadosDisponibles = estados.filter((e) => e.codigo !== "cancelada");
 
   // Lines created before amounts moved to the invoice still carry a price.
   const conPrecios = orden.detalles.some((d) => d.precioUnitario !== null);
@@ -68,7 +72,11 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
           <EstadoBadge estado={orden.estado} />
           {orden.urgente ? <UrgenteBadge /> : null}
         </div>
-        <AccionesOrden ordenId={String(orden.id)} puedeEditar={orden.estado === "creada"} />
+        <AccionesOrden
+          ordenId={String(orden.id)}
+          puedeEditar={orden.estado === "creada"}
+          puedeCancelar={!estadoFinal}
+        />
       </div>
 
       <Section as="div" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -182,11 +190,23 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
             </ol>
           </Section>
 
-          <CambiarEstadoForm
-            ordenId={String(orden.id)}
-            estadoDbId={orden.estadoDbId}
-            estados={estados}
-          />
+          {estadoFinal ? (
+            <Section aria-labelledby="estado-definitivo">
+              <h2 id="estado-definitivo" className="font-heading text-lg font-semibold">
+                Estado definitivo
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                La orden está {estadoLabel(orden.estado).toLowerCase()} y ese estado no se puede
+                modificar: una orden cancelada o terminada no vuelve a otro estado.
+              </p>
+            </Section>
+          ) : (
+            <CambiarEstadoForm
+              ordenId={String(orden.id)}
+              estadoDbId={orden.estadoDbId}
+              estados={estadosDisponibles}
+            />
+          )}
         </FullWidthStack>
       </div>
     </FullWidthStack>
