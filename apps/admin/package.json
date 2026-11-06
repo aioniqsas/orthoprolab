@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3002",
-    "build": "next build",
-    "start": "next start -p 3002",
+    "dev": "TZ=America/Bogota next dev -p 3002",
+    "build": "TZ=America/Bogota next build",
+    "start": "TZ=America/Bogota next start -p 3002",
     "lint": "eslint --max-warnings 0",
     "check-types": "tsc --noEmit",
     "test": "vitest run"

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { finalizarOrdenAction } from "./actions";
 
 interface Props {
@@ -36,9 +37,9 @@ export function ConfirmarSatisfaccionForm({ ordenId }: Props) {
           </p>
         )}
 
-        <Button type="submit" disabled={pending}>
+        <ActionButton type="submit" disabled={pending}>
           {pending ? "Confirmando..." : "Confirmar satisfacción"}
-        </Button>
+        </ActionButton>
       </form>
     </section>
   );

@@ -2,7 +2,23 @@
 
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
+import type { DataTableFilter } from "@repo/ui/components/data-table";
+import { formatearFecha, grupoDeEstado } from "@repo/api-client";
 import type { Orden } from "@/lib/data/types";
+
+const filters: DataTableFilter<Orden>[] = [
+  {
+    id: "grupo",
+    label: "Estado",
+    allLabel: "Todas las órdenes",
+    options: [
+      { value: "activas", label: "Activas" },
+      { value: "terminadas", label: "Terminadas" },
+      { value: "canceladas", label: "Canceladas" },
+    ],
+    match: (o, value) => grupoDeEstado(o.estado.codigo) === value,
+  },
+];
 
 function estadoBadge(nombre: string, color: string | null) {
   return (
@@ -16,8 +32,7 @@ function estadoBadge(nombre: string, color: string | null) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("es-CO");
+  return formatearFecha(value, "—");
 }
 
 function formatCop(value: string) {
@@ -76,7 +91,13 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
           id: "total",
           header: "Total",
           align: "right",
-          render: (o) => formatCop(o.valor),
+          // The amount is set when the order is attached to an invoice.
+          render: (o) =>
+            Number(o.valor) > 0 ? (
+              formatCop(o.valor)
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            ),
           sortValue: (o) => Number(o.valor),
         },
         {
@@ -93,8 +114,21 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
         },
       ]}
       search={{ placeholder: "Buscar por número, doctor o paciente", label: "Buscar por número, doctor o paciente" }}
+      filters={filters}
+      initialFilterValues={{ grupo: "activas" }}
       initialSort={{ id: "creada", dir: "asc" }}
-      empty={<p className="text-sm text-muted-foreground">No hay órdenes registradas aún.</p>}
+      empty={
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
+          <p className="font-heading text-lg font-semibold">
+            {ordenes.length === 0 ? "Todavía no hay órdenes" : "No hay órdenes con estos filtros"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {ordenes.length === 0
+              ? "Cuando crees una orden aparecerá aquí."
+              : "Prueba con otra búsqueda o limpia los filtros."}
+          </p>
+        </div>
+      }
     />
   );
 }

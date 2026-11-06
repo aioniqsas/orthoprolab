@@ -1,8 +1,10 @@
 "use client";
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2, ChevronRight, AlertCircle } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
-import type { Doctor, Servicio } from "@/lib/data/types";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
+import { Odontograma } from "@repo/ui/components/odontograma";
+import type { Doctor } from "@/lib/data/types";
 import { crearOrden } from "./actions";
 import { PacienteCedulaField } from "./_components/paciente-cedula-field";
 
@@ -10,15 +12,16 @@ const fieldCls =
   "rounded-lg border border-border bg-input px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full transition-colors";
 
 interface Detalle {
-  servicioId: string;
-  servicioNombre: string;
+  /** Free text: the work to perform. The catalog is not referenced anymore. */
+  servicio: string;
   cantidad: number;
+  dientes: number[];
+  color: string;
   observaciones: string;
 }
 
 interface Props {
   doctores: Doctor[];
-  servicios: Servicio[];
 }
 
 function SectionLabel({ number, label }: { number: number; label: string }) {
@@ -35,7 +38,7 @@ function SectionLabel({ number, label }: { number: number; label: string }) {
   );
 }
 
-export function NuevaOrdenForm({ doctores, servicios }: Props) {
+export function NuevaOrdenForm({ doctores }: Props) {
   const [state, formAction, isPending] = useActionState(crearOrden, null);
 
   const [doctorId, setDoctorId] = useState("");
@@ -44,7 +47,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
   function addDetalle() {
     setDetalles((prev) => [
       ...prev,
-      { servicioId: "", servicioNombre: "", cantidad: 1, observaciones: "" },
+      { servicio: "", cantidad: 1, dientes: [], color: "", observaciones: "" },
     ]);
   }
 
@@ -52,40 +55,25 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
     setDetalles((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  function updateDetalle(i: number, field: keyof Detalle, value: string | number) {
+  function updateDetalle(
+    i: number,
+    field: keyof Detalle,
+    value: Detalle[keyof Detalle],
+  ) {
     setDetalles((prev) =>
-      prev.map((d, idx) => {
-        if (idx !== i) return d;
-        if (field === "servicioId") {
-          const srv = servicios.find((s) => s.id === value);
-          return { ...d, servicioId: String(value), servicioNombre: srv?.nombre ?? "" };
-        }
-        return { ...d, [field]: value };
-      }),
+      prev.map((d, idx) => (idx === i ? { ...d, [field]: value } : d)),
     );
   }
 
   const detallesPayload = detalles
-    .filter((d) => d.servicioId)
+    .filter((d) => d.servicio.trim())
     .map((d) => ({
-      servicioId: Number(d.servicioId),
+      servicio: d.servicio.trim(),
       cantidad: d.cantidad,
+      dientes: d.dientes,
+      colorDiente: d.color,
       ...(d.observaciones ? { observaciones: d.observaciones } : {}),
     }));
-
-  const total = detalles.reduce((acc, d) => {
-    const srv = servicios.find((s) => s.id === d.servicioId);
-    return acc + (srv ? Number(srv.precio) * d.cantidad : 0);
-  }, 0);
-
-  const totalFmt =
-    total > 0
-      ? total.toLocaleString("es-CO", {
-          style: "currency",
-          currency: "COP",
-          minimumFractionDigits: 0,
-        })
-      : null;
 
   return (
     <form action={formAction} className="flex flex-col gap-0">
@@ -136,7 +124,7 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
         </div>
       </div>
 
-      {/* ── Block 2: Servicios ── */}
+      {/* ── Block 2: Clases de trabajo ── */}
       <div className="border-x border-border bg-card px-6 pt-5 pb-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
@@ -144,12 +132,12 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
               2
             </span>
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Servicios
+              Clases de trabajo
             </span>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={addDetalle} className="h-8 text-xs gap-1.5">
+          <ActionButton intent="outline" type="button"  size="sm" onClick={addDetalle} className="h-8 text-xs gap-1.5">
             <Plus className="size-3.5" aria-hidden /> Agregar
-          </Button>
+          </ActionButton>
         </div>
 
         {detalles.length === 0 ? (
@@ -159,40 +147,25 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
             className="w-full flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-muted-foreground hover:border-primary/40 hover:text-primary/70 hover:bg-primary/5 transition-colors"
           >
             <Plus className="size-5" aria-hidden />
-            <span className="text-sm">Agregar primer servicio</span>
+            <span className="text-sm">Agregar primera clase de trabajo</span>
           </button>
         ) : (
           <div className="flex flex-col divide-y divide-border">
             {detalles.map((d, i) => {
-              const srvInfo = servicios.find((s) => s.id === d.servicioId);
-              const lineTotal =
-                srvInfo && Number(srvInfo.precio) > 0
-                  ? (Number(srvInfo.precio) * d.cantidad).toLocaleString("es-CO", {
-                      style: "currency",
-                      currency: "COP",
-                      minimumFractionDigits: 0,
-                    })
-                  : null;
-
               return (
                 <div key={i} className="py-4 first:pt-0 last:pb-0">
                   {/* Top row: service select + qty + delete */}
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <select
-                        value={d.servicioId}
-                        onChange={(e) => updateDetalle(i, "servicioId", e.target.value)}
+                      <input
+                        value={d.servicio}
+                        onChange={(e) => updateDetalle(i, "servicio", e.target.value)}
                         className={fieldCls}
                         required
-                        aria-label={`Servicio ${i + 1}`}
-                      >
-                        <option value="">Seleccioná un servicio</option>
-                        {servicios.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.nombre}
-                          </option>
-                        ))}
-                      </select>
+                        maxLength={120}
+                        placeholder="Ej. Corona de zirconia"
+                        aria-label={`Clase de trabajo ${i + 1}`}
+                      />
                     </div>
 
                     {/* Qty stepper */}
@@ -228,20 +201,6 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
                     </button>
                   </div>
 
-                  {/* Meta row: price hint + line total */}
-                  {srvInfo && (
-                    <div className="mt-1.5 flex items-center justify-between px-0.5">
-                      <span className="text-xs text-muted-foreground">
-                        {Number(srvInfo.precio) > 0
-                          ? `${Number(srvInfo.precio).toLocaleString("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 })} c/u`
-                          : "Sin precio"}
-                      </span>
-                      {lineTotal && (
-                        <span className="text-xs font-medium text-foreground">{lineTotal}</span>
-                      )}
-                    </div>
-                  )}
-
                   {/* Observaciones */}
                   <textarea
                     placeholder="Observaciones (opcional)"
@@ -250,6 +209,17 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
                     rows={1}
                     className="mt-2 rounded-lg border border-border bg-input px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full resize-none transition-colors"
                   />
+
+                  {/* Dientes del trabajo */}
+                  <div className="mt-3 rounded-lg border border-border bg-input/40 p-3">
+                    <Odontograma
+                      idPrefix={`detalle_${i}`}
+                      dientes={d.dientes}
+                      color={d.color}
+                      onDientesChange={(dientes) => updateDetalle(i, "dientes", dientes)}
+                      onColorChange={(color) => updateDetalle(i, "color", color)}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -303,23 +273,14 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
         )}
 
         {/* Submit row */}
-        <div className="mt-5 flex items-center justify-between gap-3 pt-4 border-t border-border">
-          {totalFmt ? (
-            <div className="flex flex-col leading-tight">
-              <span className="text-xs text-muted-foreground">Total estimado</span>
-              <span className="text-base font-semibold text-foreground">{totalFmt}</span>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">Agregá servicios para ver el total</span>
-          )}
-
-          <Button type="submit" disabled={isPending} className="min-w-32">
+        <div className="mt-5 flex items-center justify-end gap-3 pt-4 border-t border-border">
+          <ActionButton type="submit" disabled={isPending} className="min-w-32">
             {isPending ? (
               <><Loader2 className="size-4 animate-spin mr-1.5" aria-hidden />Creando…</>
             ) : (
               "Crear orden"
             )}
-          </Button>
+          </ActionButton>
         </div>
       </div>
     </form>

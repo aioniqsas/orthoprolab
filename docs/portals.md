@@ -27,7 +27,19 @@ The API sets two httpOnly cookies: `auth_token` (JWT, 15 minutes, `Path=/`) and 
 
 ## Admin screens: catalog and CMS live, the rest on sample data
 
-The catalog (`/catalogo`) is fully backed by the API: list, create, edit, deactivate, delete and image upload, with a live SSE bridge to `apps/web`. The CMS screen (`/cms`) edits the site's fixed copy and hero images: it reads and saves through `GET`/`PUT /admin/contenido`, and `apps/web` fetches `GET /contenido`, expiring that cache on the same SSE bridge. Reference: `apps/api/docs/contenido.md`. Orders, clinics and users still have no endpoints: those screens read `apps/admin/lib/data/repository.ts` (`SAMPLE_DATA = true`) and show a visible "Datos de ejemplo" notice. Write actions are rendered disabled with an explanation; nothing simulates a write. To connect a section, keep the repository signatures, replace the bodies with `api.request(...)` (forward the `auth_token` cookie on the server) and flip `SAMPLE_DATA`. Catalog reference: `apps/api/docs/catalogo.md`.
+The catalog (`/catalogo`) is fully backed by the API: list, create, edit, deactivate, delete and image upload, with a live SSE bridge to `apps/web`. The CMS screen (`/cms`) edits the site's fixed copy and hero images: it reads and saves through `GET`/`PUT /admin/contenido`, and `apps/web` fetches `GET /contenido`, expiring that cache on the same SSE bridge. Reference: `apps/api/docs/contenido.md`. Orders, clinics and users read the API through `apps/admin/lib/data/repository.ts` (`SAMPLE_DATA = false`); the sample-data branch remains as an offline fallback. To connect a section, keep the repository signatures and replace the bodies with `api.request(...)` (forward the `auth_token` cookie on the server). Catalog reference: `apps/api/docs/catalogo.md`.
+
+## Órdenes: estados finales y cancelación
+
+`cancelada` y `terminada` están marcadas con `es_final` en la tabla `estado_orden`. Los dos portales ofrecen "Cancelar orden" en el detalle mientras el estado no sea final (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`): el diálogo pide observaciones y el cambio queda en `historial_estado_orden`. Editar la orden sigue limitado a `creada`.
+
+Una orden final no se reabre: el API responde 403 al cambiar de estado desde `cancelada` o `terminada`, rechaza `cancelada` como destino de `PATCH /ordenes/:id/estado` (la anulación solo ocurre por `DELETE /ordenes/:id` o `DELETE /mi-clinica/ordenes/:id`, que guardan el motivo) y el detalle del portal Administrador sustituye el formulario de estado por un aviso de estado definitivo. Referencia: `apps/api/docs/database-model.md` (§6, pregunta 4).
+
+En la lista, la columna Estado del Administrador muestra un distintivo en las órdenes finales y un selector solo en las que admiten cambio; el selector no ofrece `cancelada` y revierte al estado real si el API rechaza el cambio.
+
+### Filtros por grupo
+
+Las dos listas filtran por tres grupos definidos en `@repo/api-client` (`GRUPOS_ORDEN` / `grupoDeEstado`): **Activas** (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`), **Terminadas** (`terminada`) y **Canceladas** (`cancelada`), más la opción que desactiva el filtro. Ambos portales abren en **Activas**; los contadores por estado del Administrador siguen contando todas las órdenes. El valor inicial se declara con `initialFilterValues` en `DataTable` (`@repo/ui`).
 
 ## Known limitations and follow-ups
 
@@ -39,3 +51,9 @@ The catalog (`/catalogo`) is fully backed by the API: list, create, edit, deacti
 - Registration fields from the Stitch design that the API does not accept (clinic data, professional licence, terms acceptance) are omitted; remember-session is not supported.
 - Browser-only behaviour (silent refresh effect, redirect after submit, countdown, mobile sidebar) is covered by unit and SSR tests only; run a manual pass in a browser.
 - `packages/api-client` and `packages/ui` use `moduleResolution: Bundler` with extensionless imports because Turbopack does not map `./x.js` to `.ts` in transpiled workspace packages.
+
+## Fechas y zona horaria
+
+La base y los tres procesos Node operan en `America/Bogota`: los scripts `dev`/`start`/`build` de cada app fijan `TZ=America/Bogota`, y la migración `SetDatabaseTimezoneBogota` deja `timezone = 'America/Bogota'` como valor por defecto de sesión. `timestamptz` sigue guardando instantes; el `TimeZone` solo decide qué significa «hoy» para `CURRENT_DATE`, `now()::date`, `date_trunc` y los casts a `date`.
+
+El formato y los días se resuelven con `@repo/api-client` (`src/fechas.ts`): `formatearFecha` / `formatearFechaHora` muestran la zona del negocio, y `hoyNegocio()` / `diaNegocio()` la aplican de forma explícita con `Intl.DateTimeFormat(..., { timeZone })`, sin depender del `TZ` del proceso. Los portales no deben usar `toLocaleDateString` / `toLocaleString` para fechas ni `new Date().toISOString().slice(0, 10)` para «hoy». `orden.fecha_entrega` guarda un día calendario a las 12:00 UTC (07:00 en Bogotá) y su CHECK compara días calendario, no instantes.

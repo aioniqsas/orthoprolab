@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { deleteServicio, toggleActivoServicio } from "./actions";
 
 export function ServicioAcciones({
@@ -31,8 +32,8 @@ export function ServicioAcciones({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
+        <ActionButton intent="outline"
+          
           disabled={pending}
           onClick={() =>
             run(
@@ -42,9 +43,9 @@ export function ServicioAcciones({
           }
         >
           {activo ? "Desactivar" : "Activar"}
-        </Button>
-        <Button
-          variant="destructive"
+        </ActionButton>
+        <ActionButton intent="danger"
+          
           disabled={pending}
           onClick={() => {
             if (!confirm("¿Eliminar este servicio? Si tiene órdenes asociadas solo se desactivará.")) {
@@ -57,7 +58,7 @@ export function ServicioAcciones({
           }}
         >
           Eliminar
-        </Button>
+        </ActionButton>
       </div>
       {error ? (
         <p role="alert" className="text-sm text-destructive">

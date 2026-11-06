@@ -124,7 +124,7 @@ erDiagram
         numeric valor "CHECK >= 0"
         boolean urgente
         timestamptz fecha_creacion
-        timestamptz fecha_entrega "CHECK >= fecha_creacion"
+        timestamptz fecha_entrega "CHECK dia >= dia(fecha_creacion) en Bogota"
         timestamptz fecha_actualizacion
     }
     detalle_orden {
@@ -270,7 +270,7 @@ Catalog of lab services. Migration `AddCatalogFieldsToServicio` added `slug`, `i
 | valor | numeric(12,2) | no | Default 0, CHECK >= 0, maintained by the service |
 | urgente | boolean | no | Default false |
 | fecha_creacion | timestamptz | no | Default `now()` |
-| fecha_entrega | timestamptz | yes | CHECK null or >= `fecha_creacion` |
+| fecha_entrega | timestamptz | yes | Día calendario a las 12:00 UTC; CHECK null or day(Bogotá) >= day(`fecha_creacion`) |
 | fecha_actualizacion | timestamptz | no | Default `now()` |
 
 ### detalle_orden
@@ -307,8 +307,9 @@ Editable copy of the public site (see [contenido.md](./contenido.md)). Key/value
 
 ### Enforced by the database
 - **Composite FK** `orden (paciente_id, doctor_id) -> paciente_doctor (paciente_id, doctor_id)`: an order can only exist for a patient assigned to that doctor.
-- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or >= `fecha_creacion`), `ck_servicio_precio_no_negativo` (>= 0), `ck_servicio_imagen_url_cloudinary` (image URL is null or a Cloudinary https URL).
+- **CHECK constraints**: `ck_asistente_doctor_distintos` (doctor <> assistant), `ck_detalle_orden_cantidad` (> 0), `ck_detalle_orden_precio` (>= 0), `ck_orden_valor_no_negativo` (>= 0), `ck_orden_fecha_entrega` (null or its calendar day in `America/Bogota` >= the creation day, so a same-day delivery is valid), `ck_servicio_precio_no_negativo` (>= 0), `ck_servicio_imagen_url_cloudinary` (image URL is null or a Cloudinary https URL).
 - **Unique constraints**: `rol.nombre`, `servicio.nombre`, `servicio.slug` (`uq_servicio_slug`), `estado_orden.codigo`; composite PKs on `asistente_doctor` and `paciente_doctor`.
+- **Timezone**: la sesión se abre con `timezone = 'America/Bogota'` (migración `SetDatabaseTimezoneBogota`), así que `fecha_emision DATE DEFAULT CURRENT_DATE` y los casts `::date` usan el día de Bogotá, no el de UTC. Los instantes guardados no cambian.
 - **Functional unique index** `uq_usuario_correo_lower` on `lower(correo)`: case-insensitive unique email.
 - **Unique index** `uq_sesion_refresco_token_hash` on `sesion_refresco.token_hash`; support indexes `idx_sesion_refresco_usuario`, `idx_sesion_refresco_familia`, `idx_sesion_refresco_expira`.
 - **Unique index** `uq_usuario_cedula_hash` on `usuario.cedula_hash`.
@@ -368,7 +369,7 @@ Questions:
 1. Are those roles and states right? What are the real names and permissions?
 2. A doctor has ONE clinic today. Do doctors work in several clinics? (An N:M `doctor_clinica` would be a later migration.)
 3. Patient cedula is nullable (minors, foreigners). Is another identifier needed?
-4. What happens after `terminada`: `entregada`, `cancelada`, `devuelta`? Which transitions are allowed and who may perform them?
+4. ~~What happens after `terminada`: `entregada`, `cancelada`, `devuelta`? Which transitions are allowed and who may perform them?~~ **Resuelto:** `cancelada` y `terminada` son estados finales (`es_final = true`) y no admiten transición posterior. Una orden se puede cancelar desde cualquier estado no final (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`), desde el portal Administrador o el de Clientes, solo por la acción de cancelación (`DELETE /ordenes/:id`, `DELETE /mi-clinica/ordenes/:id`), que registra el motivo en `historial_estado_orden`. `PATCH /ordenes/:id/estado` rechaza `cancelada` como destino. Editar la orden sigue permitido solo en `creada`.
 5. Which status changes trigger a notification (WhatsApp)? To whom?
 6. Can an assistant create orders on behalf of a doctor?
 7. Retention period for patient and order data.

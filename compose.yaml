@@ -6,6 +6,7 @@ services:
     container_name: orthopro-postgres
     restart: unless-stopped
     environment:
+      TZ: America/Bogota
       POSTGRES_DB: ${DATABASE_NAME:-orthopro}
       POSTGRES_USER: ${DATABASE_USER:-orthopro}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}

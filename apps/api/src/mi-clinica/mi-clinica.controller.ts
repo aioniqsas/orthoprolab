@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Sse,
@@ -129,6 +130,25 @@ export class MiClinicaController {
     @Body() dto: CreateOrdenDto,
   ) {
     return this.miClinica.createOrden(req.user.id, dto);
+  }
+
+  @Put('ordenes/:id')
+  updateOrden(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: import('../pedidos/dto/update-orden.dto.js').UpdateOrdenDto,
+  ) {
+    return this.miClinica.updateOrden(req.user.id, id, dto);
+  }
+
+  @Delete('ordenes/:id')
+  @HttpCode(HttpStatus.OK)
+  cancelarOrden(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto?: { observaciones?: string },
+  ) {
+    return this.miClinica.cancelarOrden(id, req.user.id, dto?.observaciones);
   }
 
   /** Change trigger for the client portal: only events for this clinic's orders. */

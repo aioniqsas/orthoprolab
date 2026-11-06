@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { uploadImagenServicio } from "./actions";
 
 export function ServicioImagenForm({ id }: { id: string }) {
@@ -42,9 +43,9 @@ export function ServicioImagenForm({ id }: { id: string }) {
           Imagen actualizada.
         </p>
       ) : null}
-      <Button type="submit" disabled={pending} className="self-start">
+      <ActionButton type="submit" disabled={pending} className="self-start">
         {pending ? "Subiendo…" : "Subir imagen"}
-      </Button>
+      </ActionButton>
     </form>
   );
 }

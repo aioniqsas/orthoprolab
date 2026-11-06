@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { ImageIcon } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { Input } from "@repo/ui/components/input";
 import { createServicio, updateServicio } from "./actions";
 import type { Servicio } from "@/lib/data/types";
@@ -149,16 +150,16 @@ export function ServicioForm(props: Props) {
       </section>
 
       <div className="flex gap-3 lg:col-span-2">
-        <Button type="submit" disabled={pending}>
+        <ActionButton type="submit" disabled={pending}>
           {pending
             ? "Guardando…"
             : props.mode === "create"
               ? "Crear servicio"
               : "Guardar cambios"}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>
+        </ActionButton>
+        <ActionButton intent="outline" type="button"  onClick={() => router.back()}>
           Cancelar
-        </Button>
+        </ActionButton>
       </div>
     </form>
   );

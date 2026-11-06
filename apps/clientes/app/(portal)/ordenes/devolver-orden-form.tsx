@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { devolverOrdenAction } from "./actions";
 
 interface Props {
@@ -51,9 +52,9 @@ export function DevolverOrdenForm({ ordenId }: Props) {
           </p>
         )}
 
-        <Button type="submit" disabled={pending}>
+        <ActionButton type="submit" disabled={pending}>
           {pending ? "Enviando..." : "Devolver para corrección"}
-        </Button>
+        </ActionButton>
       </form>
     </section>
   );

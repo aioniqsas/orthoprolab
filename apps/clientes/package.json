@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
-    "build": "next build",
-    "start": "next start -p 3001",
+    "dev": "TZ=America/Bogota next dev -p 3001",
+    "build": "TZ=America/Bogota next build",
+    "start": "TZ=America/Bogota next start -p 3001",
     "lint": "eslint"
   },
   "dependencies": {

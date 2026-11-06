@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
+import { MailQueueService } from '../queues/mail-queue.service.js';
 import type { CuentaCobro } from './cuenta-cobro.entity.js';
 import type { Pago } from './pago.entity.js';
 
@@ -22,7 +23,10 @@ export interface EnviarResult {
 export class MailerCuentaCobroService {
   private readonly logger = new Logger(MailerCuentaCobroService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly mailQueue: MailQueueService,
+  ) {}
 
   async sendCuentaCobro(
     cuenta: CuentaCobro,
@@ -82,6 +86,19 @@ export class MailerCuentaCobroService {
   <div class="footer">Este mensaje fue generado automáticamente. Por favor no responda a este correo.</div>
 </body>
 </html>`;
+
+    const encolado = await this.mailQueue.enqueue({
+      to: toEmail,
+      subject: `Cuenta de cobro ${cuenta.numero} — OrthoPro Lab`,
+      html,
+      attachments: [
+        {
+          filename: `cuenta_${cuenta.numero.replace(/-/g, '_')}.pdf`,
+          contentBase64: pdfBuffer.toString('base64'),
+        },
+      ],
+    });
+    if (encolado.sent) return encolado;
 
     try {
       await transport.sendMail({
@@ -172,6 +189,13 @@ export class MailerCuentaCobroService {
   <div class="footer">Este mensaje fue generado automáticamente. Por favor no responda a este correo.</div>
 </body>
 </html>`;
+
+    const encolado = await this.mailQueue.enqueue({
+      to: toEmails,
+      subject: `Pago registrado — ${cuenta.numero} — ${clinicaNombre}`,
+      html,
+    });
+    if (encolado.sent) return encolado;
 
     try {
       await transport.sendMail({

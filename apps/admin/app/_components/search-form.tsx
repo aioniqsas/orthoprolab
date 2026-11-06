@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { Input } from "@repo/ui/components/input";
 
 /** GET search form that keeps the other active filters as hidden fields. */
@@ -34,9 +35,9 @@ export function SearchForm({
           className="h-10 rounded-xl pl-8"
         />
       </div>
-      <Button type="submit" size="lg" className="h-10 rounded-xl px-4">
+      <ActionButton type="submit" size="lg" className="h-10 rounded-xl px-4">
         Buscar
-      </Button>
+      </ActionButton>
       {q ? (
         <Link href={action} className="text-sm text-primary underline-offset-4 hover:underline">
           Limpiar búsqueda

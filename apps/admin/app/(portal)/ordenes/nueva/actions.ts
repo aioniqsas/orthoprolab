@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { parseColor, parseDientes } from "@repo/api-client";
 import { API_URL } from "@/lib/api";
 
 export type CrearOrdenResult = { ok: false; error: string };
@@ -20,7 +21,7 @@ const errorFrom = (body: unknown, fallback: string): string => {
  *
  * FormData fields:
  *   doctorId, pacienteId, fechaEntrega (optional), urgente (optional "on")
- *   servicioId_0, cantidad_0, servicioId_1, cantidad_1, …
+ *   servicio_0, cantidad_0, servicio_1, cantidad_1, …
  */
 export async function crearOrden(
   _prevState: CrearOrdenResult | null,
@@ -40,23 +41,45 @@ export async function crearOrden(
   }
 
   // Collect dynamic line items.
-  const detalles: { servicioId: number; cantidad: number; observaciones?: string }[] = [];
+  const detalles: {
+    servicio: string;
+    cantidad: number;
+    dientes: number[];
+    colorDiente: string;
+    observaciones?: string;
+  }[] = [];
   let index = 0;
-  while (formData.has(`servicioId_${index}`)) {
-    const servicioId = Number(formData.get(`servicioId_${index}`));
+  while (formData.has(`servicio_${index}`)) {
+    const servicio = String(formData.get(`servicio_${index}`) ?? "").trim();
     const cantidad = Number(formData.get(`cantidad_${index}`));
-    if (!servicioId || servicioId < 1) {
-      return { ok: false, error: `Fila ${index + 1}: selecciona un servicio válido.` };
+    if (!servicio) {
+      return { ok: false, error: `Fila ${index + 1}: escribe la clase de trabajo.` };
+    }
+    if (servicio.length > 120) {
+      return { ok: false, error: `Fila ${index + 1}: la clase de trabajo es demasiado larga.` };
     }
     if (!cantidad || cantidad < 1 || cantidad > 99) {
       return { ok: false, error: `Fila ${index + 1}: la cantidad debe estar entre 1 y 99.` };
     }
-    detalles.push({ servicioId, cantidad });
+    const dientes = parseDientes(formData.get(`dientes_${index}`));
+    if (!dientes.ok) {
+      return { ok: false, error: `Fila ${index + 1}: ${dientes.error}` };
+    }
+    const color = parseColor(formData.get(`color_${index}`));
+    if (!color.ok) {
+      return { ok: false, error: `Fila ${index + 1}: ${color.error}` };
+    }
+    detalles.push({
+      servicio,
+      cantidad,
+      dientes: dientes.dientes,
+      colorDiente: color.color,
+    });
     index++;
   }
 
   if (detalles.length === 0) {
-    return { ok: false, error: "Agrega al menos un servicio." };
+    return { ok: false, error: "Agrega al menos una clase de trabajo." };
   }
 
   const fechaEntrega = (formData.get("fechaEntrega") as string | null) || undefined;

@@ -1,14 +1,15 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
-import { Servicio } from '../catalogo/servicio.entity.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
+import { Paciente } from '../pacientes/paciente.entity.js';
 import { PacientesService } from '../pacientes/pacientes.service.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { DetalleOrden } from './detalle-orden.entity.js';
@@ -16,6 +17,8 @@ import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
 import { Orden } from './orden.entity.js';
 import { PedidosEventosService } from './pedidos-eventos.service.js';
 import type { CreateOrdenDto } from './dto/create-orden.dto.js';
+import type { UpdateOrdenDto } from './dto/update-orden.dto.js';
+import { diaBogota, parseFechaEntrega } from './fecha-entrega.js';
 
 @Injectable()
 export class PedidosService {
@@ -30,8 +33,6 @@ export class PedidosService {
     private readonly doctorRepo: Repository<Doctor>,
     @InjectRepository(PacienteDoctor)
     private readonly pacienteDoctorRepo: Repository<PacienteDoctor>,
-    @InjectRepository(Servicio)
-    private readonly servicioRepo: Repository<Servicio>,
     private readonly dataSource: DataSource,
     private readonly pacientesService: PacientesService,
     private readonly eventos: PedidosEventosService,
@@ -53,7 +54,7 @@ export class PedidosService {
       relations: {
         estado: true,
         asignacion: { doctor: true, paciente: true },
-        detalles: { servicio: true },
+        detalles: true,
         historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { fechaCreacion: 'DESC' },
@@ -67,7 +68,7 @@ export class PedidosService {
       relations: {
         estado: true,
         asignacion: { doctor: true, paciente: true },
-        detalles: { servicio: true },
+        detalles: true,
         historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { historial: { fechaCambio: 'ASC' } },
@@ -136,7 +137,6 @@ export class PedidosService {
     // Resolve pacienteId before entering the transaction so that
     // PacientesService uses its own connection context.
     let resolvedPacienteId: string;
-    let ensureLink = false;
 
     if (dto.pacienteId !== undefined) {
       resolvedPacienteId = String(dto.pacienteId);
@@ -146,7 +146,6 @@ export class PedidosService {
         dto.pacienteNombre,
       );
       resolvedPacienteId = p.id;
-      ensureLink = true;
     } else {
       throw new BadRequestException(
         'Proporciona pacienteId o (pacienteCedula + pacienteNombre).',
@@ -154,28 +153,25 @@ export class PedidosService {
     }
 
     const result = await this.dataSource.transaction(async (manager) => {
-      // When patient was resolved inline, ensure the PacienteDoctor link exists.
-      if (ensureLink) {
-        const existing = await manager.findOne(PacienteDoctor, {
-          where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
-        });
-        if (!existing) {
-          const link = manager.create(PacienteDoctor, {
-            pacienteId: resolvedPacienteId,
-            doctorId: dto.doctorId,
-          });
-          await manager.save(PacienteDoctor, link);
-        }
+      // 1. A patient may be treated by doctors of different clinics, so the
+      //    doctor↔patient link is created on demand instead of being required.
+      const paciente = await manager.findOne(Paciente, {
+        where: { id: resolvedPacienteId },
+      });
+      if (!paciente) {
+        throw new BadRequestException(
+          `Paciente ${resolvedPacienteId} no encontrado.`,
+        );
       }
-
-      // 1. Validate that the patient is assigned to this doctor.
       const asignacion = await manager.findOne(PacienteDoctor, {
         where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
       });
       if (!asignacion) {
-        throw new BadRequestException(
-          'El paciente no está asignado a este doctor.',
-        );
+        const link = manager.create(PacienteDoctor, {
+          pacienteId: resolvedPacienteId,
+          doctorId: dto.doctorId,
+        });
+        await manager.save(PacienteDoctor, link);
       }
 
       // 2. Load the initial state.
@@ -188,36 +184,29 @@ export class PedidosService {
         );
       }
 
-      // 3. Validate each service and snapshot its price.
+      // 3. Snapshot the typed work lines (no catalog, no price: the amount is
+      //    set when the order is attached to an invoice).
       type DetailSnapshot = {
-        servicioId: string;
+        servicio: string;
         cantidad: number;
-        precioUnitario: string;
+        dientes: number[];
+        colorDiente: string;
         observaciones: string | null;
       };
       const snapshots: DetailSnapshot[] = [];
-      let total = 0;
 
       for (const d of dto.detalles) {
-        const servicio = await manager.findOne(Servicio, {
-          where: { id: String(d.servicioId) },
-        });
-        if (!servicio) {
+        const numeros = new Set(d.dientes);
+        if (numeros.size !== d.dientes.length) {
           throw new BadRequestException(
-            `Servicio ${d.servicioId} no encontrado.`,
+            `El trabajo "${d.servicio}" tiene dientes repetidos.`,
           );
         }
-        if (!servicio.activo) {
-          throw new BadRequestException(
-            `El servicio "${servicio.nombre}" no está activo.`,
-          );
-        }
-        const precio = Number(servicio.precio);
-        total += d.cantidad * precio;
         snapshots.push({
-          servicioId: servicio.id,
+          servicio: d.servicio,
           cantidad: d.cantidad,
-          precioUnitario: servicio.precio,
+          dientes: [...d.dientes],
+          colorDiente: d.colorDiente,
           observaciones: d.observaciones ?? null,
         });
       }
@@ -227,10 +216,9 @@ export class PedidosService {
         doctorId: dto.doctorId,
         pacienteId: resolvedPacienteId,
         estadoId: estadoCreada.id,
-        valor: total.toFixed(2),
+        valor: '0.00',
         urgente: dto.urgente ?? false,
-        // Parse at noon UTC so any ±12h timezone still lands on the correct day.
-        fechaEntrega: dto.fechaEntrega ? new Date(`${dto.fechaEntrega}T12:00:00Z`) : null,
+        fechaEntrega: parseFechaEntrega(dto.fechaEntrega),
       });
       const savedOrden = await manager.save(Orden, orden);
 
@@ -238,9 +226,10 @@ export class PedidosService {
       for (const snap of snapshots) {
         const detalle = manager.create(DetalleOrden, {
           ordenId: savedOrden.id,
-          servicioId: snap.servicioId,
+          servicio: snap.servicio,
           cantidad: snap.cantidad,
-          precioUnitario: snap.precioUnitario,
+          dientes: snap.dientes,
+          colorDiente: snap.colorDiente,
           observaciones: snap.observaciones,
         });
         await manager.save(DetalleOrden, detalle);
@@ -262,7 +251,7 @@ export class PedidosService {
         relations: {
           estado: true,
           asignacion: { doctor: true, paciente: true },
-          detalles: { servicio: true },
+          detalles: true,
           historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
         },
       });
@@ -297,12 +286,22 @@ export class PedidosService {
         relations: { estado: true },
       });
       if (!orden) throw new NotFoundException('Orden no encontrada.');
+      // Los estados marcados como finales no admiten salida.
+      if (orden.estado?.esFinal) {
+        throw new ForbiddenException(
+          `No se puede cambiar el estado de una orden en estado "${orden.estado.nombre}".`,
+        );
+      }
 
       const nuevoEstado = await manager.findOne(EstadoOrden, {
         where: { id: estadoId },
       });
       if (!nuevoEstado) {
         throw new BadRequestException('Estado de orden no válido.');
+      }
+      // Anular una orden exige el motivo y el flujo de cancelación.
+      if (nuevoEstado.codigo === 'cancelada') {
+        throw new BadRequestException('Para anular una orden usa la acción de cancelación.');
       }
 
       const entrada = manager.create(HistorialEstadoOrden, {
@@ -323,6 +322,120 @@ export class PedidosService {
 
     // Reload with estado relation for callers (the transaction result only has
     // the state we set, but keep shape consistent).
+    const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
+    this.eventos.emitir('estado', String(result.id), doctor?.clinicaId);
+    return result;
+  }
+
+  /** Edit an order only while it is in 'creada' state. */
+  async update(id: string, dto: UpdateOrdenDto): Promise<Orden> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const orden = await manager.findOne(Orden, {
+        where: { id },
+        relations: { estado: true },
+      });
+      if (!orden) throw new NotFoundException('Orden no encontrada.');
+      if (orden.estado?.codigo !== 'creada') {
+        throw new ForbiddenException('Solo se puede editar una orden en estado Creada.');
+      }
+
+      if (dto.urgente !== undefined) {
+        orden.urgente = dto.urgente;
+      }
+      if (dto.fechaEntrega !== undefined) {
+        orden.fechaEntrega = parseFechaEntrega(
+          dto.fechaEntrega,
+          diaBogota(orden.fechaCreacion),
+        );
+      }
+
+      if (dto.detalles) {
+        await manager.delete(DetalleOrden, { ordenId: orden.id });
+        for (const d of dto.detalles) {
+          const numeros = new Set(d.dientes);
+          if (numeros.size !== d.dientes.length) {
+            throw new BadRequestException(
+              `El trabajo "${d.servicio}" tiene dientes repetidos.`,
+            );
+          }
+          const detalle = manager.create(DetalleOrden, {
+            ordenId: orden.id,
+            servicio: d.servicio,
+            cantidad: d.cantidad,
+            dientes: [...d.dientes],
+            colorDiente: d.colorDiente,
+            observaciones: d.observaciones ?? null,
+          });
+          await manager.save(DetalleOrden, detalle);
+        }
+      }
+
+      await manager.save(Orden, orden);
+
+      const full = await manager.findOne(Orden, {
+        where: { id: orden.id },
+        relations: {
+          estado: true,
+          asignacion: { doctor: true, paciente: true },
+          detalles: true,
+          historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
+        },
+      });
+      if (!full) throw new NotFoundException('Orden no encontrada tras actualizar.');
+      return full;
+    });
+
+    const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
+    this.eventos.emitir('actualizada', String(result.id), doctor?.clinicaId);
+    return result;
+  }
+
+  /** Cancel an order from any non-final state. */
+  async cancelar(id: string, usuarioId: string, observaciones?: string): Promise<Orden> {
+    const estadoCancelada = await this.estadoRepo.findOne({ where: { codigo: 'cancelada' } });
+    if (!estadoCancelada) {
+      throw new BadRequestException('Estado cancelada no encontrado.');
+    }
+    const result = await this.dataSource.transaction(async (manager) => {
+      const orden = await manager.findOne(Orden, {
+        where: { id },
+        relations: { estado: true },
+      });
+      if (!orden) throw new NotFoundException('Orden no encontrada.');
+      if (orden.estado?.esFinal) {
+        throw new ForbiddenException(
+          `No se puede cancelar una orden en estado "${orden.estado.nombre}".`,
+        );
+      }
+
+      const entrada = manager.create(HistorialEstadoOrden, {
+        ordenId: orden.id,
+        estadoAnteriorId: orden.estadoId,
+        estadoNuevoId: estadoCancelada.id,
+        usuarioId,
+        observaciones: observaciones?.trim() || null,
+      });
+      await manager.save(HistorialEstadoOrden, entrada);
+
+      orden.estadoId = estadoCancelada.id;
+      // A populated relation wins over the FK on save: without this TypeORM
+      // rewrites estado_id with the previous state and only the history moves.
+      orden.estado = estadoCancelada;
+      await manager.save(Orden, orden);
+
+      const full = await manager.findOne(Orden, {
+        where: { id: orden.id },
+        relations: {
+          estado: true,
+          asignacion: { doctor: true, paciente: true },
+          detalles: true,
+          historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
+        },
+      });
+      if (!full) throw new NotFoundException('Orden no encontrada tras cancelar.');
+      return full;
+    });
+
     const doctor = await this.doctorRepo.findOne({ where: { id: result.doctorId } });
     this.eventos.emitir('estado', String(result.id), doctor?.clinicaId);
     return result;

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatearFecha } from "@repo/api-client";
 import { listCuentasCobro } from "@/lib/data/repository";
 import type { EstadoCuentaCobro } from "@/lib/data/types";
 
@@ -43,9 +44,7 @@ async function CuentasList() {
               <p className="text-sm font-medium">{c.numero}</p>
               <p className="text-xs text-muted-foreground">
                 Emitida:{" "}
-                {c.fechaEmision
-                  ? new Date(c.fechaEmision).toLocaleDateString("es-CO")
-                  : "—"}
+                {formatearFecha(c.fechaEmision, "—")}
               </p>
             </div>
             <div className="flex items-center gap-3">

@@ -68,6 +68,8 @@ function detalles(lineas: Linea[], base: number): DetalleOrden[] {
     servicio: PRECIOS[key][0],
     cantidad,
     precioUnitario: PRECIOS[key][1],
+    dientes: [],
+    colorDiente: null,
     observaciones: observaciones ?? null,
   }));
 }

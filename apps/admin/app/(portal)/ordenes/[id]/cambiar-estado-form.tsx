@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import type { EstadoOrdenItem } from "@/lib/data/types";
 import { cambiarEstadoOrden } from "./actions";
 
@@ -75,9 +76,9 @@ export function CambiarEstadoForm({ ordenId, estadoDbId, estados }: Props) {
           </p>
         )}
 
-        <Button type="submit" disabled={pending || estados.length === 0}>
+        <ActionButton type="submit" disabled={pending || estados.length === 0}>
           {pending ? "Guardando..." : "Confirmar cambio"}
-        </Button>
+        </ActionButton>
       </form>
     </section>
   );

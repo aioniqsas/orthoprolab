@@ -1,7 +1,8 @@
 "use client";
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { actualizarPaciente } from "./actions";
 
 const inputCls =
@@ -40,10 +41,10 @@ export function EditPacienteForm({ id, nombre }: Props) {
       )}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
+        <ActionButton type="submit" disabled={isPending}>
           {isPending && <Loader2 className="size-4 animate-spin mr-1" aria-hidden />}
           Guardar cambios
-        </Button>
+        </ActionButton>
       </div>
     </form>
   );

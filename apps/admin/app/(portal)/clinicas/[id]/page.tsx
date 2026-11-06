@@ -40,7 +40,7 @@ async function ClinicaDetail({ params }: { params: Promise<{ id: string }> }) {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={clinica.nombre}
-        description={clinica.direccion ?? "Sin dirección registrada"}
+        description={`${clinica.direccion ?? "Sin dirección registrada"}${clinica.correo ? ` · ${clinica.correo}` : ""}`}
         actions={
           <>
             <Link href={`/clinicas/${clinica.id}/editar`} className={buttonVariants({ variant: "outline" })}>

@@ -15,6 +15,7 @@ import { PedidosService } from '../pedidos/pedidos.service.js';
 import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { MailerControlTrabajosService } from '../pedidos/mailer-control-trabajos.service.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
+import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
@@ -35,6 +36,8 @@ export class MiClinicaService {
     private readonly pacienteDoctorRepo: Repository<PacienteDoctor>,
     @InjectRepository(Servicio)
     private readonly servicioRepo: Repository<Servicio>,
+    @InjectRepository(Clinica)
+    private readonly clinicaRepo: Repository<Clinica>,
     private readonly pedidosService: PedidosService,
     private readonly pdfControlTrabajos: PdfControlTrabajosService,
     private readonly mailerControlTrabajos: MailerControlTrabajosService,
@@ -165,6 +168,16 @@ export class MiClinicaService {
     return this.pedidosService.create(dto, usuarioId);
   }
 
+  async updateOrden(usuarioId: string, ordenId: string, dto: import('../pedidos/dto/update-orden.dto.js').UpdateOrdenDto) {
+    await this.getOrden(usuarioId, ordenId);
+    return this.pedidosService.update(ordenId, dto);
+  }
+
+  async cancelarOrden(ordenId: string, usuarioId: string, observaciones?: string) {
+    await this.getOrden(usuarioId, ordenId);
+    return this.pedidosService.cancelar(ordenId, usuarioId, observaciones);
+  }
+
   async listAllPacientes(
     usuarioId: string,
   ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {
@@ -210,6 +223,11 @@ export class MiClinicaService {
     }
     // Ownership check.
     const orden = await this.getOrden(usuarioId, ordenId);
+    if (orden.estado?.esFinal) {
+      throw new ForbiddenException(
+        `No se puede cambiar el estado de una orden en estado "${orden.estado.nombre}".`,
+      );
+    }
 
     if (orden.estado?.codigo !== 'en_entrega') {
       throw new BadRequestException('Solo se puede devolver una orden que esté en entrega al cliente.');
@@ -229,6 +247,11 @@ export class MiClinicaService {
     observaciones?: string,
   ): Promise<Orden> {
     const orden = await this.getOrden(usuarioId, ordenId);
+    if (orden.estado?.esFinal) {
+      throw new ForbiddenException(
+        `No se puede cambiar el estado de una orden en estado "${orden.estado.nombre}".`,
+      );
+    }
 
     if (orden.estado?.codigo !== 'en_entrega') {
       throw new BadRequestException('Solo se puede finalizar una orden que esté en entrega al cliente.');
@@ -241,14 +264,16 @@ export class MiClinicaService {
 
     const result = await this.pedidosService.cambiarEstado(ordenId, estadoId, usuarioId, (observaciones ?? '').trim() || undefined);
 
-    // Send control de trabajos de laboratorio email (best-effort).
+    // Send the control de trabajos only to the clinic (best-effort).
     try {
       const usuario = await this.usuarioRepo.findOneBy({ id: usuarioId });
-      const toEmail = usuario?.correo;
-      if (toEmail) {
+      const clinica = usuario?.clinicaId
+        ? await this.clinicaRepo.findOneBy({ id: usuario.clinicaId })
+        : null;
+      if (clinica?.correo) {
         const ordenCompleta = await this.getOrden(usuarioId, ordenId);
         const pdfBuffer = await this.pdfControlTrabajos.generate(ordenCompleta);
-        await this.mailerControlTrabajos.sendControlTrabajos(toEmail, pdfBuffer, ordenId);
+        await this.mailerControlTrabajos.sendControlTrabajos(clinica.correo, pdfBuffer, ordenId);
       }
     } catch (err) {
       // Do not fail finalization if email fails.
@@ -267,7 +292,6 @@ export class MiClinicaService {
       .leftJoinAndSelect('asig.doctor', 'doctor')
       .leftJoinAndSelect('asig.paciente', 'paciente')
       .leftJoinAndSelect('o.detalles', 'detalles')
-      .leftJoinAndSelect('detalles.servicio', 'servicio')
       .leftJoinAndSelect('o.historial', 'historial')
       .leftJoinAndSelect('historial.estadoAnterior', 'estadoAnterior')
       .leftJoinAndSelect('historial.estadoNuevo', 'estadoNuevo')

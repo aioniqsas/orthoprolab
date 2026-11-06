@@ -11,17 +11,39 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
       columns={[
         {
           id: "servicio",
-          header: "Servicio",
+          header: "Clase de trabajo",
           render: (d) => (
             <div className="flex flex-col">
-              <span>{d.servicio.nombre}</span>
+              <span>{d.servicio}</span>
               {d.observaciones && (
                 <span className="text-xs text-muted-foreground">{d.observaciones}</span>
               )}
             </div>
           ),
-          searchValue: (d) => `${d.servicio.nombre} ${d.observaciones ?? ""}`,
-          sortValue: (d) => d.servicio.nombre,
+          searchValue: (d) => `${d.servicio} ${d.observaciones ?? ""}`,
+          sortValue: (d) => d.servicio,
+        },
+        {
+          id: "dientes",
+          header: "Dientes",
+          render: (d) =>
+            d.dientes?.length ? (
+              <span className="text-xs">{d.dientes.join(", ")}</span>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            ),
+          searchValue: (d) => (d.dientes ?? []).join(" "),
+        },
+        {
+          id: "color",
+          header: "Color",
+          render: (d) =>
+            d.colorDiente ? (
+              <span className="text-xs">{d.colorDiente}</span>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            ),
+          searchValue: (d) => d.colorDiente ?? "",
         },
         {
           id: "cantidad",
@@ -30,30 +52,7 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
           render: (d) => d.cantidad,
           sortValue: (d) => d.cantidad,
         },
-        {
-          id: "precio",
-          header: "P. unitario",
-          align: "right",
-          render: (d) =>
-            Number(d.precioUnitario).toLocaleString("es-CO", {
-              style: "currency",
-              currency: "COP",
-              minimumFractionDigits: 0,
-            }),
-          sortValue: (d) => Number(d.precioUnitario),
-        },
-        {
-          id: "subtotal",
-          header: "Subtotal",
-          align: "right",
-          render: (d) =>
-            (Number(d.precioUnitario) * d.cantidad).toLocaleString("es-CO", {
-              style: "currency",
-              currency: "COP",
-              minimumFractionDigits: 0,
-            }),
-          sortValue: (d) => Number(d.precioUnitario) * d.cantidad,
-        },
+
       ]}
       empty={<p className="text-sm text-muted-foreground">Sin detalles.</p>}
     />

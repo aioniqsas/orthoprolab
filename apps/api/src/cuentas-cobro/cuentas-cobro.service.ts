@@ -74,7 +74,7 @@ export class CuentasCobroService {
           orden: {
             estado: true,
             asignacion: { paciente: true, doctor: true },
-            detalles: { servicio: true },
+            detalles: true,
             historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
           },
         },
@@ -148,7 +148,7 @@ export class CuentasCobroService {
       // shortcut: an issued account can still change its orders (and total) after the
       // client saw the PDF. Freeze edits at emitida if a stale PDF becomes a real problem.
 
-      for (const ordenId of dto.ordenIds) {
+      for (const { ordenId, valor } of dto.ordenes) {
         const orden = await em.findOne(Orden, { where: { id: String(ordenId) } });
         if (!orden) {
           throw new NotFoundException(`Orden ${ordenId} no encontrada.`);
@@ -191,7 +191,7 @@ export class CuentasCobroService {
           const cco = em.create(CuentaCobroOrden, {
             cuentaCobroId,
             ordenId: String(ordenId),
-            valorSnapshot: orden.valor,
+            valorSnapshot: valor.toFixed(2),
           });
           await em.save(cco);
         }

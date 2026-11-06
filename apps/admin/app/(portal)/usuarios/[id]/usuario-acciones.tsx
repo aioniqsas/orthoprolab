@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import {
   Dialog,
   DialogContent,
@@ -56,16 +57,16 @@ export function UsuarioAcciones({
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex flex-wrap gap-2">
-        <Button
+        <ActionButton
           variant={activo ? "destructive" : "outline"}
           disabled={pending}
           onClick={handleToggle}
         >
           {activo ? "Desactivar" : "Activar"}
-        </Button>
+        </ActionButton>
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button variant="outline">Regenerar credenciales</Button>} />
+          <DialogTrigger render={<ActionButton intent="outline" >Regenerar credenciales</ActionButton>} />
           <DialogContent showCloseButton={false}>
             <DialogHeader>
               <DialogTitle>¿Regenerar credenciales?</DialogTitle>
@@ -75,10 +76,10 @@ export function UsuarioAcciones({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <DialogClose render={<Button variant="outline">Cancelar</Button>} />
-              <Button disabled={pending} onClick={handleRegenerar}>
+              <DialogClose render={<ActionButton intent="outline" >Cancelar</ActionButton>} />
+              <ActionButton disabled={pending} onClick={handleRegenerar}>
                 {pending ? "Enviando…" : "Sí, regenerar y enviar"}
-              </Button>
+              </ActionButton>
             </DialogFooter>
           </DialogContent>
         </Dialog>

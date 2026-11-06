@@ -3,8 +3,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { Odontograma } from "@repo/ui/odontograma";
+import { FullWidthStack, Section } from "@repo/ui/section";
 import { isAdmin } from "@/lib/auth-guard";
 import {
+  esEstadoFinal,
   estadoLabel,
   formatCop,
   formatDate,
@@ -18,6 +21,8 @@ import { EstadoBadge, UrgenteBadge } from "../../../_components/estado-badge";
 import { ListSkeleton } from "../../../_components/list-skeleton";
 import { PageHeader } from "../../../_components/page-header";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
+import { AccionesOrden } from "./acciones-orden";
+import { OrdenesLive } from "../ordenes-live";
 
 export const metadata: Metadata = { title: "Detalle de orden" };
 
@@ -48,20 +53,33 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
     listClinicas().then((cs) => cs.find((c) => String(c.id) === orden.doctor.clinicaId)),
     getEstadosOrden(),
   ]);
+  // Un estado final no admite cambios: el selector solo ofrece salidas reales.
+  const estadoFinal = esEstadoFinal(orden.estado);
+  const estadosDisponibles = estados.filter((e) => e.codigo !== "cancelada");
 
+  // Lines created before amounts moved to the invoice still carry a price.
+  const conPrecios = orden.detalles.some((d) => d.precioUnitario !== null);
   const total = orderTotal(orden.detalles);
 
   return (
-    <div className="flex flex-col gap-6">
+    <FullWidthStack>
+      <OrdenesLive />
       <PageHeader
         title={`Orden #${orden.id}`}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <EstadoBadge estado={orden.estado} />
-        {orden.urgente ? <UrgenteBadge /> : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <EstadoBadge estado={orden.estado} />
+          {orden.urgente ? <UrgenteBadge /> : null}
+        </div>
+        <AccionesOrden
+          ordenId={String(orden.id)}
+          puedeEditar={orden.estado === "creada"}
+          puedeCancelar={!estadoFinal}
+        />
       </div>
 
-      <dl className="grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2 lg:grid-cols-4">
+      <Section as="div" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Doctor", fullName(orden.doctor)],
           ["Clínica", clinica?.nombre ?? "Sin clínica"],
@@ -74,39 +92,76 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
             <dd className="text-sm font-medium">{value}</dd>
           </div>
         ))}
-      </dl>
+      </Section>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <section aria-labelledby="detalles" className="rounded-xl border border-border bg-card p-5">
-          <h2 id="detalles" className="font-heading text-lg font-semibold">
-            Servicios
-          </h2>
-          <ul className="mt-4 flex flex-col divide-y divide-border">
-            {orden.detalles.map((d) => (
-              <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{d.servicio}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {d.cantidad} x {formatCop(d.precioUnitario)}
-                  </p>
-                  {d.observaciones ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{d.observaciones}</p>
+      <div className="grid w-full gap-6 lg:grid-cols-[2fr_1fr]">
+        <FullWidthStack>
+          {orden.detalles.some((d) => d.dientes.length > 0) ? (
+            <Section aria-labelledby="odontograma">
+              <h2 id="odontograma" className="font-heading text-lg font-semibold">
+                Dientes a trabajar
+              </h2>
+              <div className="mt-4 flex flex-col gap-6">
+                {orden.detalles.map((d) => (
+                  d.dientes.length > 0 ? (
+                    <div key={`odo-${d.id}`} className="flex flex-col gap-2">
+                      <p className="text-sm font-medium">{d.servicio}</p>
+                      <Odontograma
+                        readOnly
+                        dientes={d.dientes}
+                        color={d.colorDiente ?? ""}
+                      />
+                    </div>
+                  ) : null
+                ))}
+              </div>
+            </Section>
+          ) : null}
+
+          <Section aria-labelledby="detalles">
+            <h2 id="detalles" className="font-heading text-lg font-semibold">
+              Clases de trabajo
+            </h2>
+            <ul className="mt-4 flex flex-col divide-y divide-border">
+              {orden.detalles.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{d.servicio}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      Cantidad: {d.cantidad}
+                      {d.precioUnitario !== null
+                        ? ` x ${formatCop(d.precioUnitario)}`
+                        : ""}
+                    </p>
+                    {d.dientes.length > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Dientes: {d.dientes.join(", ")}
+                        {d.colorDiente ? ` — Color: ${d.colorDiente}` : ""}
+                      </p>
+                    ) : null}
+                    {d.observaciones ? (
+                      <p className="mt-1 text-xs text-muted-foreground">{d.observaciones}</p>
+                    ) : null}
+                  </div>
+                  {d.precioUnitario !== null ? (
+                    <p className="text-sm font-medium tabular-nums">
+                      {formatCop(lineSubtotal(d.cantidad, d.precioUnitario))}
+                    </p>
                   ) : null}
-                </div>
-                <p className="text-sm font-medium tabular-nums">
-                  {formatCop(lineSubtotal(d.cantidad, d.precioUnitario))}
-                </p>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 flex items-center justify-between border-t border-border pt-4 font-heading text-lg font-semibold">
-            <span>Total</span>
-            <span className="tabular-nums">{formatCop(total)}</span>
-          </p>
-        </section>
+                </li>
+              ))}
+            </ul>
+            {conPrecios ? (
+              <p className="mt-2 flex items-center justify-between border-t border-border pt-4 font-heading text-lg font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums">{formatCop(total)}</span>
+              </p>
+            ) : null}
+          </Section>
+        </FullWidthStack>
 
-        <div className="flex flex-col gap-6">
-          <section aria-labelledby="historial" className="rounded-xl border border-border bg-card p-5">
+        <FullWidthStack>
+          <Section aria-labelledby="historial">
             <h2 id="historial" className="font-heading text-lg font-semibold">
               Historial de estados
             </h2>
@@ -133,15 +188,27 @@ async function OrdenDetail({ params }: { params: Promise<{ id: string }> }) {
                 </li>
               ))}
             </ol>
-          </section>
+          </Section>
 
-          <CambiarEstadoForm
-            ordenId={String(orden.id)}
-            estadoDbId={orden.estadoDbId}
-            estados={estados}
-          />
-        </div>
+          {estadoFinal ? (
+            <Section aria-labelledby="estado-definitivo">
+              <h2 id="estado-definitivo" className="font-heading text-lg font-semibold">
+                Estado definitivo
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                La orden está {estadoLabel(orden.estado).toLowerCase()} y ese estado no se puede
+                modificar: una orden cancelada o terminada no vuelve a otro estado.
+              </p>
+            </Section>
+          ) : (
+            <CambiarEstadoForm
+              ordenId={String(orden.id)}
+              estadoDbId={orden.estadoDbId}
+              estados={estadosDisponibles}
+            />
+          )}
+        </FullWidthStack>
       </div>
-    </div>
+    </FullWidthStack>
   );
 }

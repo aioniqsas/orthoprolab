@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  esEstadoFinal,
   estadoLabel,
   filterClinicas,
   filterOrdenes,
@@ -69,8 +70,19 @@ describe("labels and dates", () => {
     expect(estadoLabel("devuelta_correccion")).toBe("Devuelta");
   });
 
+  it("marks only cancelada and terminada as final states", () => {
+    expect(esEstadoFinal("cancelada")).toBe(true);
+    expect(esEstadoFinal("terminada")).toBe(true);
+    expect(esEstadoFinal("creada")).toBe(false);
+    expect(esEstadoFinal("recibida")).toBe(false);
+    expect(esEstadoFinal("en_proceso")).toBe(false);
+    expect(esEstadoFinal("en_entrega")).toBe(false);
+    expect(esEstadoFinal("devuelta_correccion")).toBe(false);
+  });
+
   it("formats dates in the Bogota time zone", () => {
-    expect(formatDate("2025-10-02T03:00:00.000Z")).toBe("1 de oct de 2025");
+    // 03:00 UTC del 2 de octubre son las 22:00 del 1 en Bogotá.
+    expect(formatDate("2025-10-02T03:00:00.000Z")).toBe("1 de octubre de 2025");
     expect(formatDate(null)).toBe("Sin fecha");
   });
 });

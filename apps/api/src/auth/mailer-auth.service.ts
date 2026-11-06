@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
+import { MailQueueService } from '../queues/mail-queue.service.js';
 
 export interface EnviarAuthResult {
   sent: boolean;
@@ -11,7 +12,10 @@ export interface EnviarAuthResult {
 export class MailerAuthService {
   private readonly logger = new Logger(MailerAuthService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly mailQueue: MailQueueService,
+  ) {}
 
   async sendWelcome(
     to: string,
@@ -67,6 +71,13 @@ export class MailerAuthService {
   <div class="footer">Este mensaje fue generado automáticamente. Por favor no respondas a este correo.</div>
 </body>
 </html>`;
+
+    const encolado = await this.mailQueue.enqueue({
+      to,
+      subject: 'Bienvenido a OrthoPro Lab — tus credenciales de acceso',
+      html,
+    });
+    if (encolado.sent) return encolado;
 
     try {
       await transport.sendMail({
@@ -130,6 +141,13 @@ export class MailerAuthService {
   <div class="footer">Este mensaje fue generado automáticamente. Por favor no respondas a este correo.</div>
 </body>
 </html>`;
+
+    const encolado = await this.mailQueue.enqueue({
+      to,
+      subject: 'Restablece tu contraseña — OrthoPro Lab',
+      html,
+    });
+    if (encolado.sent) return encolado;
 
     try {
       await transport.sendMail({

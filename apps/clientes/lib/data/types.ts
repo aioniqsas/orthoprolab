@@ -20,15 +20,6 @@ export interface PacienteConCedula extends Paciente {
   cedula: string | null;
 }
 
-// ─── Servicio ──────────────────────────────────────────────────────────────
-
-export interface Servicio {
-  id: string;
-  nombre: string;
-  precio: string;
-  activo: boolean;
-}
-
 // ─── Orden ─────────────────────────────────────────────────────────────────
 
 export interface EstadoOrden {
@@ -40,10 +31,13 @@ export interface EstadoOrden {
 
 export interface DetalleOrden {
   id: string;
-  servicioId: string;
-  servicio: Pick<Servicio, "id" | "nombre" | "precio">;
+  /** Free text typed on the order: the catalog is not referenced anymore. */
+  servicio: string;
   cantidad: number;
-  precioUnitario: string;
+  /** Legacy price of lines created before amounts moved to the invoice. */
+  precioUnitario: string | null;
+  dientes?: number[];
+  colorDiente?: string | null;
   observaciones: string | null;
 }
 

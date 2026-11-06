@@ -1,38 +1,45 @@
 "use client";
 import { useActionState, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
-import type { DoctorOpcion, Servicio } from "@/lib/data/types";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
+import { Odontograma } from "@repo/ui/components/odontograma";
+import type { DoctorOpcion } from "@/lib/data/types";
 import { crearOrden } from "./actions";
 import { PacienteCedulaField } from "./_components/paciente-cedula-field";
 
 interface Props {
   doctores: DoctorOpcion[];
-  servicios: Servicio[];
 }
 
 interface DetalleRow {
-  servicioId: string;
+  servicio: string;
   cantidad: number;
+  dientes: number[];
+  color: string;
 }
 
-export function NuevaOrdenForm({ doctores, servicios }: Props) {
+export function NuevaOrdenForm({ doctores }: Props) {
   const [state, formAction, isPending] = useActionState(crearOrden, null);
 
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [detalles, setDetalles] = useState<DetalleRow[]>([
-    { servicioId: "", cantidad: 1 },
+    { servicio: "", cantidad: 1, dientes: [], color: "" },
   ]);
 
   function addDetalle() {
-    setDetalles((prev) => [...prev, { servicioId: "", cantidad: 1 }]);
+    setDetalles((prev) => [...prev, { servicio: "", cantidad: 1, dientes: [], color: "" }]);
   }
 
   function removeDetalle(index: number) {
     setDetalles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateDetalle(index: number, field: keyof DetalleRow, value: string | number) {
+  function updateDetalle(
+    index: number,
+    field: keyof DetalleRow,
+    value: DetalleRow[keyof DetalleRow],
+  ) {
     setDetalles((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
     );
@@ -74,82 +81,90 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
         <PacienteCedulaField onFound={() => {}} onCleared={() => {}} />
       </div>
 
-      {/* Servicios */}
+      {/* Clases de trabajo */}
       <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
-        <h2 className="font-semibold text-title">Servicios</h2>
+        <h2 className="font-semibold text-title">Clases de trabajo</h2>
 
         {detalles.map((row, i) => (
-          <div key={i} className="flex items-end gap-3">
-            <div className="flex flex-col gap-1 flex-1">
-              <label
-                htmlFor={`servicioId_${i}`}
-                className="text-sm font-medium text-body"
-              >
-                Servicio <span className="text-destructive">*</span>
-              </label>
-              <select
-                id={`servicioId_${i}`}
-                name={`servicioId_${i}`}
-                required
-                value={row.servicioId}
-                onChange={(e) => updateDetalle(i, "servicioId", e.target.value)}
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-              >
-                <option value="">Selecciona un servicio</option>
-                {servicios
-                  .filter((s) => s.activo)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre} — ${Number(s.precio).toLocaleString("es-CO")}
-                    </option>
-                  ))}
-              </select>
+          <div
+            key={i}
+            className="flex flex-col gap-3 border-b border-border pb-4 last:border-0 last:pb-0"
+          >
+            <div className="flex items-end gap-3">
+              <div className="flex flex-col gap-1 flex-1">
+                <label
+                  htmlFor={`servicio_${i}`}
+                  className="text-sm font-medium text-body"
+                >
+                  Clase de trabajo <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id={`servicio_${i}`}
+                  name={`servicio_${i}`}
+                  required
+                  maxLength={120}
+                  placeholder="Ej. Corona de zirconia"
+                  value={row.servicio}
+                  onChange={(e) => updateDetalle(i, "servicio", e.target.value)}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
+                />
+              </div>
+              <div className="flex flex-col gap-1 w-24">
+                <label
+                  htmlFor={`cantidad_${i}`}
+                  className="text-sm font-medium text-body"
+                >
+                  Cantidad
+                </label>
+                <input
+                  id={`cantidad_${i}`}
+                  name={`cantidad_${i}`}
+                  type="number"
+                  min={1}
+                  max={99}
+                  required
+                  value={row.cantidad}
+                  onChange={(e) =>
+                    updateDetalle(i, "cantidad", Number(e.target.value))
+                  }
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
+                />
+              </div>
+              {detalles.length > 1 && (
+                <ActionButton intent="ghost"
+                  type="button"
+                  
+                  size="icon"
+                  onClick={() => removeDetalle(i)}
+                  aria-label="Eliminar fila"
+                  className="mb-0.5"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </ActionButton>
+              )}
             </div>
-            <div className="flex flex-col gap-1 w-24">
-              <label
-                htmlFor={`cantidad_${i}`}
-                className="text-sm font-medium text-body"
-              >
-                Cantidad
-              </label>
-              <input
-                id={`cantidad_${i}`}
-                name={`cantidad_${i}`}
-                type="number"
-                min={1}
-                max={99}
-                required
-                value={row.cantidad}
-                onChange={(e) =>
-                  updateDetalle(i, "cantidad", Number(e.target.value))
-                }
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight"
-              />
-            </div>
-            {detalles.length > 1 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => removeDetalle(i)}
-                aria-label="Eliminar fila"
-                className="mb-0.5"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-              </Button>
-            )}
+
+            <Odontograma
+              idPrefix={`detalle_${i}`}
+              dientes={row.dientes}
+              color={row.color}
+              onDientesChange={(dientes) => updateDetalle(i, "dientes", dientes)}
+              onColorChange={(color) => updateDetalle(i, "color", color)}
+            />
+            <input type="hidden" name={`dientes_${i}`} value={JSON.stringify(row.dientes)} />
+            <input type="hidden" name={`color_${i}`} value={row.color} />
           </div>
         ))}
 
-        <Button
+        <ActionButton intent="outline"
           type="button"
-          variant="outline"
+          
           onClick={addDetalle}
           className="self-start"
         >
           <Plus className="h-4 w-4 mr-1" aria-hidden />
-          Agregar servicio
-        </Button>
+          Agregar clase de trabajo
+        </ActionButton>
       </div>
 
       {/* Opciones adicionales */}
@@ -189,10 +204,10 @@ export function NuevaOrdenForm({ doctores, servicios }: Props) {
       )}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
+        <ActionButton type="submit" disabled={isPending}>
           {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />}
           Crear orden
-        </Button>
+        </ActionButton>
       </div>
     </form>
   );

@@ -1,16 +1,22 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { listDoctores, listServicios } from "@/lib/data/repository";
+import { listDoctores } from "@/lib/data/repository";
 import { NuevaOrdenForm } from "./nueva-orden-form";
 
 export const metadata: Metadata = { title: "Nueva orden" };
 
-export default async function NuevaOrdenPage() {
-  const [doctores, servicios] = await Promise.all([
-    listDoctores(false),
-    listServicios(),
-  ]);
+export default function NuevaOrdenPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
+      <NuevaOrden />
+    </Suspense>
+  );
+}
+
+async function NuevaOrden() {
+  const doctores = await listDoctores(false);
 
   return (
     <section className="flex flex-col gap-6">
@@ -23,7 +29,7 @@ export default async function NuevaOrdenPage() {
         </Link>
         <h1 className="text-2xl font-semibold">Nueva orden</h1>
       </div>
-      <NuevaOrdenForm doctores={doctores} servicios={servicios} />
+      <NuevaOrdenForm doctores={doctores} />
     </section>
   );
 }

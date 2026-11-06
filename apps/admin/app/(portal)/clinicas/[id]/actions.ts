@@ -23,6 +23,7 @@ export async function editarClinica(
 ): Promise<EditarClinicaResult> {
   const nombre = (formData.get("nombre") as string | null)?.trim();
   const direccion = (formData.get("direccion") as string | null)?.trim() || null;
+  const correo = (formData.get("correo") as string | null)?.trim() || null;
 
   if (!nombre) return { ok: false, error: "El nombre de la clínica es obligatorio." };
 
@@ -33,7 +34,7 @@ export async function editarClinica(
         "Content-Type": "application/json",
         Cookie: await authCookie(),
       },
-      body: JSON.stringify({ nombre, direccion }),
+      body: JSON.stringify({ nombre, direccion, correo }),
     });
 
     if (!res.ok) {

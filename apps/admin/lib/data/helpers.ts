@@ -1,5 +1,4 @@
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatearFecha, formatearFechaHora } from "@repo/api-client";
 import { ESTADOS_ORDEN } from "./types";
 import type { Clinica, DetalleOrden, EstadoOrden, Orden } from "./types";
 
@@ -17,6 +16,13 @@ export function estadoLabel(estado: EstadoOrden): string {
   return ESTADO_LABELS[estado];
 }
 
+/** `cancelada` and `terminada` are irreversible (ver `apps/api/docs/database-model.md`). */
+const ESTADOS_FINALES = new Set<EstadoOrden>(["cancelada", "terminada"]);
+
+export function esEstadoFinal(estado: EstadoOrden): boolean {
+  return ESTADOS_FINALES.has(estado);
+}
+
 /** Parses a `numeric(12,2)` string into integer cents (no float drift). */
 function toCents(value: string): number {
   const [whole = "0", frac = ""] = value.split(".");
@@ -30,8 +36,11 @@ function fromCents(cents: number): string {
 }
 
 /** Line subtotal = cantidad x precio_unitario, as a 2-decimal string. */
-export function lineSubtotal(cantidad: number, precioUnitario: string): string {
-  return fromCents(cantidad * toCents(precioUnitario));
+export function lineSubtotal(
+  cantidad: number,
+  precioUnitario: string | null,
+): string {
+  return fromCents(cantidad * toCents(precioUnitario ?? "0"));
 }
 
 /** Order total = sum of the line subtotals, as a 2-decimal string. */
@@ -39,7 +48,10 @@ export function orderTotal(
   detalles: Pick<DetalleOrden, "cantidad" | "precioUnitario">[],
 ): string {
   return fromCents(
-    detalles.reduce((sum, d) => sum + d.cantidad * toCents(d.precioUnitario), 0),
+    detalles.reduce(
+      (sum, d) => sum + d.cantidad * toCents(d.precioUnitario ?? "0"),
+      0,
+    ),
   );
 }
 
@@ -54,11 +66,11 @@ export function formatCop(value: string | number): string {
 }
 
 export function formatDate(iso: string | null): string {
-  return iso ? format(parseISO(iso), "d 'de' MMMM 'de' yyyy", { locale: es }) : "Sin fecha";
+  return formatearFecha(iso, "Sin fecha");
 }
 
 export function formatDateTime(iso: string): string {
-  return iso ? format(parseISO(iso), "d MMM yyyy HH:mm", { locale: es }) : "—";
+  return formatearFechaHora(iso, "—");
 }
 
 /** Lowercase and strip accents so searches ignore case and diacritics. */

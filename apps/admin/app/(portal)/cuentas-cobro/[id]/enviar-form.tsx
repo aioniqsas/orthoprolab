@@ -1,7 +1,8 @@
 "use client";
 import { useState, useActionState, useTransition } from "react";
 import { ExternalLink, FileText, Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button"
+import { ActionButton } from "@repo/ui/action-button";
 import { generarPdf, enviarEmail } from "./actions";
 
 interface Props {
@@ -52,9 +53,9 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, clinicaCorreo }: P
         ) : (
           <span className="text-sm text-muted-foreground">Sin PDF generado</span>
         )}
-        <Button
+        <ActionButton intent="outline"
           type="button"
-          variant="outline"
+          
           size="sm"
           disabled={pdfPending}
           onClick={handleGenerarPdf}
@@ -63,7 +64,7 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, clinicaCorreo }: P
             <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />
           ) : null}
           {initialPdfUrl ? "Regenerar PDF" : "Generar PDF"}
-        </Button>
+        </ActionButton>
         {pdfError ? (
           <p role="alert" className="text-sm text-destructive">
             {pdfError}
@@ -93,12 +94,12 @@ export function EnviarForm({ cuentaId, pdfUrl: initialPdfUrl, clinicaCorreo }: P
                 className={`rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-highlight${!useCustomEmail ? " opacity-60 cursor-not-allowed" : ""}`}
               />
             </div>
-            <Button type="submit" variant="outline" disabled={emailPending}>
+            <ActionButton intent="outline" type="submit"  disabled={emailPending}>
               {emailPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />
               ) : null}
               Enviar por email
-            </Button>
+            </ActionButton>
           </div>
           <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
             <input

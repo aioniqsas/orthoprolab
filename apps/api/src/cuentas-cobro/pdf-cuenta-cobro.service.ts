@@ -15,7 +15,7 @@ function fmt(val: string | number): string {
 }
 
 interface DeepDetalle {
-  servicio?: { nombre?: string };
+  servicio?: string;
   cantidad?: number;
 }
 
@@ -136,7 +136,7 @@ export class PdfCuentaCobroService {
           ? `${doctorOrd.nombres ?? ''} ${doctorOrd.apellidos ?? ''}`.trim()
           : '';
         const svcItems = (ord?.detalles ?? []).map(
-          (d) => `${d.servicio?.nombre ?? '?'} × ${d.cantidad ?? 1}`,
+          (d) => `${d.servicio ?? '?'} × ${d.cantidad ?? 1}`,
         );
         const valor = fmt(co.valorSnapshot);
 
