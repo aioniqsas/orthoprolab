@@ -3,6 +3,7 @@ export * from "./client";
 export * from "./dientes";
 export * from "./errors";
 export * from "./estados";
+export * from "./fechas";
 export * from "./portal-session";
 export * from "./redirect";
 export * from "./reintentos";
