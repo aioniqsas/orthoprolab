@@ -60,13 +60,15 @@ El formato y los días se resuelven con `@repo/api-client` (`src/fechas.ts`): `f
 
 ## Logs
 
-El portal Admin registra eventos en **una línea JSON por evento** (`apps/admin/lib/logger.ts`), pensada para la terminal del servidor (`bun run dev`):
+El portal Admin registra **una línea JSON por evento** en `logs/admin.log` (`apps/admin/lib/logger.ts`). Se escribe con `appendFileSync` antes de responder: si el proceso muere en la línea siguiente, el evento ya está en disco. La terminal recibe el mismo JSON como espejo, no como fuente de verdad.
 
 ```json
 {"ts":"...","nivel":"warn","ambito":"cuentas-cobro.enviarEmail","ref":"ab12cd34","mensaje":"respuesta-no-ok","datos":{"ruta":"/cuentas-cobro/3/enviar","status":400,"duracionMs":812,"cuerpo":"..."}}
 ```
 
+- Rotación a los 5 MB, conservando los 5 archivos rotados; `LOG_DIR` mueve el directorio (por ejemplo a un volumen persistente). `logs/` está en `.gitignore`.
 - `ref` es el identificador corto que también se muestra al usuario cuando algo falla: sirve para cruzar el mensaje de la pantalla con esta salida (`grep ab12cd34`).
 - Las server actions de `cuentas-cobro/[id]` corren bajo `conRegistro()`, que registra inicio, fin, duración y error; una excepción inesperada se convierte en un resultado serializable en lugar de romper la respuesta.
 - `pedirApi()` deja el estado HTTP y hasta 500 caracteres del cuerpo cuando la API responde distinto de 2xx.
+- `instalarCapturaDeCaidas()` se instala desde `instrumentation.ts`: registra `uncaughtException` y termina el proceso, y registra `unhandledRejection` sin tumbarlo.
 - `app/(portal)/error.tsx` captura los fallos que nunca llegan a la acción —el caso «An unexpected response was received from the server», que ocurre cuando `proxy.ts` redirige a `/login` por sesión vencida o cuando la respuesta es HTML— y muestra el `digest` de Next, que es la misma clave que Next imprime en la terminal.

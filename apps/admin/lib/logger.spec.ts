@@ -1,5 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
-import { conRegistro, crearRef, formatearLinea } from "./logger";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { conRegistro, crearRef, formatearLinea, persistirLinea } from "./logger";
+
+let dir: string;
+
+beforeAll(() => {
+  dir = mkdtempSync(join(tmpdir(), "logs-admin-"));
+  process.env.LOG_DIR = dir;
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("formatearLinea", () => {
   it("produce una sola línea JSON con marca de tiempo y contexto", () => {
@@ -32,6 +46,31 @@ describe("crearRef", () => {
     const segunda = crearRef();
     expect(primera).toHaveLength(8);
     expect(primera).not.toBe(segunda);
+  });
+});
+
+describe("persistirLinea", () => {
+  it("anexa al archivo en vez de sobrescribirlo", () => {
+    const destino = mkdtempSync(join(tmpdir(), "logs-append-"));
+
+    persistirLinea('{"n":1}', { dir: destino });
+    persistirLinea('{"n":2}', { dir: destino });
+
+    expect(readFileSync(join(destino, "admin.log"), "utf8")).toBe('{"n":1}\n{"n":2}\n');
+  });
+
+  it("rota al pasar el límite y conserva como máximo cinco archivos", () => {
+    const destino = mkdtempSync(join(tmpdir(), "logs-rotate-"));
+    // Nueve rotaciones: seis deben quedar borradas por la poda.
+    for (let i = 0; i < 9; i += 1) {
+      writeFileSync(join(destino, "admin.log"), "x".repeat(10));
+      persistirLinea(`{"n":${i}}`, { dir: destino, limiteBytes: 5 });
+    }
+
+    const rotados = readdirSync(destino).filter((n) => n.startsWith("admin-"));
+    expect(rotados.length).toBeLessThanOrEqual(5);
+    // El archivo vivo arranca vacío tras cada rotación, no acumula.
+    expect(readFileSync(join(destino, "admin.log"), "utf8")).toBe('{"n":8}\n');
   });
 });
 
@@ -80,7 +119,18 @@ describe("conRegistro", () => {
     const linea = JSON.parse(String(error.mock.calls.at(-1)?.[0]));
     expect(linea).toMatchObject({ nivel: "error", mensaje: "excepcion" });
     expect(linea.datos).toMatchObject({ id: "7", error: "boom" });
-    error.mockRestore();
-    vi.restoreAllMocks();
+  });
+
+  it("deja el evento en disco aunque la terminal falle", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {
+      throw new Error("stdout cerrado");
+    });
+
+    await expect(
+      conRegistro("test.persistencia", { id: "9" }, async () => ({ ok: true })),
+    ).resolves.toEqual({ ok: true });
+
+    const contenido = readFileSync(join(dir, "admin.log"), "utf8");
+    expect(contenido).toContain('"ambito":"test.persistencia"');
   });
 });
