@@ -7,6 +7,7 @@ import { ListSkeleton } from "../../_components/list-skeleton";
 import { PageHeader } from "../../_components/page-header";
 import { listCuentasCobro } from "@/lib/data/repository";
 import { CuentasTable } from "./cuentas-table";
+import { CuentasLive } from "./cuentas-live";
 
 export const metadata: Metadata = { title: "Cuentas de cobro" };
 
@@ -27,6 +28,7 @@ export default function CuentasCobroPage() {
           </Link>
         }
       />
+      <CuentasLive />
       <Suspense fallback={<ListSkeleton />}>
         <CuentasList />
       </Suspense>
