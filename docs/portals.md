@@ -57,3 +57,16 @@ Las dos listas filtran por tres grupos definidos en `@repo/api-client` (`GRUPOS_
 La base y los tres procesos Node operan en `America/Bogota`: los scripts `dev`/`start`/`build` de cada app fijan `TZ=America/Bogota`, y la migración `SetDatabaseTimezoneBogota` deja `timezone = 'America/Bogota'` como valor por defecto de sesión. `timestamptz` sigue guardando instantes; el `TimeZone` solo decide qué significa «hoy» para `CURRENT_DATE`, `now()::date`, `date_trunc` y los casts a `date`.
 
 El formato y los días se resuelven con `@repo/api-client` (`src/fechas.ts`): `formatearFecha` / `formatearFechaHora` muestran la zona del negocio, y `hoyNegocio()` / `diaNegocio()` la aplican de forma explícita con `Intl.DateTimeFormat(..., { timeZone })`, sin depender del `TZ` del proceso. Los portales no deben usar `toLocaleDateString` / `toLocaleString` para fechas ni `new Date().toISOString().slice(0, 10)` para «hoy». `orden.fecha_entrega` guarda un día calendario a las 12:00 UTC (07:00 en Bogotá) y su CHECK compara días calendario, no instantes.
+
+## Logs
+
+El portal Admin registra eventos en **una línea JSON por evento** (`apps/admin/lib/logger.ts`), pensada para la terminal del servidor (`bun run dev`):
+
+```json
+{"ts":"...","nivel":"warn","ambito":"cuentas-cobro.enviarEmail","ref":"ab12cd34","mensaje":"respuesta-no-ok","datos":{"ruta":"/cuentas-cobro/3/enviar","status":400,"duracionMs":812,"cuerpo":"..."}}
+```
+
+- `ref` es el identificador corto que también se muestra al usuario cuando algo falla: sirve para cruzar el mensaje de la pantalla con esta salida (`grep ab12cd34`).
+- Las server actions de `cuentas-cobro/[id]` corren bajo `conRegistro()`, que registra inicio, fin, duración y error; una excepción inesperada se convierte en un resultado serializable en lugar de romper la respuesta.
+- `pedirApi()` deja el estado HTTP y hasta 500 caracteres del cuerpo cuando la API responde distinto de 2xx.
+- `app/(portal)/error.tsx` captura los fallos que nunca llegan a la acción —el caso «An unexpected response was received from the server», que ocurre cuando `proxy.ts` redirige a `/login` por sesión vencida o cuando la respuesta es HTML— y muestra el `digest` de Next, que es la misma clave que Next imprime en la terminal.
