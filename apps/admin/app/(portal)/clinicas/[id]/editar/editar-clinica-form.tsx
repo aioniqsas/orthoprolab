@@ -1,7 +1,6 @@
 "use client";
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
 import type { ClinicaDetalle } from "@/lib/data/types";
 import { editarClinica } from "../actions";
@@ -32,6 +31,25 @@ export function EditarClinicaForm({ clinica }: { clinica: ClinicaDetalle }) {
             defaultValue={clinica.nombre}
             className={inputCls}
           />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="correo" className="text-sm font-medium text-body">
+            Correo electrónico
+          </label>
+          <input
+            id="correo"
+            name="correo"
+            type="email"
+            maxLength={150}
+            defaultValue={clinica.correo ?? ""}
+            placeholder="clinica@ejemplo.com"
+            className={inputCls}
+          />
+          <p className="text-xs text-muted-foreground">
+            Aquí llegan los controles de trabajos de laboratorio. Déjalo vacío para no
+            enviar correos a esta clínica.
+          </p>
         </div>
 
         <div className="flex flex-col gap-1">

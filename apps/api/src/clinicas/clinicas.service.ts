@@ -163,6 +163,7 @@ export class ClinicasService {
     if (!clinica) throw new NotFoundException(`Clínica ${id} no encontrada`);
     if (dto.nombre !== undefined) clinica.nombre = dto.nombre;
     if ('direccion' in dto) clinica.direccion = dto.direccion ?? null;
+    if ('correo' in dto) clinica.correo = dto.correo ?? null;
     return this.clinicaRepo.save(clinica);
   }
 
