@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import PDFDocument from 'pdfkit';
 import { odontogramaPng } from './odontograma-png.js';
-import { odontogramaSvg } from './odontograma-svg.js';
+import { ODONTOGRAMA_ALTO, ODONTOGRAMA_ANCHO, odontogramaSvg } from './odontograma-svg.js';
 import type { Orden } from './orden.entity.js';
 
 interface DeepDetalle {
@@ -136,8 +136,8 @@ export class PdfControlTrabajosService {
 
       // 2. Odontograma de la orden (PNG).
       if (odontograma) {
-        const anchoImagen = Math.min(W, 430);
-        const altoImagen = (anchoImagen * 420) / 600;
+        const anchoImagen = Math.min(W, 380);
+        const altoImagen = (anchoImagen * ODONTOGRAMA_ALTO) / ODONTOGRAMA_ANCHO;
         if (y + altoImagen > limiteInferior) {
           doc.addPage();
           y = M;

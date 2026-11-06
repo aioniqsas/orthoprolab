@@ -25,7 +25,8 @@ El PDF del control de trabajos pasa a mostrar el detalle de cada clase de trabaj
 - La ruta degradada se observó de verdad: con `sharp` ausente el log emite «Odontograma omitido del PDF: Cannot find package 'sharp'» y el PDF igual se genera.
 - Con `sharp` instalada: `odontograma-png.spec.ts` verifica un PNG real de 600×420, y la prueba del PDF confirma que el documento incrusta una imagen (`/Subtype /Image`).
 - `bun install --frozen-lockfile` → «Checked 852 installs across 983 packages (no changes)»: el lockfile quedó consistente para CI.
-- **No verificado**: la inspección visual del documento final (no hay visor de PDF en el entorno).
+- La figura se rasterizó a PNG y se inspeccionó visualmente: dos arcadas con paladar, corona y fisura por tipo de diente, rotación hacia el centro, numeración FDI fuera del arco y los dientes de la orden resaltados. Es el mismo diseño del odontograma de las órdenes (`packages/ui/src/components/odontograma.tsx`), con los colores adaptados al papel blanco.
+- **No verificado**: la composición visual del PDF completo (no hay visor de PDF en el entorno); la imagen sí se verificó por separado.
 
 ## Log
 
@@ -34,3 +35,4 @@ El PDF del control de trabajos pasa a mostrar el detalle de cada clase de trabaj
 - **L3** — Decisión del cliente: el detalle de clases de trabajo va una sola vez, arriba; cada prueba queda con fecha + motivo.
 - **L4** — Estado del entorno: `sharp@0.35.5` está en el store del monorepo como dependencia opcional de Next, pero no es resoluble desde `apps/api`; declararla exige `bun install`, que no existe en el entorno del agente.
 - **L5** — Corregido antes de commitear: las dos arcadas usaban centros distintos y se solapaban; ahora comparten una línea de mordida y hay una prueba que lo fija.
+- **L6** — El cliente señaló que la figura esquemática (rectángulos) no era el odontograma de las órdenes. Se portó la geometría y las formas reales: coronas por tipo de diente (4 variantes), fisuras (4 variantes), paladar, rotación por posición y numeración fuera del arco.
