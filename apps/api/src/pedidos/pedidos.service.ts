@@ -398,8 +398,8 @@ export class PedidosService {
 
   /** Cancel an order from any non-final state. */
   async cancelar(id: string, usuarioId: string, observaciones?: string): Promise<Orden> {
-    const estadoCanceladaId = await this.getEstadoIdByCodigo('cancelada');
-    if (!estadoCanceladaId) {
+    const estadoCancelada = await this.estadoRepo.findOne({ where: { codigo: 'cancelada' } });
+    if (!estadoCancelada) {
       throw new BadRequestException('Estado cancelada no encontrado.');
     }
     const result = await this.dataSource.transaction(async (manager) => {
@@ -417,13 +417,16 @@ export class PedidosService {
       const entrada = manager.create(HistorialEstadoOrden, {
         ordenId: orden.id,
         estadoAnteriorId: orden.estadoId,
-        estadoNuevoId: estadoCanceladaId,
+        estadoNuevoId: estadoCancelada.id,
         usuarioId,
         observaciones: observaciones?.trim() || null,
       });
       await manager.save(HistorialEstadoOrden, entrada);
 
-      orden.estadoId = estadoCanceladaId;
+      orden.estadoId = estadoCancelada.id;
+      // A populated relation wins over the FK on save: without this TypeORM
+      // rewrites estado_id with the previous state and only the history moves.
+      orden.estado = estadoCancelada;
       await manager.save(Orden, orden);
 
       const full = await manager.findOne(Orden, {

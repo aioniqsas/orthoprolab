@@ -21,6 +21,7 @@ Botón de cancelar operativo en los dos portales y regla de irreversibilidad par
 - [x] T5 — Clientes: `AccionesOrden` y el detalle aplican la misma ventana de cancelación. (S2) — `ecc1f50`
 - [x] T6 — Pruebas unitarias del API (cancelación y reversibilidad) y del helper de Admin. (S1–S5) — `adcd92a`, `ecc1f50`
 - [x] T7 — Docs: `docs/portals.md` y `apps/api/docs/database-model.md` (pregunta abierta 4). (S1–S4) — `adcd92a`, `ecc1f50`
+- [x] T8 — API: `cancelar` persiste el estado nuevo en `orden.estado_id`. La relación `estado` cargada mandaba al guardar, así que el historial avanzaba a `cancelada` pero la orden seguía `recibida`. (S1)
 
 ### Límite de slice
 
@@ -43,3 +44,5 @@ Los dos commits de esta feature viven en la rama `feat/orden-cancelacion-irrever
 - **L4** — Decisión del cliente: ambos portales con la misma ventana.
 - **L5** — Decisión del cliente: `terminada` también es definitiva.
 - **L6** — Implementado en `adcd92a` (API) y `ecc1f50` (portales). Identidad de commit tomada de la configuración local del repositorio (`git config --local`), que no existía: se replicó el autor de los commits previos.
+- **L7** — Reporte del cliente: «Si utilizo ese botón de cancelar orden, me abre el panel de observaciones, escribo el motivo, lo voy a cancelar. Y si bien en el historial cambia de recibida a cancelada, no veo que cambie su estado… en ambos paneles me sigue apareciendo que la orden está recibida.» Causa: `cancelar` asignaba solo `estadoId` con la relación `estado` cargada; TypeORM deriva la FK de la relación y reescribía el estado anterior. Cubierto por la prueba de T6 ampliada (afirmaba solo el historial, no la orden guardada).
+- **L8** — Bug del portal Clientes ajeno a esta feature: `ordenes/[id]`, `ordenes/nuevo` y `pacientes` hacían el `fetch` sin caché fuera de `<Suspense>`, lo que disparaba `blocking-prerender-dynamic` en Next 16. Corregido con el mismo corte shell + Suspense de las rutas hermanas.

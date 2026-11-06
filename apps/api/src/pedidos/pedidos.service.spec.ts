@@ -115,7 +115,14 @@ function montarEstados(opciones: {
   const service = new PedidosService(
     {} as never,
     {} as never,
-    { findOne: vi.fn(async () => ({ id: '4' })) } as never,
+    {
+      findOne: vi.fn(async () => ({
+        id: '4',
+        codigo: 'cancelada',
+        nombre: 'Cancelada',
+        esFinal: true,
+      })),
+    } as never,
     { findOne: vi.fn(async () => ({ id: '7', clinicaId: '1' })) } as never,
     {} as never,
     { transaction: (cb: (m: unknown) => unknown) => cb(manager) } as never,
@@ -139,6 +146,12 @@ describe('PedidosService.cancelar · ventana de cancelación', () => {
       ordenId: '5',
       estadoNuevoId: '4',
       observaciones: 'El paciente desistió',
+    });
+    // La orden persistida debe quedar en cancelada, no solo el historial.
+    const ordenGuardada = guardados.find((g) => g.entidad === Orden);
+    expect(ordenGuardada?.valor).toMatchObject({
+      estadoId: '4',
+      estado: { codigo: 'cancelada' },
     });
   });
 
