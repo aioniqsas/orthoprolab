@@ -26,7 +26,7 @@ import type { EnvConfig } from '../config/env.validation.js';
         retryAttempts: 5,
         retryDelay: 3000,
         connectTimeoutMS: 5000,
-        extra: { max: 10, idleTimeoutMillis: 30000 },
+        extra: { max: 5, idleTimeoutMillis: 10000 },
       }),
     }),
   ],
