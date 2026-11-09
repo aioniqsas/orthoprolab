@@ -1,4 +1,4 @@
-name: Deploy to render
+name: Deploy to Render
 
 on:
   push:
