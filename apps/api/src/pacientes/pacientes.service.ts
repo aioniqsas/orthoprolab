@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { cedulaHashOrNull } from '../crypto/cedula.js';
+import { coincideBusqueda } from '../common/busqueda.js';
 import { enmascararCedula } from './cedula-visible.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { PacienteDoctor } from './paciente-doctor.entity.js';
@@ -43,6 +44,7 @@ export class PacientesService {
 
   async listForClinica(
     clinicaId: string,
+    q?: string,
   ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {
     const links = await this.pacienteDoctorRepo
       .createQueryBuilder('pd')
@@ -56,6 +58,8 @@ export class PacientesService {
     const result: Array<{ id: string; nombre: string; cedula: string | null }> =
       [];
     for (const link of links) {
+      // Matched on the decrypted values here; only masked fields leave the service.
+      if (!coincideBusqueda(q, [link.paciente.nombre, link.paciente.cedula])) continue;
       if (!seen.has(link.pacienteId)) {
         seen.add(link.pacienteId);
         result.push({

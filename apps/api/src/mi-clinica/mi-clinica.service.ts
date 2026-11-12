@@ -14,6 +14,7 @@ import type { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { PedidosService } from '../pedidos/pedidos.service.js';
 import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { MailerControlTrabajosService } from '../pedidos/mailer-control-trabajos.service.js';
+import { coincideBusqueda } from '../common/busqueda.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
 import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
@@ -147,13 +148,15 @@ export class MiClinicaService {
   async listPacientesDelDoctor(
     usuarioId: string,
     doctorId: string,
+    q?: string,
   ): Promise<PacienteDoctor[]> {
     await this.getDoctor(usuarioId, doctorId);
-    return this.pacienteDoctorRepo.find({
+    const vinculos = await this.pacienteDoctorRepo.find({
       where: { doctorId },
       relations: { paciente: true },
       order: { fechaAsignacion: 'DESC' },
     });
+    return vinculos.filter((v) => coincideBusqueda(q, [v.paciente?.nombre, v.paciente?.cedula]));
   }
 
   async listServicios(): Promise<Servicio[]> {
@@ -180,9 +183,10 @@ export class MiClinicaService {
 
   async listAllPacientes(
     usuarioId: string,
+    q?: string,
   ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.pacientesService.listForClinica(clinicaId);
+    return this.pacientesService.listForClinica(clinicaId, q);
   }
 
   async updatePaciente(

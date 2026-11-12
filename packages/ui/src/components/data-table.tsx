@@ -45,6 +45,16 @@ export type DataTableProps<T> = {
     placeholder: string
     label: string
   }
+  /**
+   * Search owned by the caller (server-side search, optimizacion B10): the
+   * input shows `value` and reports every keystroke through `onChange`; rows
+   * are not filtered by `searchValue` here. Use it when the matching must run
+   * on the server, e.g. over encrypted fields the browser must never receive.
+   */
+  serverSearch?: {
+    value: string
+    onChange: (value: string) => void
+  }
   filters?: readonly DataTableFilter<T>[]
   /** Mobile rendering; the table itself is hidden below md. */
   renderCard?: (row: T) => React.ReactNode
@@ -111,6 +121,7 @@ function DataTable<T>({
   columns,
   rowKey,
   search,
+  serverSearch,
   filters = [],
   renderCard,
   empty,
@@ -136,7 +147,8 @@ function DataTable<T>({
     setPage(0)
   }
 
-  const filtered = filterRows(rows, columns, filters, filterValues, query)
+  const busqueda = serverSearch ? serverSearch.value : query
+  const filtered = filterRows(rows, columns, filters, filterValues, serverSearch ? "" : query)
 
   const sorted = React.useMemo(() => {
     if (!sort) return filtered
@@ -156,11 +168,12 @@ function DataTable<T>({
   const { visible, pageCount, currentPage, first } = paginate(sorted, page, pageSize)
 
   const hasFilters =
-    normalize(query).length > 0 ||
+    normalize(busqueda).length > 0 ||
     Object.values(filterValues).some((value) => value && value !== "all")
 
   const clearFilters = () => {
     setQuery("")
+    serverSearch?.onChange("")
     setFilterValues({})
     setPage(0)
   }
@@ -176,9 +189,10 @@ function DataTable<T>({
             />
             <Input
               type="search"
-              value={query}
+              value={busqueda}
               onChange={(event) => {
-                setQuery(event.target.value)
+                if (serverSearch) serverSearch.onChange(event.target.value)
+                else setQuery(event.target.value)
                 setPage(0)
               }}
               aria-label={search.label}

@@ -100,11 +100,12 @@ export class MiClinicaController {
   listPacientes(
     @Req() req: AuthenticatedRequest,
     @Query('doctorId') doctorId?: string,
+    @Query('q') q?: string,
   ) {
     if (doctorId) {
-      return this.miClinica.listPacientesDelDoctor(req.user.id, doctorId);
+      return this.miClinica.listPacientesDelDoctor(req.user.id, doctorId, q);
     }
-    return this.miClinica.listAllPacientes(req.user.id);
+    return this.miClinica.listAllPacientes(req.user.id, q);
   }
 
   @Post('pacientes')

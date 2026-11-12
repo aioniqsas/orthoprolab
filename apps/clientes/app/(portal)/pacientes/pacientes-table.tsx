@@ -3,25 +3,32 @@
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
 import type { PacienteConCedula } from "@/lib/data/types";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
-export function PacientesTable({ pacientes }: { pacientes: PacienteConCedula[] }) {
+export function PacientesTable({
+  pacientes,
+  busquedaInicial,
+}: {
+  pacientes: PacienteConCedula[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   return (
     <DataTable
       rows={pacientes}
       rowKey={(p) => p.id}
+      serverSearch={busqueda}
       columns={[
         {
           id: "nombre",
           header: "Nombre",
           render: (p) => <span className="text-title">{p.nombre}</span>,
-          searchValue: (p) => p.nombre,
           sortValue: (p) => p.nombre,
         },
         {
           id: "cedula",
           header: "Cédula",
           render: (p) => <span className="font-mono">{p.cedula ?? "—"}</span>,
-          searchValue: (p) => p.cedula ?? "",
           sortValue: (p) => p.cedula ?? "",
         },
         {

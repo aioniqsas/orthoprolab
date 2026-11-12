@@ -92,9 +92,10 @@ export async function listPacientesDelDoctor(doctorId: string): Promise<Paciente
 
 // ─── Pacientes (all in clinic) ──────────────────────────────────────────────
 
-export async function listPacientes(): Promise<PacienteConCedula[]> {
+export async function listPacientes(q?: string): Promise<PacienteConCedula[]> {
   try {
-    const res = await fetch(`${API_URL}/mi-clinica/pacientes`, {
+    const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+    const res = await fetch(`${API_URL}/mi-clinica/pacientes${qs}`, {
       headers: await authHeader(),
       cache: "no-store",
     });
