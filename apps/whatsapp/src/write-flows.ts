@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { esDienteValido, nombreDiente } from '@repo/api-client/dientes'
 import type { ApiClient, NuevaOrdenPayload, PacienteApi } from './api.js'
 import { ApiError } from './api.js'
+import { extraerNumero } from './digitos.js'
 import { buildMenu } from './menu.js'
+import { PREGUNTA_CONFIRMAR } from './flows.js'
 import type { ConversationStore } from './state.js'
 
 /**
@@ -14,6 +16,9 @@ import type { ConversationStore } from './state.js'
  */
 
 export const OPCION_CANCELAR_ORDEN = /^(0|cancelar)$/i
+/** Confirmación tolerante (S11): 1, sí/si o confirmar, sin importar mayúsculas. */
+export const CONFIRMAR_SI = /^(1|sí|si|confirmar)$/i
+export const CONFIRMAR_NO = /^(0|no|cancelar)$/i
 
 type Campos = Record<string, string>
 
@@ -41,7 +46,7 @@ export function resumenOrden(campos: Campos): string {
     `Color: ${campos.color ?? '—'}`,
     `Observaciones: ${observaciones}`,
     '',
-    'Escribe CONFIRMAR para crear la orden, o cancelar para descartarla.',
+    'Escribe 1 para crear la orden, o 0 para cancelar.',
   ].join('\n')
 }
 
@@ -59,9 +64,36 @@ function numerar(opciones: Array<{ nombre: string }>): string {
 }
 
 function indiceValido(entrada: string, total: number): number | null {
-  if (!/^\d{1,3}$/.test(entrada)) return null
-  const n = Number(entrada)
+  const numero = extraerNumero(entrada)
+  if (!numero || !/^\d{1,3}$/.test(numero)) return null
+  const n = Number(numero)
   return n >= 1 && n <= total ? n - 1 : null
+}
+
+/**
+ * "Paso X de Y" (S11/T12): X es el índice de la pregunta en la conversación y
+ * Y el total real de preguntas que el usuario contestará: el paso del doctor
+ * desaparece con un contacto 1:1, así que Y baja de 7 a 6.
+ */
+function pasoPrefijo(campos: Campos, indice: number): string {
+  const unoAUno = campos.doctor1a1 === '1'
+  return `Paso ${unoAUno ? indice - 1 : indice} de ${unoAUno ? 6 : 7}. `
+}
+
+function preguntaCantidad(campos: Campos): string {
+  return `${pasoPrefijo(campos, 4)}¿Cuántas unidades? Escribe un número entero mayor que 0 (o 0 para volver al menú).`
+}
+
+function preguntaDientes(campos: Campos): string {
+  return `${pasoPrefijo(campos, 5)}Escribe los dientes (números FDI) separados por espacio o coma, por ejemplo: 26 27\n\nO escribe 0 para volver al menú.`
+}
+
+function preguntaColor(campos: Campos): string {
+  return `${pasoPrefijo(campos, 6)}¿Color? Escribe el color del trabajo (1–20 caracteres), o 0 para volver al menú.`
+}
+
+function preguntaObservaciones(campos: Campos): string {
+  return `${pasoPrefijo(campos, 7)}¿Observaciones? Escríbelas, o escribe no u omitir para dejarlas vacías (0 para volver al menú).`
 }
 
 export class OrderFlows {
@@ -107,7 +139,7 @@ export class OrderFlows {
       } catch {
         // El nombre solo embellece el resumen; el id basta para el POST.
       }
-      return this.pedirPaciente(telefono, { ...campos, doctorId: doctorContacto, doctorNombre: nombre })
+      return this.pedirPaciente(telefono, { ...campos, doctorId: doctorContacto, doctorNombre: nombre, doctor1a1: '1' })
     }
     try {
       const doctores = await this.api.getDoctores(telefono)
@@ -118,7 +150,7 @@ export class OrderFlows {
       this.store.set(telefono, 'orden-doctor', campos)
       return {
         kind: 'text',
-        text: `Selecciona el doctor (escribe el número):\n\n${numerar(
+        text: `Paso 1 de 7. Selecciona el doctor (escribe el número):\n\n${numerar(
           doctores.map((d) => ({ nombre: [d.nombres, d.apellidos].filter(Boolean).join(' ') })),
         )}\n\nO escribe 0 para volver al menú.`,
       }
@@ -128,12 +160,50 @@ export class OrderFlows {
     }
   }
 
+  /**
+   * Repite la pregunta del paso en curso (S11/T12): lo usa el aviso de medios
+   * no legibles y "ayuda". Nunca regresa al menú ni re-muestra el resumen
+   * salvo en el paso de confirmación.
+   */
+  async repetirPaso(telefono: string): Promise<string> {
+    const estado = this.store.get(telefono)
+    const step = estado?.step ?? ''
+    const campos = estado?.fields ?? {}
+    switch (step) {
+      case 'orden-doctor':
+        try {
+          const doctores = await this.api.getDoctores(telefono)
+          return `Paso 1 de 7. Selecciona el doctor (escribe el número):\n\n${numerar(
+            doctores.map((d) => ({ nombre: [d.nombres, d.apellidos].filter(Boolean).join(' ') })),
+          )}\n\nO escribe 0 para volver al menú.`
+        } catch {
+          return 'No pude consultar los doctores ahora mismo. Vuelve a intentarlo en un rato.'
+        }
+      case 'orden-paciente':
+        return this.pedirPacienteOtraVez(telefono, campos, 'Elige el paciente de la lista, o crea uno nuevo con: nuevo <cédula> <nombre>').then((r) => r.text)
+      case 'orden-servicio':
+        return this.pedirServicio(telefono, campos).then((r) => r.text)
+      case 'orden-cantidad':
+        return preguntaCantidad(campos)
+      case 'orden-dientes':
+        return preguntaDientes(campos)
+      case 'orden-color':
+        return preguntaColor(campos)
+      case 'orden-observaciones':
+        return preguntaObservaciones(campos)
+      case 'orden-confirmar':
+        return resumenOrden(campos)
+      default:
+        return buildMenu()
+    }
+  }
+
   private async pasoDoctor(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
       const doctores = await this.api.getDoctores(telefono)
       const i = indiceValido(entrada, doctores.length)
       if (i === null) {
-        return { kind: 'text', text: 'Escribe el número del doctor de la lista, o 0 para volver al menú.' }
+        return { kind: 'text', text: 'No entendí. Escribe el número del doctor de la lista, o 0 para volver al menú.' }
       }
       const d = doctores[i]!
       const nombre = [d.nombres, d.apellidos].filter(Boolean).join(' ')
@@ -151,7 +221,7 @@ export class OrderFlows {
       const lista = pacientes.length > 0 ? `${numerar(pacientes.map((p) => ({ nombre: p.nombre })))}\n\n` : ''
       return {
         kind: 'text',
-        text: `Paciente de ${campos.doctorNombre ?? 'tu doctor'}:\n\n${lista}Escribe el número para elegir, o crea uno nuevo con: nuevo <cédula> <nombre>\n\nO escribe 0 para volver al menú.`,
+        text: `${pasoPrefijo(campos, 2)}Paciente de ${campos.doctorNombre ?? 'tu doctor'}:\n\n${lista}Escribe el número para elegir, o crea uno nuevo con: nuevo <cédula> <nombre>\n\nO escribe 0 para volver al menú.`,
       }
     } catch {
       this.store.clear(telefono)
@@ -179,7 +249,7 @@ export class OrderFlows {
       const pacientes = await this.api.getPacientes(telefono, campos.doctorId!)
       const i = indiceValido(entrada, pacientes.length)
       if (i === null) {
-        return this.pedirPacienteOtraVez(telefono, campos, 'Escribe el número del paciente, "nuevo <cédula> <nombre>" para crear uno, o 0 para volver al menú.')
+        return this.pedirPacienteOtraVez(telefono, campos, 'No entendí. Escribe el número del paciente, "nuevo <cédula> <nombre>" para crear uno, o 0 para volver al menú.')
       }
       const p = pacientes[i]!
       return this.pedirServicio(telefono, { ...campos, pacienteId: p.id, pacienteNombre: p.nombre })
@@ -212,7 +282,7 @@ export class OrderFlows {
       this.store.set(telefono, 'orden-servicio', campos)
       return {
         kind: 'text',
-        text: `Selecciona el servicio (escribe el número):\n\n${numerar(
+        text: `${pasoPrefijo(campos, 3)}Selecciona el servicio (escribe el número):\n\n${numerar(
           servicios.map((s) => ({ nombre: s.nombre })),
         )}\n\nO escribe 0 para volver al menú.`,
       }
@@ -227,12 +297,12 @@ export class OrderFlows {
       const servicios = await this.api.getServicios(telefono)
       const i = indiceValido(entrada, servicios.length)
       if (i === null) {
-        return { kind: 'text', text: 'Escribe el número del servicio de la lista, o 0 para volver al menú.' }
+        return { kind: 'text', text: 'No entendí. Escribe el número del servicio de la lista, o 0 para volver al menú.' }
       }
       const s = servicios[i]!
       const siguientes = { ...campos, servicioNombre: s.nombre }
       this.store.set(telefono, 'orden-cantidad', siguientes)
-      return { kind: 'text', text: '¿Cuántas unidades? Escribe un número entero mayor que 0 (o 0 para volver al menú).' }
+      return { kind: 'text', text: preguntaCantidad(siguientes) }
     } catch {
       this.store.clear(telefono)
       return { kind: 'text', text: 'No pude consultar los servicios ahora mismo. Vuelve a intentarlo en un rato.' }
@@ -240,15 +310,13 @@ export class OrderFlows {
   }
 
   private async pasoCantidad(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
-    if (!/^\d{1,2}$/.test(entrada) || Number(entrada) < 1) {
-      return { kind: 'text', text: 'Escribe un número entero mayor que 0 (o 0 para volver al menú).' }
+    const numero = extraerNumero(entrada)
+    if (!numero || !/^\d{1,2}$/.test(numero) || Number(numero) < 1) {
+      return { kind: 'text', text: `No entendí. ${preguntaCantidad(campos)}` }
     }
-    const siguientes = { ...campos, cantidad: entrada }
+    const siguientes = { ...campos, cantidad: numero }
     this.store.set(telefono, 'orden-dientes', siguientes)
-    return {
-      kind: 'text',
-      text: 'Escribe los dientes (números FDI) separados por espacio o coma, por ejemplo: 26 27\n\nO escribe 0 para volver al menú.',
-    }
+    return { kind: 'text', text: preguntaDientes(siguientes) }
   }
 
   private async pasoDientes(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
@@ -262,27 +330,24 @@ export class OrderFlows {
       if (!Number.isInteger(numero) || !esDienteValido(numero)) {
         return {
           kind: 'text',
-          text: `El diente ${token} no es un número FDI válido. Escribe de nuevo los dientes (p. ej. 26 27), o 0 para volver al menú.`,
+          text: `No entendí. El diente ${token} no es un número FDI válido. Escribe de nuevo los dientes (p. ej. 26 27), o 0 para volver al menú.`,
         }
       }
       vistos.add(numero)
     }
     const siguientes = { ...campos, dientes: [...vistos].join(',') }
     this.store.set(telefono, 'orden-color', siguientes)
-    return { kind: 'text', text: '¿Color? Escribe el color del trabajo (1–20 caracteres), o 0 para volver al menú.' }
+    return { kind: 'text', text: preguntaColor(siguientes) }
   }
 
   private async pasoColor(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     const color = entrada.trim()
     if (color.length < 1 || color.length > 20) {
-      return { kind: 'text', text: 'El color debe tener entre 1 y 20 caracteres (o 0 para volver al menú).' }
+      return { kind: 'text', text: `No entendí. El color debe tener entre 1 y 20 caracteres (o 0 para volver al menú).` }
     }
     const siguientes = { ...campos, color }
     this.store.set(telefono, 'orden-observaciones', siguientes)
-    return {
-      kind: 'text',
-      text: '¿Observaciones? Escríbelas, o escribe no u omitir para dejarlas vacías (0 para volver al menú).',
-    }
+    return { kind: 'text', text: preguntaObservaciones(siguientes) }
   }
 
   private async pasoObservaciones(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
@@ -300,13 +365,17 @@ export class OrderFlows {
   }
 
   /**
-   * Puerta de confirmación (S6): solo el texto exacto `CONFIRMAR` escribe.
-   * Cualquier otra entrada re-muestra el resumen sin llamar a la API; tras un
-   * fallo el estado se conserva para reintentar con CONFIRMAR.
+   * Puerta de confirmación (S6, S11): el resumen siempre se muestra antes de
+   * escribir; 1, sí/si o confirmar crean, y 0, no o cancelar descartan. Otra
+   * entrada recibe "No entendí" sin llamar a la API.
    */
   private async pasoConfirmar(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
-    if (entrada !== 'CONFIRMAR') {
-      return { kind: 'text', text: resumenOrden(campos) }
+    if (CONFIRMAR_NO.test(entrada)) {
+      this.store.clear(telefono)
+      return { kind: 'text', text: `Orden descartada.\n\n${buildMenu()}`, intencion: 'menu' }
+    }
+    if (!CONFIRMAR_SI.test(entrada)) {
+      return { kind: 'text', text: PREGUNTA_CONFIRMAR }
     }
     const payload: NuevaOrdenPayload = {
       doctorId: campos.doctorId!,
@@ -338,13 +407,13 @@ export class OrderFlows {
           error instanceof ApiError ? textoErrorCreacion(error.status) : 'un problema de conexión'
         return {
           kind: 'text',
-          text: `Hubo ${motivo} y la orden puede que se haya creado. Verifica con la opción 1 (estado de pedido) antes de confirmar de nuevo; si no apareció, escribe CONFIRMAR para reintentar, o cancelar para descartar los datos.`,
+          text: `Hubo ${motivo} y la orden puede que se haya creado. Verifica con la opción 1 (estado de pedido) antes de confirmar de nuevo; si no apareció, escribe 1 para reintentar, o 0 para descartar los datos.`,
         }
       }
       const motivo = textoErrorCreacion(error.status)
       return {
         kind: 'text',
-        text: `No pude crear la orden (${motivo}). Tus datos siguen guardados: escribe CONFIRMAR para reintentar, o cancelar para descartarlos.`,
+        text: `No pude crear la orden (${motivo}). Tus datos siguen guardados: escribe 1 para reintentar, o 0 para descartarlos.`,
       }
     }
   }

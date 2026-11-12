@@ -1,5 +1,6 @@
 import type { ApiClient, OrdenApi } from './api.js'
 import { ApiError, UrlRechazadaError } from './api.js'
+import { extraerNumero } from './digitos.js'
 import { buildMenu } from './menu.js'
 import { MENSAJE_LIMITE_LLAMADA, RateLimiter } from './rate-limit.js'
 import type { ConversationStore } from './state.js'
@@ -16,14 +17,27 @@ export type Respuesta =
   | { kind: 'text'; text: string; intencion?: string; paso?: string }
   | { kind: 'document'; text: string; filename: string; buffer: Buffer; intencion?: string; paso?: string }
 
-/** Copia honesta de la opción 0 (T7): nunca promete una llamada que no se registró. */
+/** Preguntas fijas de los pasos de lectura, reutilizadas al repetir el paso. */
+export const PREGUNTA_PEDIDO = 'Escribe el número de la orden (o 0 para volver al menú).'
+export const PREGUNTA_CONTROL =
+  'Escribe el número de la orden para enviarte el control de trabajos en PDF (o 0 para volver al menú).'
+export const PREGUNTA_CUENTA =
+  'Escribe el número de la cuenta de cobro para enviártela en PDF (o 0 para volver al menú).'
+export const PREGUNTA_AYUDA = '¿Quieres que el laboratorio te llame? 1 sí / 0 no'
+export const PREGUNTA_CONFIRMAR = 'No entendí. Escribe 1 para crear o 0 para cancelar'
+export const AVISO_AUDIO = 'No puedo escuchar audios, escríbeme por favor'
+export const AVISO_MEDIA = 'No puedo abrir eso, escríbeme por favor'
+
+/** Copia honesta de la opción 5 (T7): nunca promete una llamada que no se registró. */
 export const LLAMADA_OK = 'Listo. Registramos tu solicitud: el laboratorio te llamaremos a este número.'
 export const LLAMADA_FALLO =
   'No pude registrar tu solicitud de llamada ahora mismo. Contacta al laboratorio directamente por el portal o por teléfono.'
 
 /** Intención de auditoría (S8) derivada del paso previo, sin el texto del mensaje. */
 export function intencionDe(step: string, texto: string): string {
-  if (step === 'menu' && texto.trim() === '0') return 'llamada'
+  // "ayuda" pregunta antes de llamar; la intención ya es de llamada (S11).
+  if (/^(ayuda|help)$/i.test(texto.trim())) return 'llamada'
+  if (step === 'menu' && texto.trim() === '5') return 'llamada'
   if (step === 'pedido-numero') return 'estado'
   if (step === 'control-numero') return 'control'
   if (step === 'cuenta-numero') return 'cuenta'
@@ -37,10 +51,7 @@ export const CUENTA_NO_ENCONTRADA =
   'No encontré esa cuenta de cobro. Verifica el número y vuelve a intentarlo, o escribe 0 para volver al menú.'
 
 const OPCION_CANCELAR = /^(0|cancelar)$/i
-
-function esNumero(texto: string): boolean {
-  return /^\d{1,9}$/.test(texto.trim())
-}
+const PALABRA_AYUDA = /^(ayuda|help)$/i
 
 /**
  * Nombre de archivo seguro (T5, ronda adversarial): solo [A-Za-z0-9._-], sin
@@ -109,6 +120,30 @@ export class ReadFlows {
     const step = estado?.step ?? 'menu'
     const entrada = texto.trim()
 
+    // "ayuda" (S11): pregunta antes de actuar; jamás llama sin confirmar.
+    if (PALABRA_AYUDA.test(entrada)) {
+      this.store.set(telefono, 'ayuda', { ...(estado?.fields ?? {}), previo: step })
+      return { kind: 'text', text: PREGUNTA_AYUDA }
+    }
+    if (step === 'ayuda') {
+      const previo = estado?.fields.previo ?? 'menu'
+      if (entrada === '1') {
+        this.store.clear(telefono)
+        return this.llamada(telefono)
+      }
+      if (OPCION_CANCELAR.test(entrada)) {
+        const campos = { ...estado?.fields }
+        delete campos.previo
+        if (previo === 'menu') {
+          this.store.clear(telefono)
+          return { kind: 'text', text: buildMenu() }
+        }
+        this.store.set(telefono, previo, campos)
+        return { kind: 'text', text: await this.preguntaDelPaso(telefono, previo) }
+      }
+      return { kind: 'text', text: `No entendí. ${PREGUNTA_AYUDA}` }
+    }
+
     // El flujo de escritura maneja sus propios pasos y su cancelación (T6).
     if (step.startsWith('orden-')) {
       return this.escritor
@@ -123,49 +158,75 @@ export class ReadFlows {
     }
 
     if (step === 'pedido-numero') {
-      if (!esNumero(entrada)) {
-        return { kind: 'text', text: 'Escribe solo el número de la orden, o 0 para volver al menú.' }
+      const numero = extraerNumero(entrada)
+      if (!numero || !/^\d{1,9}$/.test(numero)) {
+        return { kind: 'text', text: `No entendí. ${PREGUNTA_PEDIDO}` }
       }
       this.store.clear(telefono)
-      return this.pedido(telefono, entrada)
+      return this.pedido(telefono, numero)
     }
     if (step === 'control-numero') {
-      if (!esNumero(entrada)) {
-        return { kind: 'text', text: 'Escribe solo el número de la orden, o 0 para volver al menú.' }
+      const numero = extraerNumero(entrada)
+      if (!numero || !/^\d{1,9}$/.test(numero)) {
+        return { kind: 'text', text: `No entendí. ${PREGUNTA_CONTROL}` }
       }
       this.store.clear(telefono)
-      return this.control(telefono, entrada)
+      return this.control(telefono, numero)
     }
     if (step === 'cuenta-numero') {
-      if (!esNumero(entrada)) {
-        return { kind: 'text', text: 'Escribe solo el número de la cuenta de cobro, o 0 para volver al menú.' }
+      const numero = extraerNumero(entrada)
+      if (!numero || !/^\d{1,9}$/.test(numero)) {
+        return { kind: 'text', text: `No entendí. ${PREGUNTA_CUENTA}` }
       }
       this.store.clear(telefono)
-      return this.cuenta(telefono, entrada)
+      return this.cuenta(telefono, numero)
     }
 
     // Menú.
     if (entrada === '1') {
       this.store.set(telefono, 'pedido-numero', {})
-      return { kind: 'text', text: 'Escribe el número de la orden (o 0 para volver al menú).' }
+      return { kind: 'text', text: PREGUNTA_PEDIDO }
     }
     if (entrada === '2') {
       this.store.set(telefono, 'control-numero', {})
-      return { kind: 'text', text: 'Escribe el número de la orden para enviarte el control de trabajos en PDF (o 0 para volver al menú).' }
+      return { kind: 'text', text: PREGUNTA_CONTROL }
     }
     if (entrada === '3') {
       this.store.set(telefono, 'cuenta-numero', {})
-      return { kind: 'text', text: 'Escribe el número de la cuenta de cobro para enviártela en PDF (o 0 para volver al menú).' }
+      return { kind: 'text', text: PREGUNTA_CUENTA }
     }
     if (entrada === '4') {
       return this.escritor
         ? await this.escritor.handle(telefono, texto, doctorContacto)
         : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
     }
-    // "0": registra la solicitud de llamada con el tope diario (T7).
-    if (entrada === '0') return this.llamada(telefono)
-    // Texto desconocido en el menú: el menú de nuevo.
-    return { kind: 'text', text: buildMenu() }
+    // "0": volver al menú, siempre significa lo mismo (S11). La solicitud de
+    // llamada vive en la opción 5 y en "ayuda".
+    if (entrada === '0') return { kind: 'text', text: buildMenu() }
+    if (entrada === '5') return this.llamada(telefono)
+    // Texto desconocido en el menú: "No entendí" + el menú de nuevo.
+    return { kind: 'text', text: `No entendí.\n\n${buildMenu()}` }
+  }
+
+  /** La pregunta del paso actual, para repetirla tras un medio no legible o tras "ayuda → 0". */
+  private async preguntaDelPaso(telefono: string, step: string): Promise<string> {
+    if (step.startsWith('orden-') && this.escritor) return this.escritor.repetirPaso(telefono)
+    if (step === 'pedido-numero') return PREGUNTA_PEDIDO
+    if (step === 'control-numero') return PREGUNTA_CONTROL
+    if (step === 'cuenta-numero') return PREGUNTA_CUENTA
+    if (step === 'ayuda') return PREGUNTA_AYUDA
+    return buildMenu()
+  }
+
+  /**
+   * Medios no legibles (S11/T12): audio y el resto. El aviso va seguido de la
+   * pregunta del paso en curso, nunca del menú; el estado no cambia.
+   */
+  async media(telefono: string, esAudio: boolean): Promise<Respuesta> {
+    const estado = this.store.get(telefono)
+    const step = estado?.step ?? 'menu'
+    const aviso = esAudio ? AVISO_AUDIO : AVISO_MEDIA
+    return { kind: 'text', text: `${aviso}\n\n${await this.preguntaDelPaso(telefono, step)}`, intencion: 'media', paso: step }
   }
 
   private async llamada(telefono: string): Promise<Respuesta> {
