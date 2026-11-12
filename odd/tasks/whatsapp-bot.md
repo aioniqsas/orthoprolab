@@ -48,13 +48,15 @@ Cuatro capas independientes, de modo que filtrar una no abra la puerta:
 | T2 | Servicio de identidad: normalizar E.164 (+57), buscar por blind index, resolver `clinica_id`/`doctor_id`, rechazar y auditar desconocidos | S1,S2,S3 | worker |
 | T3 | Endpoint interno `POST /internal/whatsapp/sesion` (secreto de servicio → JWT corto de la cuenta designada) + límites | S7 | worker |
 | T4 | `apps/whatsapp`: proceso Baileys, sesión en disco ignorada, menú numerado, estado por contacto con expiración | S1,S9 | worker |
-| T5 | Flujos de lectura: estado de pedido, control de trabajos (PDF), cuenta de cobro emitida (PDF) | S3,S4 | worker |
+| T5 | Flujos de lectura: estado de pedido, control de trabajos (PDF), cuenta de cobro emitida (PDF). Rutas reales: `GET /mi-clinica/ordenes/:id`, `GET /mi-clinica/ordenes/:id/control-trabajos`, `GET /mi-clinica/cuentas-cobro/:id` y `GET /mi-clinica/cuentas-cobro/:id/pdf`. La lista de pacientes es `GET /mi-clinica/pacientes?doctorId=:id`, no `/doctores/:id/pacientes`. | S3,S4 | worker |
 | T6 | Flujo de escritura: orden de una línea con resumen + `CONFIRMAR`; extraer la tabla de nombres FDI a `@repo/api-client` | S5,S6 | worker |
 | T7 | Fallback `0` → aviso al admin; rate limit por número; auditoría sin texto plano | S5,S8 | worker |
 | T8 | OTP de vinculación desde el portal (código 6 dígitos, 10 min, un uso) | S1 | worker |
 | T9 | Docs: `apps/api/docs/whatsapp.md`, `docs/portals.md`, `.gitignore` de la sesión | S9 | inline |
 
 | T10 | Blindaje del endpoint interno: token de alcance `whatsapp-bot` con allowlist de rutas, HMAC por solicitud con nonce de un solo uso, límite por clínica y auditoría de emisiones | S10 | worker |
+
+| T11 | Ruta de PDF de cuenta de cobro para clínicas (`GET /mi-clinica/cuentas-cobro/:id/pdf`, generar o servir), para que el bot no descargue desde una URL de Cloudinary ni dependa de un enlace público | S4 | worker |
 
 **Requisitos derivados de la ronda adversarial de T1 (obligatorios en T2):**
 
@@ -77,6 +79,9 @@ Al publicar, la revisión se puede cortar por rango de commits sin reescribir hi
 | OTP y documentación | T8, T9 |
 
 El soft delete (`odd/tasks/soft-delete.md`) viaja en la misma rama por la misma decisión, aunque toca tablas de todo el producto.
+
+**L7 — proceso (textual):** "De ahora en adelante, vamos a desactivar Test Drive en development ya que, como estamos haciendo es de testing adversarial. Vamos a ahorrar así mucho en token y en tiempo de desarrollo."
+Se desactiva el ritual test-first: no se captura evidencia RED ni se revierte producción para probar que un test falla. Los tests se siguen escribiendo junto con la implementación, porque son los que fijan cada defecto que la ronda adversarial encuentre; lo que se elimina es la ceremonia, no la red de regresión. La ronda adversarial única por tarea se mantiene.
 
 ## Log
 
