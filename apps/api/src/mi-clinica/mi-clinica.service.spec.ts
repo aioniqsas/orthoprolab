@@ -56,6 +56,59 @@ describe('MiClinicaService.resolveClinicaId', () => {
   });
 });
 
+describe('MiClinicaService.listOrdenes', () => {
+  function montarListado(ordenes: unknown[]) {
+    const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+    for (const metodo of [
+      'innerJoinAndSelect',
+      'leftJoinAndSelect',
+      'where',
+      'orderBy',
+    ]) {
+      qb[metodo] = vi.fn(() => qb);
+    }
+    qb['getMany'] = vi.fn(async () => ordenes);
+    const service = new MiClinicaService(
+      { findOneBy: vi.fn(async () => ({ clinicaId: '2' })) } as never,
+      {} as never,
+      { createQueryBuilder: vi.fn(() => qb) } as never,
+      {} as never, {} as never, {} as never,
+      { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+    );
+    return { service, qb };
+  }
+
+  it('la consulta une los detalles y el doctor, con el filtro de clinica', async () => {
+    const { service, qb } = montarListado([]);
+
+    await service.listOrdenes('u');
+
+    // Sin este join el bot no recibe `detalles` y la precarga (S12) muere.
+    expect(qb['leftJoinAndSelect']).toHaveBeenCalledWith(
+      'o.detalles',
+      'detalle',
+    );
+    expect(qb['innerJoinAndSelect']).toHaveBeenCalledWith('asig.doctor', 'doctor');
+    expect(qb['where']).toHaveBeenCalledWith(
+      'doctor.clinicaId = :clinicaId',
+      { clinicaId: '2' },
+    );
+  });
+
+  it('devuelve ordenes con `detalles` presentes', async () => {
+    const detalles = [{ servicio: 'Corona', cantidad: 2, colorDiente: 'A2' }];
+    const { service } = montarListado([
+      { id: '9', asignacion: { doctor: { id: 'd1' } }, estado: { codigo: 'creada' }, detalles },
+    ]);
+
+    const ordenes = await service.listOrdenes('u');
+
+    expect(ordenes).toHaveLength(1);
+    expect(ordenes[0]!.detalles).toEqual(detalles);
+  });
+});
+
 describe('MiClinicaService.controlTrabajos', () => {
   it('entrega el PDF de una orden terminada', async () => {
     const { service, generar } = montar('terminada');

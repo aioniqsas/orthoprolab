@@ -377,6 +377,23 @@ describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
     expect(r2.text).toContain('Orden 1234')
   })
 
+  it('la última orden cancelada no es la referencia: se usa la válida anterior (ronda adversarial T13)', async () => {
+    const cancelada = { ...ULTIMA, id: '100', estado: { codigo: 'cancelada', nombre: 'Cancelada' } }
+    const api = apiFalso({ ordenes: [cancelada, ULTIMA] })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1'])
+    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? 1 sí / 2 no')
+  })
+
+  it('todas las órdenes canceladas: la pregunta de precarga no aparece', async () => {
+    const cancelada = { ...ULTIMA, id: '100', estado: { nombre: 'Cancelada' } }
+    const api = apiFalso({ ordenes: [cancelada] })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1'])
+    expect(r.text).not.toContain('última orden')
+    expect(r.text).toContain('Paciente')
+  })
+
   it('contacto 1:1: la precarga se ofrece igual', async () => {
     const api = apiFalso({ ordenes: [ULTIMA] })
     const esc = escritor(api)
