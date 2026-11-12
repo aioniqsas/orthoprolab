@@ -61,6 +61,9 @@ async function respuestaLlm(
   clinicaId: string,
 ): Promise<RespuestaLlm> {
   if (!flujoLlm || !configLlm) return { texto: null }
+  // IA8: el nombre del bot viene de la base (cacheado en DatosBot) y alimenta
+  // tanto el prompt como la negativa de identidad; falla => 'Aioniq'.
+  configLlm.nombre = await datosBot.nombreBot(clinicaId)
   return await flujoLlm.manejar(telefono, texto, datosBot, clinicaId, storeLlm)
 }
 

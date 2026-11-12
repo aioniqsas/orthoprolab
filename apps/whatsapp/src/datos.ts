@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { NOMBRE_BOT_DEFECTO } from './prompt.js'
 
 /**
  * Capa de datos de solo lectura del bot (IA2, S2). Se conecta con el rol
@@ -52,6 +53,7 @@ export interface Ejecutor {
 
 export class DatosBot {
   private pool: PoolPg | null
+  private readonly nombres = new Map<string, { nombre: string; expiresAt: number }>()
 
   constructor(
     private readonly config: DatosConfig | null,
@@ -115,6 +117,32 @@ export class DatosBot {
       throw error
     } finally {
       cliente.release()
+    }
+  }
+
+  /**
+   * Nombre del bot desde `configuracion_bot` (IA8): se lee dentro de la
+   * transacción con el GUC de clínica y se cachea unos minutos (un renombre
+   * no exige reinicio, pero un mensaje no debe costar una consulta). Si la
+   * lectura falla o la fila falta, cae al valor por defecto sin lanzar.
+   */
+  async nombreBot(
+    clinicaId: string | undefined,
+    ahora = Date.now(),
+    ttlMs = 3 * 60 * 1000,
+  ): Promise<string> {
+    const cache = this.nombres.get(clinicaId ?? '')
+    if (cache && cache.expiresAt > ahora) return cache.nombre
+    try {
+      const filas = await this.transaccion(clinicaId, (q) =>
+        q.query("SELECT valor FROM configuracion_bot WHERE clave = 'nombre'"),
+      )
+      const valor = typeof filas[0]?.valor === 'string' ? filas[0]!.valor.trim() : ''
+      if (valor === '') throw new Error('sin nombre configurado')
+      this.nombres.set(clinicaId ?? '', { nombre: valor, expiresAt: ahora + ttlMs })
+      return valor
+    } catch {
+      return NOMBRE_BOT_DEFECTO
     }
   }
 }

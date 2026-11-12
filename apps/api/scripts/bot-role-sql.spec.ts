@@ -115,6 +115,41 @@ describe('resolveAdminTarget', () => {
       DATABASE_SSL: 'true',
     };
     expect(resolveAdminTarget(env)).toMatchObject({ host: 'h', port: 5432, user: 'u', database: 'd' });
-    expect(() => resolveAdminTarget({})).toThrow(/DATABASE_NAME/);
+    expect(() => resolveAdminTarget({})).toThrow(/DATABASE_PASSWORD/);
+  });
+
+  it('aplica los mismos valores por defecto que env.validation.ts', () => {
+    expect(resolveAdminTarget({ DATABASE_PASSWORD: 'p' })).toMatchObject({
+      host: 'localhost',
+      port: 5432,
+      user: 'orthopro',
+      database: 'orthopro',
+    });
+  });
+
+  it('prefiere WHATSAPP_DB_ADMIN_URL incluso con DATABASE_URL presente', () => {
+    expect(
+      resolveAdminTarget({ WHATSAPP_DB_ADMIN_URL: 'postgresql://a:b@h/db', DATABASE_URL: 'postgresql://x:y@z/n' }),
+    ).toEqual({ connectionString: 'postgresql://a:b@h/db' });
+  });
+
+  it('usa una DATABASE_URL completa cuando no hay URL administrativa', () => {
+    expect(resolveAdminTarget({ DATABASE_URL: 'postgresql://x:y@z/n' })).toEqual({
+      connectionString: 'postgresql://x:y@z/n',
+    });
+  });
+
+  it('acepta DATABASE_USERNAME como alternativa a DATABASE_USER', () => {
+    const env = {
+      DATABASE_HOST: 'h',
+      DATABASE_PASSWORD: 'p',
+      DATABASE_NAME: 'd',
+      DATABASE_USERNAME: 'u2',
+    };
+    expect(resolveAdminTarget(env)).toMatchObject({ host: 'h', user: 'u2', database: 'd' });
+  });
+
+  it('DATABASE_USER gana sobre DATABASE_USERNAME', () => {
+    expect(resolveAdminTarget({ DATABASE_PASSWORD: 'p', DATABASE_USER: 'u1', DATABASE_USERNAME: 'u2' })).toMatchObject({ user: 'u1' });
   });
 });
