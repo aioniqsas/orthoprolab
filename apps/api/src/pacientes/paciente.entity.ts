@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   BeforeInsert,
   BeforeUpdate,
@@ -11,6 +12,7 @@ import {
 
 import { cedulaHashOrNull } from '../crypto/cedula.js';
 import { encryptedColumn } from '../crypto/encrypted-column.js';
+import { enmascararCedula } from './cedula-visible.js';
 
 // cedula is optional (e.g. minors) but unique when present. Uniqueness lives on
 // the blind index because the encrypted cedula is non-deterministic.
@@ -31,6 +33,9 @@ export class Paciente {
   nombre: string;
 
   // Encrypted at rest; look up by cedulaHash, never by this column.
+  // HTTP responses show only the last four digits (see cedula-visible.ts).
+  // The transform runs at serialization only: the PDFs read the full value.
+  @Transform(({ value }) => enmascararCedula(value as string | null), { toPlainOnly: true })
   @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
   cedula: string | null;
 

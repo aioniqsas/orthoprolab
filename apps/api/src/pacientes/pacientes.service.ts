@@ -2,15 +2,12 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { cedulaHashOrNull } from '../crypto/cedula.js';
+import { enmascararCedula } from './cedula-visible.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { PacienteDoctor } from './paciente-doctor.entity.js';
 import { Paciente } from './paciente.entity.js';
 
-function maskCedula(cedula: string | null): string | null {
-  if (!cedula) return null;
-  if (cedula.length <= 3) return cedula;
-  return '*'.repeat(cedula.length - 3) + cedula.slice(-3);
-}
+
 
 @Injectable()
 export class PacientesService {
@@ -64,7 +61,7 @@ export class PacientesService {
         result.push({
           id: link.pacienteId,
           nombre: link.paciente.nombre,
-          cedula: maskCedula(link.paciente.cedula),
+          cedula: enmascararCedula(link.paciente.cedula),
         });
       }
     }
