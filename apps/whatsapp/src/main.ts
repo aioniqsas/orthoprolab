@@ -8,6 +8,8 @@ import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { crearCliente, NO_HABILITADO, type ApiClient } from './api'
+import { configuracionDesdeEntorno, DatosBot } from './datos'
+import { ClienteGroq, configuracionLlm, StoreLlm } from './llm'
 import { ReadFlows, type Respuesta } from './flows'
 import { buildMenu } from './menu'
 import { MENSAJE_LIMITE, RateLimiter } from './rate-limit'
@@ -37,6 +39,26 @@ const conversations = new ConversationStore()
 const api: ApiClient = crearCliente()
 const limites = new RateLimiter()
 const flows = new ReadFlows(conversations, api, new OrderFlows(conversations, api), limites)
+
+// IA3 (S4): el LLM es opcional y el menú determinista sigue siendo la base.
+// Sin GROQ_API_KEY, con WHATSAPP_LLM_ENABLED=false o con Groq caído, todo
+// pasa por ReadFlows exactamente como antes.
+const configLlm = configuracionLlm()
+const datosBot = new DatosBot(configuracionDesdeEntorno())
+const flujoLlm = configLlm ? new ClienteGroq(configLlm) : null
+const storeLlm = new StoreLlm()
+// Comandos del menú que el flujo determinista atiende aunque el LLM esté on.
+const ES_COMANDO_MENU = /^(?:0|[1-5]|cancelar|ayuda|help)$/i
+
+/** Texto del LLM para el mensaje libre, o null si toca el flujo del menú. */
+async function respuestaLlm(
+  telefono: string,
+  texto: string,
+  clinicaId: string,
+): Promise<string | null> {
+  if (!flujoLlm || !configLlm) return null
+  return (await flujoLlm.manejar(telefono, texto, datosBot, clinicaId, storeLlm)).texto
+}
 
 /** Create the auth dir with owner-only permissions and chmod every credential file to 0600. */
 async function secureAuthDir(dir: string): Promise<void> {
@@ -133,6 +155,27 @@ async function start(attempt = 1): Promise<void> {
         const media = await flows.media(identidad.telefono, esAudio)
         await socket.sendMessage(senderId, { text: media.text })
         continue
+      }
+      // IA3: texto libre en el paso de menú y con la IA activa va primero al
+      // LLM; si el LLM no puede (sin llave, caído, respuesta inválida) o el
+      // contacto tecleó un comando del menú, manda el flujo determinista.
+      const textoMensaje = messageText(message)
+      const pasoActual = conversations.get(identidad.telefono)?.step ?? 'menu'
+      if (
+        flujoLlm &&
+        pasoActual === 'menu' &&
+        textoMensaje.trim() !== '' &&
+        !ES_COMANDO_MENU.test(textoMensaje.trim())
+      ) {
+        const ia = await respuestaLlm(
+          identidad.telefono,
+          textoMensaje,
+          identidad.identidad.clinicId,
+        )
+        if (ia !== null) {
+          await socket.sendMessage(senderId, { text: ia })
+          continue
+        }
       }
       const respuesta: Respuesta = await flows.handle(
         identidad.telefono,
