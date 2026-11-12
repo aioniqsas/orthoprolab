@@ -56,6 +56,17 @@ ALTER TABLE public.clinica ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: configuracion_bot; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.configuracion_bot (
+    clave character varying(64) NOT NULL,
+    valor text NOT NULL,
+    actualizado_en timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: contenido_web; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -374,6 +385,32 @@ CREATE TABLE public.paciente (
 
 
 --
+-- Name: paciente_busqueda; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.paciente_busqueda (
+    id bigint NOT NULL,
+    paciente_id bigint NOT NULL,
+    campo character varying(10) NOT NULL,
+    token_hash character(64) NOT NULL
+);
+
+
+--
+-- Name: paciente_busqueda_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.paciente_busqueda ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.paciente_busqueda_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: paciente_doctor; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -681,6 +718,14 @@ ALTER TABLE ONLY public.detalle_orden
 
 
 --
+-- Name: configuracion_bot PK_configuracion_bot; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.configuracion_bot
+    ADD CONSTRAINT "PK_configuracion_bot" PRIMARY KEY (clave);
+
+
+--
 -- Name: whatsapp_llamada PK_whatsapp_llamada; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -769,6 +814,14 @@ ALTER TABLE ONLY public.metodo_pago_bancario
 
 
 --
+-- Name: paciente_busqueda paciente_busqueda_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.paciente_busqueda
+    ADD CONSTRAINT paciente_busqueda_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: paciente_doctor paciente_doctor_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -798,6 +851,14 @@ ALTER TABLE ONLY public.contenido_web
 
 ALTER TABLE ONLY public.sesion_refresco
     ADD CONSTRAINT pk_sesion_refresco PRIMARY KEY (id);
+
+
+--
+-- Name: paciente_busqueda uq_paciente_busqueda; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.paciente_busqueda
+    ADD CONSTRAINT uq_paciente_busqueda UNIQUE (paciente_id, campo, token_hash);
 
 
 --
@@ -897,6 +958,13 @@ CREATE INDEX idx_sesion_refresco_familia ON public.sesion_refresco USING btree (
 --
 
 CREATE INDEX idx_sesion_refresco_usuario ON public.sesion_refresco USING btree (usuario_id);
+
+
+--
+-- Name: ix_paciente_busqueda_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_paciente_busqueda_token ON public.paciente_busqueda USING btree (campo, token_hash);
 
 
 --
@@ -1134,6 +1202,14 @@ ALTER TABLE ONLY public.sesion_refresco
 
 
 --
+-- Name: paciente_busqueda paciente_busqueda_paciente_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.paciente_busqueda
+    ADD CONSTRAINT paciente_busqueda_paciente_id_fkey FOREIGN KEY (paciente_id) REFERENCES public.paciente(id) ON DELETE CASCADE;
+
+
+--
 -- Name: pago pago_cuenta_cobro_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1172,6 +1248,176 @@ ALTER TABLE ONLY public.whatsapp_contacto
 ALTER TABLE ONLY public.whatsapp_contacto
     ADD CONSTRAINT whatsapp_contacto_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctor(id) ON DELETE RESTRICT;
 
+
+--
+-- Name: clinica bot_read_clinica; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_clinica ON public.clinica FOR SELECT TO whatsapp_bot USING ((id = (current_setting('app.clinica_id'::text, true))::bigint));
+
+
+--
+-- Name: configuracion_bot bot_read_configuracion_bot; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_configuracion_bot ON public.configuracion_bot FOR SELECT TO whatsapp_bot USING (((current_setting('app.clinica_id'::text, true))::bigint IS NOT NULL));
+
+
+--
+-- Name: cuenta_cobro bot_read_cuenta_cobro; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_cuenta_cobro ON public.cuenta_cobro FOR SELECT TO whatsapp_bot USING ((clinica_id = (current_setting('app.clinica_id'::text, true))::bigint));
+
+
+--
+-- Name: cuenta_cobro_orden bot_read_cuenta_cobro_orden; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_cuenta_cobro_orden ON public.cuenta_cobro_orden FOR SELECT TO whatsapp_bot USING ((EXISTS ( SELECT 1
+   FROM public.cuenta_cobro cc
+  WHERE ((cc.id = cuenta_cobro_orden.cuenta_cobro_id) AND (cc.clinica_id = (current_setting('app.clinica_id'::text, true))::bigint)))));
+
+
+--
+-- Name: detalle_orden bot_read_detalle_orden; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_detalle_orden ON public.detalle_orden FOR SELECT TO whatsapp_bot USING ((EXISTS ( SELECT 1
+   FROM (public.orden o
+     JOIN public.doctor d ON ((d.id = o.doctor_id)))
+  WHERE ((o.id = detalle_orden.orden_id) AND (d.clinica_id = (current_setting('app.clinica_id'::text, true))::bigint)))));
+
+
+--
+-- Name: doctor bot_read_doctor; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_doctor ON public.doctor FOR SELECT TO whatsapp_bot USING ((clinica_id = (current_setting('app.clinica_id'::text, true))::bigint));
+
+
+--
+-- Name: estado_orden bot_read_estado_orden; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_estado_orden ON public.estado_orden FOR SELECT TO whatsapp_bot USING (((current_setting('app.clinica_id'::text, true))::bigint IS NOT NULL));
+
+
+--
+-- Name: orden bot_read_orden; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_orden ON public.orden FOR SELECT TO whatsapp_bot USING ((EXISTS ( SELECT 1
+   FROM public.doctor d
+  WHERE ((d.id = orden.doctor_id) AND (d.clinica_id = (current_setting('app.clinica_id'::text, true))::bigint)))));
+
+
+--
+-- Name: paciente bot_read_paciente; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_paciente ON public.paciente FOR SELECT TO whatsapp_bot USING ((EXISTS ( SELECT 1
+   FROM (public.paciente_doctor pd
+     JOIN public.doctor d ON ((d.id = pd.doctor_id)))
+  WHERE ((pd.paciente_id = paciente.id) AND (pd.eliminado_en IS NULL) AND (d.clinica_id = (current_setting('app.clinica_id'::text, true))::bigint)))));
+
+
+--
+-- Name: paciente_doctor bot_read_paciente_doctor; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_paciente_doctor ON public.paciente_doctor FOR SELECT TO whatsapp_bot USING ((EXISTS ( SELECT 1
+   FROM public.doctor d
+  WHERE ((d.id = paciente_doctor.doctor_id) AND (d.clinica_id = (current_setting('app.clinica_id'::text, true))::bigint)))));
+
+
+--
+-- Name: pago bot_read_pago; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_pago ON public.pago FOR SELECT TO whatsapp_bot USING ((EXISTS ( SELECT 1
+   FROM public.cuenta_cobro cc
+  WHERE ((cc.id = pago.cuenta_cobro_id) AND (cc.clinica_id = (current_setting('app.clinica_id'::text, true))::bigint)))));
+
+
+--
+-- Name: servicio bot_read_servicio; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY bot_read_servicio ON public.servicio FOR SELECT TO whatsapp_bot USING (((current_setting('app.clinica_id'::text, true))::bigint IS NOT NULL));
+
+
+--
+-- Name: clinica; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.clinica ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: configuracion_bot; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.configuracion_bot ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: cuenta_cobro; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.cuenta_cobro ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: cuenta_cobro_orden; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.cuenta_cobro_orden ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: detalle_orden; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.detalle_orden ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: doctor; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.doctor ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: estado_orden; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.estado_orden ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: orden; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.orden ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: paciente; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.paciente ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: paciente_doctor; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.paciente_doctor ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: pago; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pago ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: servicio; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.servicio ENABLE ROW LEVEL SECURITY;
 
 --
 -- PostgreSQL database dump complete

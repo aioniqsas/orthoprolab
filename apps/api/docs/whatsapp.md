@@ -51,7 +51,7 @@ El menú numerado sigue siendo la base; encima hay una capa opcional con Groq (`
 
 El modelo **no escribe SQL**. Elige entre un catálogo cerrado de herramientas de lectura, cada una parametrizada, y toda llamada se valida contra su esquema antes de ejecutarse: herramienta inexistente, tipo incorrecto, clave extra o un `clinica_id` inyectado se rechazan sin tocar la base. Las escrituras no pasan por el modelo: crear una orden sigue yendo por la API con su resumen y su confirmación.
 
-Las lecturas usan el rol `whatsapp_bot` (`bun run db:bot-role`), de solo lectura, con `SELECT` sobre once tablas de negocio y RLS por clínica vía `app.clinica_id`, que el servidor fija por transacción desde el contacto verificado. Nunca accede a `usuario`, `sesion_refresco` ni a la allowlist del bot. Las columnas cifradas a nivel de aplicación (`paciente.nombre`, `paciente.cedula`, observaciones, referencias de pago) quedan **fuera de todo SQL**: los nombres de paciente se resuelven por la API, que es la que descifra.
+Las lecturas usan el rol `whatsapp_bot` (`bun run db:bot-role`), de solo lectura, con `SELECT` sobre doce tablas de negocio (más `configuracion_bot`, su configuración) y RLS por clínica vía `app.clinica_id`, que el servidor fija por transacción desde el contacto verificado. Nunca accede a `usuario`, `sesion_refresco` ni a la allowlist del bot. Las columnas cifradas a nivel de aplicación (`paciente.nombre`, `paciente.cedula`, observaciones, referencias de pago) quedan **fuera de todo SQL**: los nombres de paciente se resuelven por la API, que es la que descifra.
 
 Las clases de ataque que el arnés debe resistir están listadas en `odd/tasks/whatsapp-ia.md` (cruce de clínicas, inyección de instrucciones, SQL en parámetros, PII por rodeo, exfiltración de configuración, escritura disfrazada, suplantación).
 
@@ -66,9 +66,16 @@ Las clases de ataque que el arnés debe resistir están listadas en `odd/tasks/w
 
 El bot consulta PostgreSQL con un rol exclusivo de mínimo privilegio: `whatsapp_bot` (se puede cambiar con `WHATSAPP_DB_USER`). Solo `LOGIN`, sin superusuario ni creación de bases/roles, con `default_transaction_read_only = on`, `statement_timeout = '5s'`, `idle_in_transaction_session_timeout = '10s'`, `work_mem = '16MB'` y `search_path` limitado a `public`.
 
-El script de despliegue (tarea IA1) es idempotente y concede `SELECT` — solo `SELECT` — sobre el allowlist de tablas de negocio (`orden`, `detalle_orden`, `estado_orden`, `cuenta_cobro`, `cuenta_cobro_orden`, `pago`, `doctor`, `paciente`, `paciente_doctor`, `servicio`, `clinica`), con `GRANT CONNECT` a la base y `USAGE` en `public`. No hay `GRANT ALL`, ni escrituras, ni secuencias; cualquier privilegio heredado se revoca en cada corrida. Quedan denegadas `usuario`, `sesion_refresco`, `whatsapp_contacto`, `whatsapp_sesion_auditoria`, `whatsapp_llamada`, `migrations`, `historial_estado_orden`, `rol`, `contenido_web`, `envio_cuenta_cobro` y `metodo_pago_bancario`.
+El script de despliegue (tarea IA1) es idempotente y concede `SELECT` — solo `SELECT` — sobre el allowlist de tablas de negocio (`orden`, `detalle_orden`, `estado_orden`, `cuenta_cobro`, `cuenta_cobro_orden`, `pago`, `doctor`, `paciente`, `paciente_doctor`, `servicio`, `clinica`, `configuracion_bot`), con `GRANT CONNECT` a la base y `USAGE` en `public`. No hay `GRANT ALL`, ni escrituras, ni secuencias; cualquier privilegio heredado se revoca en cada corrida. Quedan denegadas `usuario`, `sesion_refresco`, `whatsapp_contacto`, `whatsapp_sesion_auditoria`, `whatsapp_llamada`, `migrations`, `historial_estado_orden`, `rol`, `contenido_web`, `envio_cuenta_cobro` y `metodo_pago_bancario`.
 
-Cada tabla concedida tiene `ROW LEVEL SECURITY` con una política `FOR SELECT` de la clínica del contacto verificado (GUC `app.clinica_id`, fijado con `SET LOCAL` por el pool del bot). Las tablas con `clinica_id` filtran directo; `orden` llega a la clínica vía su doctor, `detalle_orden` vía la orden, `pago` y `cuenta_cobro_orden` vía la cuenta de cobro, `paciente` y `paciente_doctor` vía el doctor; `servicio` y `estado_orden` son catálogos globales legibles solo con contexto de clínica. No se usa `FORCE ROW LEVEL SECURITY`: el usuario de la API es dueño de las tablas y sigue intacto.
+Cada tabla concedida tiene `ROW LEVEL SECURITY` con una política `FOR SELECT` de la clínica del contacto verificado (GUC `app.clinica_id`, fijado con `SET LOCAL` por el pool del bot). Las tablas con `clinica_id` filtran directo; `orden` llega a la clínica vía su doctor, `detalle_orden` vía la orden, `pago` y `cuenta_cobro_orden` vía la cuenta de cobro, `paciente` y `paciente_doctor` vía el doctor; `servicio`, `estado_orden` y `configuracion_bot` son catálogos globales legibles solo con contexto de clínica. El nombre del bot no vive en código ni en variables de entorno: lo guarda `configuracion_bot` (`clave='nombre'`), lo edita un administrador con `PATCH /admin/configuracion/bot` (`{ "nombre": "…" }`, 1–40 caracteres recortados y sin caracteres de control) y el bot lo lee con:
+
+```sql
+SET LOCAL app.clinica_id = :clinica_id;
+SELECT valor FROM public.configuracion_bot WHERE clave = 'nombre';
+```
+
+Si la fila falta o no se puede leer, el nombre es `Aioniq` (constante de respaldo documentada). El administrador consulta el valor actual con `GET /admin/configuracion/bot`. No se usa `FORCE ROW LEVEL SECURITY`: el usuario de la API es dueño de las tablas y sigue intacto.
 
 ```sh
 bun run db:bot-role            # crear/converger el rol
