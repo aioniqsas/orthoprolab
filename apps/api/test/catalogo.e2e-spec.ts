@@ -16,6 +16,12 @@ import {
   ImageStorageNotConfiguredError,
   type ImageStorage,
 } from './../src/catalogo/image-storage.js';
+import {
+  type AdminDeps,
+  createAdministrator,
+  typeormAdminStore,
+} from './../src/auth/admin-bootstrap.js';
+import { PasswordService } from './../src/crypto/password.service.js';
 
 vi.hoisted(() => {
   process.env.TRUST_PROXY = '1';
@@ -78,24 +84,37 @@ describe('Catalogo (e2e)', () => {
       .join('; ');
   };
 
-  async function signUp(rol: 'administrador' | 'odontologo') {
+  // There is no public registration route anymore: accounts are created by
+  // an administrator. The admin is bootstrapped in-process, and clinic users
+  // are created through POST /usuarios, then given a known password so the
+  // login tests can authenticate through the real app.
+  async function signUp(rol: 'administrador' | 'clinica') {
     const ip = freshIp();
     const body = {
       nombres: 'Ana',
       apellidos: 'Prueba',
       cedula: cedula(),
       correo: email(),
-      password: PASSWORD,
+      rol,
     };
-    await http()
-      .post('/auth/register')
-      .set('X-Forwarded-For', ip)
-      .send(body)
-      .expect(201);
     if (rol === 'administrador') {
+      const deps: AdminDeps = {
+        passwords: app.get(PasswordService),
+        store: typeormAdminStore(ds),
+      };
+      // createAdministrator validates with RegisterDto: no rol field there.
+      const { rol: _rol, ...adminInput } = body;
+      await createAdministrator(deps, {
+        ...adminInput,
+        password: PASSWORD,
+      });
+    } else {
+      await admin('post', '/usuarios')
+        .send(body)
+        .expect(201);
       await ds.query(
-        `UPDATE usuario SET rol_id = (SELECT id FROM rol WHERE nombre = 'administrador') WHERE correo = $1`,
-        [body.correo],
+        `UPDATE usuario SET password_hash = $1 WHERE correo = $2`,
+        [await app.get(PasswordService).hash(PASSWORD), body.correo],
       );
     }
     const res = await http()
@@ -141,8 +160,8 @@ describe('Catalogo (e2e)', () => {
     await app.init();
     ds = app.get(DataSource);
     adminCookie = await signUp('administrador');
-    doctorCookie = await signUp('odontologo');
-  });
+    doctorCookie = await signUp('clinica');
+  }, 60_000); // app boot + two sign-ups are slow under full-suite parallelism
 
   beforeEach(() => {
     storage.configured = true;
@@ -150,24 +169,14 @@ describe('Catalogo (e2e)', () => {
 
   afterAll(async () => {
     await ds.query(
-      `DELETE FROM detalle_orden WHERE servicio_id IN (SELECT id FROM servicio WHERE nombre LIKE $1)`,
+      `DELETE FROM detalle_orden WHERE servicio LIKE $1`,
       [`Servicio ${TAG}%`],
     );
-    await ds.query(
-      `DELETE FROM orden WHERE doctor_id IN (SELECT id FROM usuario WHERE correo LIKE 'cat-e2e-%')`,
-    );
-    await ds.query(
-      `DELETE FROM paciente_doctor WHERE doctor_id IN (SELECT id FROM usuario WHERE correo LIKE 'cat-e2e-%')`,
-    );
-    await ds.query(`DELETE FROM paciente WHERE nombre = 'cat-e2e'`);
     await ds.query(`DELETE FROM servicio WHERE nombre LIKE $1`, [
       `Servicio ${TAG}%`,
     ]);
     await ds.query(
       `DELETE FROM sesion_refresco WHERE usuario_id IN (SELECT id FROM usuario WHERE correo LIKE 'cat-e2e-%')`,
-    );
-    await ds.query(
-      `DELETE FROM doctor WHERE usuario_id IN (SELECT id FROM usuario WHERE correo LIKE 'cat-e2e-%')`,
     );
     await ds.query(`DELETE FROM usuario WHERE correo LIKE 'cat-e2e-%'`);
     await app.close();
@@ -478,41 +487,9 @@ describe('Catalogo (e2e)', () => {
       expect(storage.deleted).toContain(row.pid);
       await admin('delete', `/admin/catalogo/servicios/${svc.id}`).expect(404);
     });
-
-    it('deactivates (200) a service referenced by detalle_orden', async () => {
-      const svc = await create('referenciado');
-      const [doc] = (await ds.query(
-        `SELECT u.id FROM usuario u JOIN rol r ON r.id = u.rol_id
-         WHERE u.correo LIKE 'cat-e2e-%' AND r.nombre = 'odontologo' LIMIT 1`,
-      )) as { id: string }[];
-      const [pac] = (await ds.query(
-        `INSERT INTO paciente (nombre) VALUES ('cat-e2e') RETURNING id`,
-      )) as { id: string }[];
-      await ds.query(
-        `INSERT INTO paciente_doctor (paciente_id, doctor_id) VALUES ($1, $2)`,
-        [pac.id, doc.id],
-      );
-      const [ord] = (await ds.query(
-        `INSERT INTO orden (doctor_id, paciente_id, estado_id)
-         VALUES ($1, $2, (SELECT id FROM estado_orden ORDER BY posicion LIMIT 1)) RETURNING id`,
-        [doc.id, pac.id],
-      )) as { id: string }[];
-      await ds.query(
-        `INSERT INTO detalle_orden (orden_id, servicio_id, precio_unitario) VALUES ($1, $2, 10)`,
-        [ord.id, svc.id],
-      );
-      const res = await admin(
-        'delete',
-        `/admin/catalogo/servicios/${svc.id}`,
-      ).expect(200);
-      expect(res.body).toMatchObject({ id: svc.id, activo: false });
-      const kept = (await ds.query(
-        `SELECT activo FROM servicio WHERE id = $1`,
-        [svc.id],
-      )) as { activo: boolean }[];
-      expect(kept).toEqual([{ activo: false }]);
-      await pub(`/catalogo/servicios/${svc.slug}`).expect(404);
-    });
+    // NOTE: the old "deactivates a service referenced by detalle_orden" test
+    // was removed: order lines store the work as free text now, so nothing
+    // references the catalog and every delete is a hard delete (204).
   });
 
   describe('database constraints', () => {
