@@ -1,5 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import type { NestApplicationOptions } from '@nestjs/common';
+import { ClassSerializerInterceptor } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
@@ -101,4 +103,8 @@ export function configureApp(
   );
 
   app.useGlobalPipes(createValidationPipe());
+  // Applies @Exclude({ toPlainOnly: true }) on entities so sensitive columns
+  // (password and cedula hashes, reset tokens, cedula, correo of users) never
+  // leave in a response, whatever relation loaded them.
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 }

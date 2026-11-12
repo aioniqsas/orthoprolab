@@ -1,3 +1,4 @@
+import { Exclude } from 'class-transformer';
 import {
   BeforeInsert,
   BeforeUpdate,
@@ -27,12 +28,16 @@ export class Usuario {
 
   // Encrypted at rest (AES-256-GCM); the entity holds the plaintext. Never
   // query this column: look up by cedulaHash (see crypto/cedula.ts).
+  // @Exclude: serialization only (ClassSerializerInterceptor). The column,
+  // the entity and every query keep working; the HTTP response never carries it.
+  @Exclude({ toPlainOnly: true })
   @Column({ type: 'text', transformer: encryptedColumn() })
   cedula: string;
 
   // Blind index (HMAC-SHA256 hex) of the normalized cedula; carries the
   // uniqueness guarantee. Maintained by the hooks below.
   @Index('uq_usuario_cedula_hash', { unique: true })
+  @Exclude({ toPlainOnly: true })
   @Column({ name: 'cedula_hash', type: 'char', length: 64 })
   cedulaHash: string;
 
@@ -42,10 +47,12 @@ export class Usuario {
   @Column({ type: 'varchar' })
   apellidos: string;
 
+  @Exclude({ toPlainOnly: true })
   @Column({ type: 'varchar' })
   correo: string;
 
   // Hash only; hashing is the responsibility of the auth layer.
+  @Exclude({ toPlainOnly: true })
   @Column({ name: 'password_hash', type: 'varchar' })
   passwordHash: string;
 
@@ -68,9 +75,11 @@ export class Usuario {
   activo: boolean;
 
   // Password reset: the raw token is emailed; only its SHA-256 hex is stored.
+  @Exclude({ toPlainOnly: true })
   @Column({ name: 'reset_token_hash', type: 'varchar', nullable: true })
   resetTokenHash: string | null;
 
+  @Exclude({ toPlainOnly: true })
   @Column({ name: 'reset_token_expires', type: 'timestamptz', nullable: true })
   resetTokenExpires: Date | null;
 

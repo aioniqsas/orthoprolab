@@ -16,5 +16,16 @@ async function EditarOrden({ params }: { params: Promise<{ id: string }> }) {
   const orden = await getOrden(id);
   if (!orden) notFound();
   if (orden.estado?.codigo !== "creada" && orden.estado?.nombre !== "Creada") notFound();
-  return <EditarOrdenForm orden={orden} />;
+  // Only the fields the form edits cross into the client bundle: the rest of
+  // the order (patient, history, billing) stays on the server.
+  return (
+    <EditarOrdenForm
+      orden={{
+        id: orden.id,
+        urgente: orden.urgente,
+        fechaEntrega: orden.fechaEntrega,
+        detalles: orden.detalles,
+      }}
+    />
+  );
 }
