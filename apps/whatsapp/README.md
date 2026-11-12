@@ -40,7 +40,10 @@ disponible (sin llave, bandera apagada, timeout, HTTP != 200 o respuesta
 malformada) el menú numerado responde como red de seguridad: el bot nunca
 queda mudo. La sesión y las escrituras siguen siendo deterministas; el modelo
 también elige entre las herramientas de lectura del catálogo cerrado
-(`src/herramientas.ts`).
+(`src/herramientas.ts`). El nombre con el que el bot responde quién es viene de
+la base (`configuracion_bot`, `clave='nombre'`), leído dentro de la transacción
+con el GUC de clínica y cacheado unos minutos; si falta o falla la lectura, cae
+a `Aioniq` (IA8).
 
 - `GROQ_API_KEY`: llave de Groq. Si falta, el bot vuelve al menú
   determinista sin anunciar nada.

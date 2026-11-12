@@ -22,7 +22,7 @@ import {
 const DEFAULT_ROLE = 'whatsapp_bot';
 const USAGE = `Usage: bun run db:bot-role [--rotate]
 
-Administrative connection: WHATSAPP_DB_ADMIN_URL, or the API's DATABASE_* variables.
+Administrative connection: WHATSAPP_DB_ADMIN_URL, or DATABASE_URL, or the API's DATABASE_* variables.
 Role: WHATSAPP_DB_USER (default ${DEFAULT_ROLE}), password: WHATSAPP_DB_PASSWORD (required).`;
 
 export interface BotRoleArgs {
@@ -49,29 +49,32 @@ interface AdminTarget {
   ssl?: { rejectUnauthorized: false };
 }
 
-/** Prefers WHATSAPP_DB_ADMIN_URL; falls back to the API's DATABASE_* variables. */
+/**
+ * Prefers WHATSAPP_DB_ADMIN_URL, then a full DATABASE_URL, then the API's
+ * individual DATABASE_* variables (DATABASE_USER or DATABASE_USERNAME).
+ */
 export function resolveAdminTarget(env: NodeJS.ProcessEnv): AdminTarget {
   if (env.WHATSAPP_DB_ADMIN_URL) {
     return { connectionString: env.WHATSAPP_DB_ADMIN_URL };
   }
-  const { DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASSWORD, DATABASE_NAME, DATABASE_SSL } = env;
-  const missing = [
-    ['DATABASE_HOST', DATABASE_HOST],
-    ['DATABASE_USER', DATABASE_USER],
-    ['DATABASE_PASSWORD', DATABASE_PASSWORD],
-    ['DATABASE_NAME', DATABASE_NAME],
-  ].filter(([, v]) => !v).map(([k]) => k);
-  if (missing.length > 0) {
+  if (env.DATABASE_URL) {
+    return { connectionString: env.DATABASE_URL };
+  }
+  // Los mismos valores por defecto que aplica src/config/env.validation.ts;
+  // solo DATABASE_PASSWORD es obligatoria.
+  const { DATABASE_HOST, DATABASE_PORT, DATABASE_PASSWORD, DATABASE_SSL } = env;
+  const user = env.DATABASE_USER ?? env.DATABASE_USERNAME ?? 'orthopro';
+  if (!DATABASE_PASSWORD) {
     throw new UsageError(
-      `Faltan variables para la conexión administrativa: ${missing.join(', ')} (o define WHATSAPP_DB_ADMIN_URL).`,
+      'Falta DATABASE_PASSWORD para la conexión administrativa (o define DATABASE_URL o WHATSAPP_DB_ADMIN_URL).',
     );
   }
   return {
-    host: DATABASE_HOST,
-    port: DATABASE_PORT ? Number.parseInt(DATABASE_PORT, 10) : undefined,
-    user: DATABASE_USER,
+    host: DATABASE_HOST ?? 'localhost',
+    port: DATABASE_PORT ? Number.parseInt(DATABASE_PORT, 10) : 5432,
+    user,
     password: DATABASE_PASSWORD,
-    database: DATABASE_NAME,
+    database: env.DATABASE_NAME ?? 'orthopro',
     ssl: DATABASE_SSL === 'true' || DATABASE_SSL === '1' ? { rejectUnauthorized: false } : undefined,
   };
 }
