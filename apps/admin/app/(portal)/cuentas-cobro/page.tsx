@@ -11,12 +11,17 @@ import { CuentasLive } from "./cuentas-live";
 
 export const metadata: Metadata = { title: "Cuentas de cobro" };
 
-async function CuentasList() {
-  const cuentas = await listCuentasCobro();
-  return <CuentasTable cuentas={cuentas} />;
+async function CuentasList({ searchParams }: { searchParams: Promise<{ q?: string }>; }) {
+  const { q } = await searchParams;
+  const cuentas = await listCuentasCobro(q);
+  return <CuentasTable cuentas={cuentas} busquedaInicial={q ?? ""} />;
 }
 
-export default function CuentasCobroPage() {
+export default function CuentasCobroPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
@@ -30,7 +35,7 @@ export default function CuentasCobroPage() {
       />
       <CuentasLive />
       <Suspense fallback={<ListSkeleton />}>
-        <CuentasList />
+        <CuentasList searchParams={searchParams} />
       </Suspense>
     </section>
   );

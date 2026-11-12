@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { ClinicasService } from './clinicas.service.js';
@@ -22,8 +23,8 @@ export class ClinicasController {
   constructor(private readonly clinicas: ClinicasService) {}
 
   @Get()
-  findAll() {
-    return this.clinicas.findAll();
+  findAll(@Query('q') q?: string) {
+    return this.clinicas.findAll(q);
   }
 
   @Post()

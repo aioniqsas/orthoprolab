@@ -8,6 +8,7 @@ import type { DataTableColumn, DataTableFilter } from "@repo/ui/components/data-
 import { formatCop } from "@/lib/data/helpers";
 import type { Servicio } from "@/lib/data/types";
 import { ActivoBadge } from "../../_components/status-badges";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 function Thumb({ src, nombre }: { src: string | null | undefined; nombre: string }) {
   if (!src) {
@@ -47,14 +48,12 @@ const columns: DataTableColumn<Servicio>[] = [
         {s.nombre}
       </Link>
     ),
-    searchValue: (s) => s.nombre,
   },
   {
     id: "descripcion",
     header: "Descripción",
     className: "max-w-md whitespace-normal text-muted-foreground",
     render: (s) => s.descripcion ?? "Sin descripción",
-    searchValue: (s) => s.descripcion ?? "",
   },
   {
     id: "precio",
@@ -83,12 +82,20 @@ const filters: DataTableFilter<Servicio>[] = [
   },
 ];
 
-export function ServiciosTable({ servicios }: { servicios: Servicio[] }) {
+export function ServiciosTable({
+  servicios,
+  busquedaInicial,
+}: {
+  servicios: Servicio[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   return (
     <DataTable
       rows={servicios}
       columns={columns}
       rowKey={(s) => s.id}
+      serverSearch={busqueda}
       search={{
         placeholder: "Buscar por nombre o descripción",
         label: "Buscar por nombre o descripción",

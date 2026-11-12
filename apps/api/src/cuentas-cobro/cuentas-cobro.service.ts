@@ -27,6 +27,7 @@ import type { EnviarCuentaCobroDto } from './dto/enviar-cuenta-cobro.dto.js';
 import type { RegistrarPagoDto } from './dto/registrar-pago.dto.js';
 import type { RegistrarComprobanteDto } from './dto/registrar-comprobante.dto.js';
 import type { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
+import { coincideBusqueda } from '../common/busqueda.js';
 
 @Injectable()
 export class CuentasCobroService {
@@ -55,7 +56,7 @@ export class CuentasCobroService {
     private readonly eventos: CuentasCobroEventosService,
   ) {}
 
-  findAll(clinicaId?: string): Promise<CuentaCobro[]> {
+  async findAll(clinicaId?: string, q?: string): Promise<CuentaCobro[]> {
     const qb = this.cuentaCobroRepo
       .createQueryBuilder('cc')
       .leftJoinAndSelect('cc.clinica', 'clinica')
@@ -65,7 +66,11 @@ export class CuentasCobroService {
       qb.where('cc.clinicaId = :clinicaId', { clinicaId });
     }
 
-    return qb.getMany();
+    const cuentas = await qb.getMany();
+    // Number, clinic name and clinic email: what the admin table searched.
+    return cuentas.filter((c) =>
+      coincideBusqueda(q, [c.numero, c.clinica?.nombre, c.clinica?.correo]),
+    );
   }
 
   findOne(id: string): Promise<CuentaCobro | null> {

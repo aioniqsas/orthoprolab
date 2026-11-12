@@ -8,9 +8,10 @@ async function authHeader(): Promise<HeadersInit> {
   return token ? { Cookie: `auth_token=${token}` } : {};
 }
 
-export async function listCatalogoServicios(): Promise<Servicio[]> {
+export async function listCatalogoServicios(q?: string): Promise<Servicio[]> {
+  const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
   try {
-    const res = await fetch(`${API_URL}/admin/catalogo/servicios`, {
+    const res = await fetch(`${API_URL}/admin/catalogo/servicios${qs}`, {
       headers: await authHeader(),
       cache: "no-store",
     });

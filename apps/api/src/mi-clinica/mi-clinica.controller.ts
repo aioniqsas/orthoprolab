@@ -222,8 +222,8 @@ export class MiClinicaController {
   }
 
   @Get('cuentas-cobro')
-  listCuentasCobro(@Req() req: AuthenticatedRequest) {
-    return this.miClinica.listCuentasCobro(req.user.id);
+  listCuentasCobro(@Req() req: AuthenticatedRequest, @Query('q') q?: string) {
+    return this.miClinica.listCuentasCobro(req.user.id, q);
   }
 
   /** Change trigger for the client portal: the clinic refreshes its own list. */

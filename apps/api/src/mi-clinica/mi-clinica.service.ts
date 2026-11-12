@@ -123,15 +123,16 @@ export class MiClinicaService {
   }
 
   /** Clinic portal: drafts are still internal, so they never reach the client. */
-  async listCuentasCobro(usuarioId: string): Promise<CuentaCobro[]> {
+  async listCuentasCobro(usuarioId: string, q?: string): Promise<CuentaCobro[]> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.cuentaCobroRepo
+    const cuentas = await this.cuentaCobroRepo
       .createQueryBuilder('cc')
       .leftJoinAndSelect('cc.clinica', 'clinica')
       .where('cc.clinicaId = :clinicaId', { clinicaId })
       .andWhere('cc.estado != :borrador', { borrador: 'borrador' })
       .orderBy('cc.createdAt', 'DESC')
       .getMany();
+    return cuentas.filter((c) => coincideBusqueda(q, [c.numero]));
   }
 
   /** Detail view for the client portal; rejects accounts from other clinics. */

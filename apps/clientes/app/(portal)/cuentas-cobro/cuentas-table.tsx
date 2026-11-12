@@ -7,6 +7,7 @@ import type { GrupoCuenta } from "@repo/api-client";
 import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn, DataTableFilter } from "@repo/ui/components/data-table";
 import type { CuentaCobro, EstadoCuentaCobro } from "@/lib/data/types";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 const ESTADO_LABEL: Record<EstadoCuentaCobro, string> = {
   borrador: "Sin emitir",
@@ -45,7 +46,6 @@ const columns: DataTableColumn<CuentaCobro>[] = [
         {c.numero}
       </Link>
     ),
-    searchValue: (c) => c.numero,
   },
   {
     id: "estado",
@@ -99,12 +99,20 @@ const filters: DataTableFilter<CuentaCobro>[] = [
   },
 ];
 
-export function CuentasTable({ cuentas }: { cuentas: CuentaCobro[] }) {
+export function CuentasTable({
+  cuentas,
+  busquedaInicial,
+}: {
+  cuentas: CuentaCobro[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   return (
     <DataTable
       rows={cuentas}
       columns={columns}
       rowKey={(c) => c.id}
+      serverSearch={busqueda}
       search={{ placeholder: "Buscar por número", label: "Buscar por número" }}
       filters={filters}
       initialFilterValues={{ grupo: "pendientes" }}

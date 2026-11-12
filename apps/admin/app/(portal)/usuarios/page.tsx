@@ -12,7 +12,11 @@ import { UsuariosTable } from "./usuarios-table";
 
 export const metadata: Metadata = { title: "Usuarios y permisos" };
 
-export default function UsuariosPage() {
+export default function UsuariosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
@@ -25,15 +29,16 @@ export default function UsuariosPage() {
         }
       />
       <Suspense fallback={<ListSkeleton />}>
-        <UsuariosView />
+        <UsuariosView searchParams={searchParams} />
       </Suspense>
       <PermisosMatrix />
     </section>
   );
 }
 
-async function UsuariosView() {
+async function UsuariosView({ searchParams }: { searchParams: Promise<{ q?: string }>; }) {
+  const { q } = await searchParams;
   if (!(await isAdmin())) return null;
-  const usuarios = await listUsuarios();
-  return <UsuariosTable usuarios={usuarios} />;
+  const usuarios = await listUsuarios(q);
+  return <UsuariosTable usuarios={usuarios} busquedaInicial={q ?? ""} />;
 }

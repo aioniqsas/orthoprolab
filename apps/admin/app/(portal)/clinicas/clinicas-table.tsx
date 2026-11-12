@@ -5,6 +5,7 @@ import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn } from "@repo/ui/components/data-table";
 import { fullName } from "@/lib/data/helpers";
 import type { Clinica } from "@/lib/data/types";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 const columns: DataTableColumn<Clinica>[] = [
   {
@@ -19,13 +20,11 @@ const columns: DataTableColumn<Clinica>[] = [
         {c.nombre}
       </Link>
     ),
-    searchValue: (c) => c.nombre,
   },
   {
     id: "direccion",
     header: "Dirección",
     render: (c) => c.direccion ?? "Sin dirección",
-    searchValue: (c) => c.direccion ?? "",
   },
   {
     id: "doctores",
@@ -33,16 +32,23 @@ const columns: DataTableColumn<Clinica>[] = [
     align: "right",
     sortValue: (c) => c.doctorCount ?? c.doctores.length,
     render: (c) => c.doctorCount ?? c.doctores.length,
-    searchValue: (c) => c.doctores.map((d) => fullName(d)).join(" "),
   },
 ];
 
-export function ClinicasTable({ clinicas }: { clinicas: Clinica[] }) {
+export function ClinicasTable({
+  clinicas,
+  busquedaInicial,
+}: {
+  clinicas: Clinica[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   return (
     <DataTable
       rows={clinicas}
       columns={columns}
       rowKey={(c) => String(c.id)}
+      serverSearch={busqueda}
       search={{
         placeholder: "Buscar por clínica, dirección o doctor",
         label: "Buscar por clínica, dirección o doctor",

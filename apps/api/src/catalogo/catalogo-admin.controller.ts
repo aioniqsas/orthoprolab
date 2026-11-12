@@ -11,6 +11,7 @@ import {
   Res,
   UseInterceptors,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Roles } from '../auth/roles.decorator.js';
@@ -27,8 +28,8 @@ export class CatalogoAdminController {
   constructor(private readonly servicios: ServiciosService) {}
 
   @Get()
-  list(): Promise<ServicioAdmin[]> {
-    return this.servicios.listAdmin();
+  list(@Query('q') q?: string): Promise<ServicioAdmin[]> {
+    return this.servicios.listAdmin(q);
   }
 
   @Post()

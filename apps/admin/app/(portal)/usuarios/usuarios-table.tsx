@@ -8,6 +8,7 @@ import { fullName } from "@/lib/data/helpers";
 import { ROLES } from "@/lib/data/types";
 import type { Usuario } from "@/lib/data/types";
 import { ActivoBadge, RolBadge } from "../../_components/status-badges";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 const columns: DataTableColumn<Usuario>[] = [
   {
@@ -22,14 +23,12 @@ const columns: DataTableColumn<Usuario>[] = [
         {fullName(u)}
       </Link>
     ),
-    searchValue: (u) => fullName(u),
   },
   {
     id: "correo",
     header: "Correo",
     sortValue: (u) => u.correo,
     render: (u) => u.correo,
-    searchValue: (u) => u.correo,
   },
   {
     id: "rol",
@@ -69,12 +68,20 @@ const filters: DataTableFilter<Usuario>[] = [
   },
 ];
 
-export function UsuariosTable({ usuarios }: { usuarios: Usuario[] }) {
+export function UsuariosTable({
+  usuarios,
+  busquedaInicial,
+}: {
+  usuarios: Usuario[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   return (
     <DataTable
       rows={usuarios}
       columns={columns}
       rowKey={(u) => u.id}
+      serverSearch={busqueda}
       search={{
         placeholder: "Buscar por nombre o correo",
         label: "Buscar por nombre o correo",

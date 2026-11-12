@@ -17,6 +17,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 import { Rol } from './rol.entity.js';
 import { Usuario } from './usuario.entity.js';
+import { coincideBusqueda } from '../common/busqueda.js';
 
 const PASSWORD_CHARS =
   'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
@@ -60,7 +61,7 @@ export class UsuariosService {
     private readonly mailerAuth: MailerAuthService,
   ) {}
 
-  async findAll(): Promise<UsuarioPublico[]> {
+  async findAll(q?: string): Promise<UsuarioPublico[]> {
     const usuarios = await this.usuarioRepo
       .createQueryBuilder('u')
       .innerJoinAndSelect('u.rol', 'rol')
@@ -81,16 +82,18 @@ export class UsuariosService {
       .addOrderBy('u.nombres', 'ASC')
       .getMany();
 
-    return usuarios.map((u) => ({
-      id: u.id,
-      nombres: u.nombres,
-      apellidos: u.apellidos,
-      correo: u.correo,
-      activo: u.activo,
-      fechaCreacion: u.fechaCreacion,
-      rol: { id: u.rol.id, nombre: u.rol.nombre },
-      clinica: u.clinica ? { id: u.clinica.id, nombre: u.clinica.nombre } : null,
-    }));
+    return usuarios
+      .filter((u) => coincideBusqueda(q, [`${u.nombres} ${u.apellidos}`, u.correo]))
+      .map((u) => ({
+        id: u.id,
+        nombres: u.nombres,
+        apellidos: u.apellidos,
+        correo: u.correo,
+        activo: u.activo,
+        fechaCreacion: u.fechaCreacion,
+        rol: { id: u.rol.id, nombre: u.rol.nombre },
+        clinica: u.clinica ? { id: u.clinica.id, nombre: u.clinica.nombre } : null,
+      }));
   }
 
   async findOne(id: string): Promise<UsuarioPublico> {

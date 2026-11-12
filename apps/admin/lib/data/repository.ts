@@ -156,6 +156,10 @@ function mapOrden(raw: RawOrden): Orden {
 // Public API — Orders
 // ---------------------------------------------------------------------------
 
+function consultaBusqueda(q?: string): string {
+  return q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+}
+
 export async function listOrdenes(q?: string): Promise<Orden[]> {
   // The search runs on the server; sample data mirrors it locally.
   if (SAMPLE_DATA) {
@@ -315,9 +319,9 @@ interface RawUsuarioItem {
 // Public API — Clinics
 // ---------------------------------------------------------------------------
 
-export async function listClinicas(): Promise<Clinica[]> {
+export async function listClinicas(q?: string): Promise<Clinica[]> {
   try {
-    const res = await fetch(`${API_URL}/clinicas`, {
+    const res = await fetch(`${API_URL}/clinicas${consultaBusqueda(q)}`, {
       headers: await authHeader(),
       cache: "no-store",
     });
@@ -369,9 +373,9 @@ export async function getClinica(id: number | string): Promise<ClinicaDetalle | 
 // Public API — Users
 // ---------------------------------------------------------------------------
 
-export async function listUsuarios(): Promise<Usuario[]> {
+export async function listUsuarios(q?: string): Promise<Usuario[]> {
   try {
-    const res = await fetch(`${API_URL}/usuarios`, {
+    const res = await fetch(`${API_URL}/usuarios${consultaBusqueda(q)}`, {
       headers: await authHeader(),
       cache: "no-store",
     });
@@ -422,8 +426,8 @@ export async function getUsuario(id: string): Promise<UsuarioDetalle | null> {
 // Public API — Catalog (delegates to catalogo-api.ts)
 // ---------------------------------------------------------------------------
 
-export async function listServicios(): Promise<Servicio[]> {
-  return listCatalogoServicios();
+export async function listServicios(q?: string): Promise<Servicio[]> {
+  return listCatalogoServicios(q);
 }
 
 export async function getServicio(id: string): Promise<Servicio | null> {
@@ -544,9 +548,9 @@ function mapCuentaCobro(raw: RawCuentaCobro): CuentaCobro {
 // Public API — Cuentas de cobro
 // ---------------------------------------------------------------------------
 
-export async function listCuentasCobro(): Promise<CuentaCobro[]> {
+export async function listCuentasCobro(q?: string): Promise<CuentaCobro[]> {
   try {
-    const res = await fetch(`${API_URL}/cuentas-cobro`, {
+    const res = await fetch(`${API_URL}/cuentas-cobro${consultaBusqueda(q)}`, {
       headers: await authHeader(),
       cache: "no-store",
     });

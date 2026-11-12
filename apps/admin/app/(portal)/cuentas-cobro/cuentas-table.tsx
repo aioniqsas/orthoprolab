@@ -8,6 +8,7 @@ import { GRUPO_CUENTA_LABELS, grupoDeCuenta } from "@repo/api-client";
 import type { GrupoCuenta } from "@repo/api-client";
 import { formatDate } from "@/lib/data/helpers";
 import type { CuentaCobro, EstadoCuentaCobro } from "@/lib/data/types";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 const ESTADO_LABELS: Record<EstadoCuentaCobro, string> = {
   borrador: "Sin emitir",
@@ -47,14 +48,12 @@ const columns: DataTableColumn<CuentaCobro>[] = [
         {c.numero}
       </Link>
     ),
-    searchValue: (c) => c.numero,
   },
   {
     id: "clinica",
     header: "Clínica",
     sortValue: (c) => c.clinicaNombre,
     render: (c) => c.clinicaNombre,
-    searchValue: (c) => `${c.clinicaNombre} ${c.clinicaCorreo ?? ""}`,
   },
   {
     id: "estado",
@@ -106,12 +105,20 @@ const filters: DataTableFilter<CuentaCobro>[] = [
   },
 ];
 
-export function CuentasTable({ cuentas }: { cuentas: CuentaCobro[] }) {
+export function CuentasTable({
+  cuentas,
+  busquedaInicial,
+}: {
+  cuentas: CuentaCobro[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   return (
     <DataTable
       rows={cuentas}
       columns={columns}
       rowKey={(c) => c.id}
+      serverSearch={busqueda}
       search={{
         placeholder: "Buscar por número o doctor",
         label: "Buscar por número o doctor",

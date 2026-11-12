@@ -11,7 +11,11 @@ import { ServiciosTable } from "./servicios-table";
 
 export const metadata: Metadata = { title: "Catálogo y aranceles" };
 
-export default function CatalogoPage() {
+export default function CatalogoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
@@ -32,14 +36,15 @@ export default function CatalogoPage() {
         }
       />
       <Suspense fallback={<ListSkeleton />}>
-        <CatalogoView />
+        <CatalogoView searchParams={searchParams} />
       </Suspense>
     </section>
   );
 }
 
-async function CatalogoView() {
+async function CatalogoView({ searchParams }: { searchParams: Promise<{ q?: string }>; }) {
+  const { q } = await searchParams;
   if (!(await isAdmin())) return null;
-  const servicios = await listServicios();
-  return <ServiciosTable servicios={servicios} />;
+  const servicios = await listServicios(q);
+  return <ServiciosTable servicios={servicios} busquedaInicial={q ?? ""} />;
 }

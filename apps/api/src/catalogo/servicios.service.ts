@@ -26,6 +26,7 @@ import {
 import { Servicio } from './servicio.entity.js';
 import { slugify, uniqueSlug } from './slug.js';
 import { PDF_REDIS, invalidatePdfCache } from './pdf-cache.js';
+import { coincideBusqueda } from '../common/busqueda.js';
 
 /** The ONLY fields the public catalog exposes: never price, state or internals. */
 export interface ServicioPublico {
@@ -115,9 +116,11 @@ export class ServiciosService {
 
   // --- admin ----------------------------------------------------------------
 
-  async listAdmin(): Promise<ServicioAdmin[]> {
+  async listAdmin(q?: string): Promise<ServicioAdmin[]> {
     const rows = await this.servicios.find({ order: { nombre: 'ASC' } });
-    return rows.map(toAdmin);
+    return rows
+      .filter((s) => coincideBusqueda(q, [s.nombre, s.descripcion]))
+      .map(toAdmin);
   }
 
   async getAdmin(id: string): Promise<ServicioAdmin> {

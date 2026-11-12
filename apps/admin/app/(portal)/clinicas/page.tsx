@@ -11,7 +11,11 @@ import { ClinicasTable } from "./clinicas-table";
 
 export const metadata: Metadata = { title: "Clínicas" };
 
-export default function ClinicasPage() {
+export default function ClinicasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
@@ -24,14 +28,15 @@ export default function ClinicasPage() {
         }
       />
       <Suspense fallback={<ListSkeleton />}>
-        <ClinicasView />
+        <ClinicasView searchParams={searchParams} />
       </Suspense>
     </section>
   );
 }
 
-async function ClinicasView() {
+async function ClinicasView({ searchParams }: { searchParams: Promise<{ q?: string }>; }) {
+  const { q } = await searchParams;
   if (!(await isAdmin())) return null;
-  const clinicas = await listClinicas();
-  return <ClinicasTable clinicas={clinicas} />;
+  const clinicas = await listClinicas(q);
+  return <ClinicasTable clinicas={clinicas} busquedaInicial={q ?? ""} />;
 }

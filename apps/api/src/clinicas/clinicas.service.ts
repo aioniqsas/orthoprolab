@@ -7,7 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { coincideBusqueda } from '../common/busqueda.js';
 import { MailerAuthService } from '../auth/mailer-auth.service.js';
 import { cedulaHash } from '../crypto/cedula.js';
 import { PasswordService } from '../crypto/password.service.js';
@@ -58,7 +59,7 @@ export class ClinicasService {
     private readonly mailerAuth: MailerAuthService,
   ) {}
 
-  async findAll(): Promise<ClinicaWithCount[]> {
+  async findAll(q?: string): Promise<ClinicaWithCount[]> {
     const [clinicas, counts] = await Promise.all([
       this.clinicaRepo.find({ order: { nombre: 'ASC' } }),
       this.doctorRepo
@@ -70,10 +71,26 @@ export class ClinicasService {
         .getRawMany<{ clinicaId: string; count: string }>(),
     ]);
     const countMap = new Map(counts.map((r) => [r.clinicaId, Number(r.count)]));
-    return clinicas.map((c) => ({
+    const conteo = clinicas.map((c) => ({
       ...c,
       doctorCount: countMap.get(c.id) ?? 0,
     }));
+    if (!q?.trim()) return conteo;
+    // Search also matches the names of each clinic's doctors (the admin table did
+    // search them, but its list never loaded them, so the match never ran).
+    const doctores = await this.doctorRepo.find({
+      select: { id: true, clinicaId: true, nombres: true, apellidos: true },
+      where: { clinicaId: In(clinicas.map((c) => c.id)) },
+    });
+    return conteo.filter((c) =>
+      coincideBusqueda(q, [
+        c.nombre,
+        c.direccion,
+        ...doctores
+          .filter((d) => d.clinicaId === c.id)
+          .map((d) => `${d.nombres} ${d.apellidos}`),
+      ]),
+    );
   }
 
   async findOne(id: string): Promise<ClinicaDetail> {

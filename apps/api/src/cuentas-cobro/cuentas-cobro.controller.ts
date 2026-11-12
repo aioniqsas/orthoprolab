@@ -36,8 +36,8 @@ export class CuentasCobroController {
   ) {}
 
   @Get()
-  findAll(@Query('doctorId') doctorId?: string) {
-    return this.service.findAll(doctorId);
+  findAll(@Query('doctorId') doctorId?: string, @Query('q') q?: string) {
+    return this.service.findAll(doctorId, q);
   }
 
   /** Change trigger for the admin portal: any billing account changed. */

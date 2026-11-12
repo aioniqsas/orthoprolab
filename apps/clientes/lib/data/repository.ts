@@ -18,6 +18,10 @@ async function authHeader(): Promise<HeadersInit> {
 
 // ─── Doctores ───────────────────────────────────────────────────────────────
 
+function consultaBusqueda(q?: string): string {
+  return q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+}
+
 export async function listDoctores(includeInactive = false): Promise<Doctor[]> {
   try {
     const url = includeInactive
@@ -139,9 +143,9 @@ export async function actualizarPaciente(
 
 // ─── Cuentas de cobro ───────────────────────────────────────────────────────
 
-export async function listCuentasCobro(): Promise<CuentaCobro[]> {
+export async function listCuentasCobro(q?: string): Promise<CuentaCobro[]> {
   try {
-    const res = await fetch(`${API_URL}/mi-clinica/cuentas-cobro`, {
+    const res = await fetch(`${API_URL}/mi-clinica/cuentas-cobro${consultaBusqueda(q)}`, {
       headers: await authHeader(),
       cache: "no-store",
     });
