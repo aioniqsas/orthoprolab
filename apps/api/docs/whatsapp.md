@@ -65,4 +65,6 @@ bun run db:bot-role            # crear/converger el rol
 bun run db:bot-role -- --rotate  # además re-aplica la contraseña
 ```
 
+El SQL del bot nunca devuelve columnas cifradas con `encryptedColumn()` (por ejemplo `paciente.nombre`, `paciente.cedula`, `detalle_orden.observaciones`): por diseño los nombres de pacientes llegan por la API, que descifra y aplica la multi-tenencia, nunca por el rol `whatsapp_bot`.
+
 Conexión administrativa: `WHATSAPP_DB_ADMIN_URL` si existe, si no las `DATABASE_*` de la API. `WHATSAPP_DB_PASSWORD` es obligatoria y nunca se imprime ni se escribe en archivos. Si la conexión no tiene `CREATEROLE`, el script termina con código distinto de cero y le dice al operador exactamente qué ejecutar como administrador.
