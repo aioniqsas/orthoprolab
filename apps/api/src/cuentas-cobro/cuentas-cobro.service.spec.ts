@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { CuentasCobroService } from './cuentas-cobro.service.js';
 import { CuentaCobro } from './cuenta-cobro.entity.js';
 import { Orden } from '../pedidos/orden.entity.js';
@@ -184,5 +184,90 @@ describe('CuentasCobroService.findOrdenesDisponibles', () => {
       terminada: 'terminada',
       clinicaId: '2',
     });
+  });
+});
+
+describe('CuentasCobroService.obtenerPdfBytes', () => {
+  const fetchMock = vi.fn();
+  beforeAll(() => {
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterAll(() => {
+    vi.unstubAllGlobals();
+  });
+  beforeEach(() => {
+    fetchMock.mockClear();
+  });
+
+  const montarPdf = (cuenta: unknown) => {
+    const service = new CuentasCobroService(
+      { findOne: vi.fn(async () => cuenta) } as never,
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+      {} as never, { emitir: vi.fn() } as never,
+    );
+    const generarYGuardarPdf = vi.spyOn(service, 'generarYGuardarPdf');
+    return { service, generarYGuardarPdf };
+  };
+
+  it('sirve el PDF ya almacenado sin regenerarlo', async () => {
+    const { service, generarYGuardarPdf } = montarPdf({
+      id: '3',
+      numero: 'CC-2025-9',
+      pdfUrl: 'https://res.cloudinary.com/cuenta.pdf',
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode('%PDF-1.7').buffer,
+    });
+
+    const pdf = await service.obtenerPdfBytes('3');
+
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(generarYGuardarPdf).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith('https://res.cloudinary.com/cuenta.pdf');
+  });
+
+  it('genera solo cuando no hay PDF almacenado y devuelve sus bytes', async () => {
+    const { service, generarYGuardarPdf } = montarPdf({ id: '3', pdfUrl: null });
+    generarYGuardarPdf.mockResolvedValue({
+      id: '3',
+      numero: 'CC-2025-1',
+      clinicaId: '2',
+      estado: 'emitida',
+      fechaEmision: new Date(),
+      pdfUrl: 'https://res.cloudinary.com/nueva.pdf',
+    } as never);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode('%PDF-1.7 generada').buffer,
+    });
+
+    const pdf = await service.obtenerPdfBytes('3');
+
+    expect(generarYGuardarPdf).toHaveBeenCalledTimes(1);
+    expect(pdf.toString()).toBe('%PDF-1.7 generada');
+  });
+
+  it('falla con 503 y sin cuerpo parcial si la generación falla', async () => {
+    const { service, generarYGuardarPdf } = montarPdf({ id: '3', pdfUrl: null });
+    generarYGuardarPdf.mockRejectedValue(new Error('boom'));
+
+    await expect(service.obtenerPdfBytes('3')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falla con 503 si la descarga del PDF almacenado no responde', async () => {
+    const { service } = montarPdf({
+      id: '3',
+      pdfUrl: 'https://res.cloudinary.com/rota.pdf',
+    });
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
+
+    await expect(service.obtenerPdfBytes('3')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 });

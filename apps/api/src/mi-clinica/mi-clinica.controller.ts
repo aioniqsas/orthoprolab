@@ -14,6 +14,7 @@ import {
   Put,
   Query,
   Req,
+  Res,
   Sse,
   UploadedFile,
   UseGuards,
@@ -33,6 +34,7 @@ import { MiClinicaService } from './mi-clinica.service.js';
 import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
 import { interval, map, merge, type Observable } from 'rxjs';
 import { StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
 import type { MessageEvent } from '@nestjs/common';
 
 @Controller('mi-clinica')
@@ -238,6 +240,22 @@ export class MiClinicaController {
     @Param('id') id: string,
   ) {
     return this.miClinica.getCuentaCobro(req.user.id, id);
+  }
+
+  /** PDF de una cuenta de cobro propia: bytes por la API, nunca la URL de Cloudinary. */
+  @Get('cuentas-cobro/:id/pdf')
+  async descargarCuentaCobroPdf(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { pdf, numero } = await this.miClinica.cuentaPdf(req.user.id, id);
+    const nombre = numero.replace(/[^A-Za-z0-9._-]/g, '_') || 'cuenta';
+    res.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(pdf, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="cuenta-${nombre}.pdf"`,
+    });
   }
 
   @Get('metodos-pago-bancarios')

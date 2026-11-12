@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  ServiceUnavailableException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -507,6 +508,33 @@ export class CuentasCobroService {
     const conPdf = (await this.findOne(id))!;
     this.eventos.emitir('pdf', conPdf.id);
     return conPdf;
+  }
+
+  /**
+   * Bytes del PDF de una cuenta cuya pertenencia ya fue verificada por el
+   * llamador: sirve el almacenado o lo genera por la misma vía del admin
+   * (`generarYGuardarPdf`). Nunca devuelve ni redirige a la URL de Cloudinary.
+   */
+  async obtenerPdfBytes(id: string): Promise<Buffer> {
+    let cuenta = await this.findOne(id);
+    if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
+    if (!cuenta.pdfUrl) {
+      try {
+        cuenta = await this.generarYGuardarPdf(id);
+      } catch (err) {
+        this.logger.error(`Generación de PDF fallida para cuenta ${id}: ${String(err)}`);
+        throw new ServiceUnavailableException('No se pudo generar el PDF de la cuenta de cobro.');
+      }
+    }
+    const pdfUrl = cuenta.pdfUrl;
+    if (!pdfUrl) {
+      throw new ServiceUnavailableException('PDF de cuenta de cobro no disponible.');
+    }
+    const pdfRes = await fetch(pdfUrl);
+    if (!pdfRes.ok) {
+      throw new ServiceUnavailableException('No se pudo obtener el PDF de la cuenta de cobro.');
+    }
+    return Buffer.from(await pdfRes.arrayBuffer());
   }
 
   /**
