@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
 import { CuentaCobro } from '../cuentas-cobro/cuenta-cobro.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { PacientesService } from '../pacientes/pacientes.service.js';
@@ -14,8 +14,8 @@ import type { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { PedidosService } from '../pedidos/pedidos.service.js';
 import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { MailerControlTrabajosService } from '../pedidos/mailer-control-trabajos.service.js';
-import { coincideBusqueda } from '../common/busqueda.js';
-import { coincideOrden } from '../pedidos/orden-busqueda.js';
+import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
+import { aplicarBusquedaOrdenes } from '../pedidos/orden-busqueda.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
 import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
@@ -109,30 +109,33 @@ export class MiClinicaService {
 
   async listOrdenes(usuarioId: string, q?: string): Promise<Orden[]> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    const ordenes = await this.ordenRepo
+    const pacienteIds = await this.pacientesService.buscarIds(q);
+    const qb = this.ordenRepo
       .createQueryBuilder('o')
       .innerJoinAndSelect('o.asignacion', 'asig')
       .innerJoinAndSelect('asig.doctor', 'doctor')
       .innerJoinAndSelect('asig.paciente', 'paciente')
       .innerJoinAndSelect('o.estado', 'estado')
       .where('doctor.clinicaId = :clinicaId', { clinicaId })
-      .orderBy('o.fechaCreacion', 'DESC')
-      .getMany();
-    // The clinic's table also searched the state name.
-    return ordenes.filter((o) => coincideOrden(o, q, [o.estado?.nombre]));
+      .orderBy('o.fechaCreacion', 'DESC');
+    aplicarBusquedaOrdenes(qb, q, pacienteIds, { conEstado: true });
+    return qb.getMany();
   }
 
   /** Clinic portal: drafts are still internal, so they never reach the client. */
   async listCuentasCobro(usuarioId: string, q?: string): Promise<CuentaCobro[]> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    const cuentas = await this.cuentaCobroRepo
+    const qb = this.cuentaCobroRepo
       .createQueryBuilder('cc')
       .leftJoinAndSelect('cc.clinica', 'clinica')
       .where('cc.clinicaId = :clinicaId', { clinicaId })
       .andWhere('cc.estado != :borrador', { borrador: 'borrador' })
-      .orderBy('cc.createdAt', 'DESC')
-      .getMany();
-    return cuentas.filter((c) => coincideBusqueda(q, [c.numero]));
+      .orderBy('cc.createdAt', 'DESC');
+    const patron = patronBusqueda(q);
+    if (patron) {
+      qb.andWhere(`${sinAcentosSql('cc.numero')} LIKE :patron ESCAPE '\\'`, { patron });
+    }
+    return qb.getMany();
   }
 
   /** Detail view for the client portal; rejects accounts from other clinics. */
@@ -155,12 +158,13 @@ export class MiClinicaService {
     q?: string,
   ): Promise<PacienteDoctor[]> {
     await this.getDoctor(usuarioId, doctorId);
-    const vinculos = await this.pacienteDoctorRepo.find({
-      where: { doctorId },
+    const ids = await this.pacientesService.buscarIds(q);
+    if (ids && ids.length === 0) return [];
+    return this.pacienteDoctorRepo.find({
+      where: ids ? { doctorId, pacienteId: In(ids) } : { doctorId },
       relations: { paciente: true },
       order: { fechaAsignacion: 'DESC' },
     });
-    return vinculos.filter((v) => coincideBusqueda(q, [v.paciente?.nombre, v.paciente?.cedula]));
   }
 
   async listServicios(): Promise<Servicio[]> {

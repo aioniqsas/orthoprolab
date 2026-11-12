@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { DataSource, In } from 'typeorm';
+import { Brackets, DataSource, In } from 'typeorm';
 import { CuentaCobro } from './cuenta-cobro.entity.js';
 import { CuentaCobroOrden } from './cuenta-cobro-orden.entity.js';
 import { EnvioCuentaCobro } from './envio-cuenta-cobro.entity.js';
@@ -27,7 +27,7 @@ import type { EnviarCuentaCobroDto } from './dto/enviar-cuenta-cobro.dto.js';
 import type { RegistrarPagoDto } from './dto/registrar-pago.dto.js';
 import type { RegistrarComprobanteDto } from './dto/registrar-comprobante.dto.js';
 import type { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
-import { coincideBusqueda } from '../common/busqueda.js';
+import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
 
 @Injectable()
 export class CuentasCobroService {
@@ -65,12 +65,18 @@ export class CuentasCobroService {
     if (clinicaId) {
       qb.where('cc.clinicaId = :clinicaId', { clinicaId });
     }
-
-    const cuentas = await qb.getMany();
-    // Number, clinic name and clinic email: what the admin table searched.
-    return cuentas.filter((c) =>
-      coincideBusqueda(q, [c.numero, c.clinica?.nombre, c.clinica?.correo]),
-    );
+    // Searched in the database: number, clinic name and clinic email.
+    const patron = patronBusqueda(q);
+    if (patron) {
+      qb.andWhere(
+        new Brackets((w) => {
+          for (const col of ['cc.numero', 'clinica.nombre', 'clinica.correo']) {
+            w.orWhere(`${sinAcentosSql(col)} LIKE :patron ESCAPE '\\'`, { patron });
+          }
+        }),
+      );
+    }
+    return qb.getMany();
   }
 
   findOne(id: string): Promise<CuentaCobro | null> {

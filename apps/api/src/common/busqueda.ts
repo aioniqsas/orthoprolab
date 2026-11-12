@@ -21,3 +21,25 @@ export function coincideBusqueda(
   if (!aguja) return true;
   return campos.some((campo) => normalizarBusqueda(campo ?? '').includes(aguja));
 }
+
+/** Escapes LIKE wildcards in the user's text. */
+function escaparLike(texto: string): string {
+  return texto.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/**
+ * LIKE pattern for a search term, or null when there is nothing to search.
+ * The term is normalized like the stored text (case and accents ignored).
+ */
+export function patronBusqueda(q: string | undefined): string | null {
+  const termino = normalizarBusqueda(q ?? '');
+  return termino ? `%${escaparLike(termino)}%` : null;
+}
+
+/**
+ * SQL expression for a column without case or accents, for comparison with a
+ * pattern from `patronBusqueda`. Needs no extension (translate, not unaccent).
+ */
+export function sinAcentosSql(columna: string): string {
+  return `translate(lower(COALESCE(${columna}, '')), 'áéíóúüñ', 'aeiouun')`;
+}

@@ -7,8 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
-import { coincideBusqueda } from '../common/busqueda.js';
+import { Brackets, DataSource, Repository } from 'typeorm';
+import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
 import { MailerAuthService } from '../auth/mailer-auth.service.js';
 import { cedulaHash } from '../crypto/cedula.js';
 import { PasswordService } from '../crypto/password.service.js';
@@ -60,8 +60,23 @@ export class ClinicasService {
   ) {}
 
   async findAll(q?: string): Promise<ClinicaWithCount[]> {
+    const patron = patronBusqueda(q);
+    const clinicasQb = this.clinicaRepo.createQueryBuilder('c').orderBy('c.nombre', 'ASC');
+    if (patron) {
+      clinicasQb.andWhere(
+        new Brackets((w) => {
+          w.orWhere(`${sinAcentosSql('c.nombre')} LIKE :patron ESCAPE '\\'`, { patron });
+          w.orWhere(`${sinAcentosSql('c.direccion')} LIKE :patron ESCAPE '\\'`, { patron });
+          // A clinic matches when one of its doctors does.
+          w.orWhere(
+            `c.id IN (SELECT d.clinica_id FROM doctor d WHERE ${sinAcentosSql("d.nombres || ' ' || d.apellidos")} LIKE :patron ESCAPE '\\')`,
+            { patron },
+          );
+        }),
+      );
+    }
     const [clinicas, counts] = await Promise.all([
-      this.clinicaRepo.find({ order: { nombre: 'ASC' } }),
+      clinicasQb.getMany(),
       this.doctorRepo
         .createQueryBuilder('d')
         .select('d.clinicaId', 'clinicaId')
@@ -71,26 +86,10 @@ export class ClinicasService {
         .getRawMany<{ clinicaId: string; count: string }>(),
     ]);
     const countMap = new Map(counts.map((r) => [r.clinicaId, Number(r.count)]));
-    const conteo = clinicas.map((c) => ({
+    return clinicas.map((c) => ({
       ...c,
       doctorCount: countMap.get(c.id) ?? 0,
     }));
-    if (!q?.trim()) return conteo;
-    // Search also matches the names of each clinic's doctors (the admin table did
-    // search them, but its list never loaded them, so the match never ran).
-    const doctores = await this.doctorRepo.find({
-      select: { id: true, clinicaId: true, nombres: true, apellidos: true },
-      where: { clinicaId: In(clinicas.map((c) => c.id)) },
-    });
-    return conteo.filter((c) =>
-      coincideBusqueda(q, [
-        c.nombre,
-        c.direccion,
-        ...doctores
-          .filter((d) => d.clinicaId === c.id)
-          .map((d) => `${d.nombres} ${d.apellidos}`),
-      ]),
-    );
   }
 
   async findOne(id: string): Promise<ClinicaDetail> {

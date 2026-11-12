@@ -1,4 +1,4 @@
-import { coincideOrden } from './orden-busqueda.js';
+import { aplicarBusquedaOrdenes } from './orden-busqueda.js';
 import {
   BadRequestException,
   ForbiddenException,
@@ -44,24 +44,23 @@ export class PedidosService {
     urgente?: boolean;
     q?: string;
   }): Promise<Orden[]> {
-    const where: FindOptionsWhere<Orden> = {};
+    // The patient part of the search: ids from the blind index, then SQL.
+    const pacienteIds = await this.pacientesService.buscarIds(filters?.q);
+    const qb = this.ordenRepo
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.estado', 'estado')
+      .leftJoinAndSelect('o.asignacion', 'asignacion')
+      .leftJoinAndSelect('asignacion.doctor', 'doctor')
+      .leftJoinAndSelect('asignacion.paciente', 'paciente')
+      .orderBy('o.fechaCreacion', 'DESC');
     if (filters?.estadoId !== undefined) {
-      where.estadoId = String(filters.estadoId);
+      qb.andWhere('o.estadoId = :estadoId', { estadoId: String(filters.estadoId) });
     }
     if (filters?.urgente !== undefined) {
-      where.urgente = filters.urgente;
+      qb.andWhere('o.urgente = :urgente', { urgente: filters.urgente });
     }
-    // Lista liviana: la tabla no usa detalles ni historial (se piden en el
-    // detalle con findOne). Ver optimizacion B2.
-    const ordenes = await this.ordenRepo.find({
-      where,
-      relations: {
-        estado: true,
-        asignacion: { doctor: true, paciente: true },
-      },
-      order: { fechaCreacion: 'DESC' },
-    });
-    return ordenes.filter((o) => coincideOrden(o, filters?.q));
+    aplicarBusquedaOrdenes(qb, filters?.q, pacienteIds, { conEstado: false });
+    return qb.getMany();
   }
 
   /** Returns the order with full nested relations needed by the detail view. */

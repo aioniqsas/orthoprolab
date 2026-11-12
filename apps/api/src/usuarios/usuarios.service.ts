@@ -17,7 +17,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 import { Rol } from './rol.entity.js';
 import { Usuario } from './usuario.entity.js';
-import { coincideBusqueda } from '../common/busqueda.js';
+import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
 
 const PASSWORD_CHARS =
   'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
@@ -62,7 +62,7 @@ export class UsuariosService {
   ) {}
 
   async findAll(q?: string): Promise<UsuarioPublico[]> {
-    const usuarios = await this.usuarioRepo
+    const qb = this.usuarioRepo
       .createQueryBuilder('u')
       .innerJoinAndSelect('u.rol', 'rol')
       .leftJoinAndSelect('u.clinica', 'clinica')
@@ -79,12 +79,17 @@ export class UsuariosService {
         'clinica.nombre',
       ])
       .orderBy('u.apellidos', 'ASC')
-      .addOrderBy('u.nombres', 'ASC')
-      .getMany();
+      .addOrderBy('u.nombres', 'ASC');
+    const patron = patronBusqueda(q);
+    if (patron) {
+      qb.andWhere(
+        `(${sinAcentosSql("u.nombres || ' ' || u.apellidos")} LIKE :patron ESCAPE '\\' OR ${sinAcentosSql('u.correo')} LIKE :patron ESCAPE '\\')`,
+        { patron },
+      );
+    }
+    const usuarios = await qb.getMany();
 
-    return usuarios
-      .filter((u) => coincideBusqueda(q, [`${u.nombres} ${u.apellidos}`, u.correo]))
-      .map((u) => ({
+    return usuarios.map((u) => ({
         id: u.id,
         nombres: u.nombres,
         apellidos: u.apellidos,

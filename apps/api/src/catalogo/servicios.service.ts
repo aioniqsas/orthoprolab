@@ -26,7 +26,7 @@ import {
 import { Servicio } from './servicio.entity.js';
 import { slugify, uniqueSlug } from './slug.js';
 import { PDF_REDIS, invalidatePdfCache } from './pdf-cache.js';
-import { coincideBusqueda } from '../common/busqueda.js';
+import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
 
 /** The ONLY fields the public catalog exposes: never price, state or internals. */
 export interface ServicioPublico {
@@ -117,10 +117,16 @@ export class ServiciosService {
   // --- admin ----------------------------------------------------------------
 
   async listAdmin(q?: string): Promise<ServicioAdmin[]> {
-    const rows = await this.servicios.find({ order: { nombre: 'ASC' } });
-    return rows
-      .filter((s) => coincideBusqueda(q, [s.nombre, s.descripcion]))
-      .map(toAdmin);
+    const qb = this.servicios.createQueryBuilder('s').orderBy('s.nombre', 'ASC');
+    const patron = patronBusqueda(q);
+    if (patron) {
+      qb.andWhere(
+        `(${sinAcentosSql('s.nombre')} LIKE :patron ESCAPE '\\' OR ${sinAcentosSql('s.descripcion')} LIKE :patron ESCAPE '\\')`,
+        { patron },
+      );
+    }
+    const rows = await qb.getMany();
+    return rows.map(toAdmin);
   }
 
   async getAdmin(id: string): Promise<ServicioAdmin> {

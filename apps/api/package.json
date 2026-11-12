@@ -30,6 +30,7 @@
     "keys:generate": "bun scripts/generate-keys.ts",
     "admin:create": "bun --env-file=.env scripts/admin-create.ts",
     "seed:paciente": "bun --env-file=.env scripts/seed-paciente.ts",
+    "busqueda:reindexar": "bun --env-file=.env scripts/reindex-paciente-busqueda.ts",
     "db:schema": "podman exec orthopro-postgres pg_dump -U orthopro -d orthopro --schema-only --no-owner --no-privileges | rg -v '^\\\\(un)?restrict' > docs/schema.sql.tmp && (printf -- '-- GENERATED FILE. Do not edit by hand.\\n-- Regenerate with: bun run db:schema (needs infra:up and migrations applied).\\n\\n'; cat docs/schema.sql.tmp) > docs/schema.sql; rm -f docs/schema.sql.tmp",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
