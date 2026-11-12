@@ -182,8 +182,14 @@ describe('PedidosService.update · detalle de orden', () => {
 
     const result = await service.update('5', { detalles: [] } as never);
 
+    // Criterio exacto: solo las filas de esta orden, una sola vez.
+    expect(manager.softDelete).toHaveBeenCalledTimes(1);
     expect(manager.softDelete).toHaveBeenCalledWith(DetalleOrden, { ordenId: '5' });
-    expect(manager).not.toHaveProperty('delete');
+    // Ningún re-insertado de líneas viejas (el soft delete no debe recrearlas).
+    expect(manager.save).not.toHaveBeenCalledWith(
+      DetalleOrden,
+      expect.objectContaining({ id: '2' }),
+    );
     expect(result.detalles).toEqual([detalleVivo]);
   });
 });
