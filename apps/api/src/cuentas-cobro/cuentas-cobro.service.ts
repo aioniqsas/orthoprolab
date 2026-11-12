@@ -33,6 +33,24 @@ import type { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
 export class CuentasCobroService {
   private readonly logger = new Logger(CuentasCobroService.name);
 
+  /**
+   * Único host del que se descarga un `pdfUrl` almacenado. `uploadToCloudinary`
+   * usa el SDK con `secure: true`, que siempre produce URLs
+   * `https://res.cloudinary.com/<cloud>/...`: el nombre de la nube nunca cambia
+   * el host, así que no hace falta configurarlo.
+   */
+  private static readonly CLOUDINARY_PDF_HOST = 'res.cloudinary.com';
+
+  /** Límite de descarga en memoria para servir el PDF al portal de clínicas. */
+  private static readonly PDF_MAX_BYTES = 5 * 1024 * 1024;
+
+  /**
+   * Generaciones de PDF en curso por cuenta. La API corre como una sola
+   * instancia de Render: el dedupe en proceso basta; un lock distribuido está
+   * fuera de alcance hasta que haya más de una réplica.
+   */
+  private readonly pdfEnCurso = new Map<string, Promise<Buffer>>();
+
   constructor(
     @InjectRepository(CuentaCobro)
     private readonly cuentaCobroRepo: Repository<CuentaCobro>,
@@ -516,25 +534,68 @@ export class CuentasCobroService {
    * (`generarYGuardarPdf`). Nunca devuelve ni redirige a la URL de Cloudinary.
    */
   async obtenerPdfBytes(id: string): Promise<Buffer> {
-    let cuenta = await this.findOne(id);
+    const cuenta = await this.findOne(id);
     if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
-    if (!cuenta.pdfUrl) {
-      try {
-        cuenta = await this.generarYGuardarPdf(id);
-      } catch (err) {
-        this.logger.error(`Generación de PDF fallida para cuenta ${id}: ${String(err)}`);
-        throw new ServiceUnavailableException('No se pudo generar el PDF de la cuenta de cobro.');
-      }
+    if (cuenta.pdfUrl) {
+      return this.descargarPdfValidado(cuenta.pdfUrl);
     }
-    const pdfUrl = cuenta.pdfUrl;
-    if (!pdfUrl) {
-      throw new ServiceUnavailableException('PDF de cuenta de cobro no disponible.');
+    const enCurso = this.pdfEnCurso.get(id);
+    if (enCurso) return enCurso;
+    const promesa = this
+      .generarYGuardarPdf(id)
+      .then((generada) => {
+        if (!generada.pdfUrl) {
+          throw new Error('La generación no dejó pdfUrl.');
+        }
+        return this.descargarPdfValidado(generada.pdfUrl);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof ServiceUnavailableException) throw err;
+        this.logger.error(
+          `Generación de PDF fallida para cuenta ${id}: ${String(err)}`,
+        );
+        throw new ServiceUnavailableException(
+          'No se pudo generar el PDF de la cuenta de cobro.',
+        );
+      })
+      .finally(() => this.pdfEnCurso.delete(id));
+    this.pdfEnCurso.set(id, promesa);
+    return promesa;
+  }
+
+  /** Descarga el PDF almacenado solo desde el host de Cloudinary, con tope de tamaño. */
+  private async descargarPdfValidado(pdfUrl: string): Promise<Buffer> {
+    let url: URL | null = null;
+    try {
+      url = new URL(pdfUrl);
+    } catch {
+      url = null;
+    }
+    const host = url?.hostname ?? 'url-invalida';
+    if (
+      !url ||
+      url.protocol !== 'https:' ||
+      host !== CuentasCobroService.CLOUDINARY_PDF_HOST
+    ) {
+      // Solo el host va al log: la URL puede venir de datos corruptos.
+      this.logger.error(`pdfUrl rechazado para descarga (host: ${host})`);
+      throw new ServiceUnavailableException(
+        'El PDF almacenado no está en el almacenamiento autorizado.',
+      );
     }
     const pdfRes = await fetch(pdfUrl);
     if (!pdfRes.ok) {
-      throw new ServiceUnavailableException('No se pudo obtener el PDF de la cuenta de cobro.');
+      throw new ServiceUnavailableException(
+        'No se pudo obtener el PDF de la cuenta de cobro.',
+      );
     }
-    return Buffer.from(await pdfRes.arrayBuffer());
+    const buffer = Buffer.from(await pdfRes.arrayBuffer());
+    if (buffer.length > CuentasCobroService.PDF_MAX_BYTES) {
+      throw new ServiceUnavailableException(
+        'El PDF de la cuenta de cobro supera el tamaño máximo permitido.',
+      );
+    }
+    return buffer;
   }
 
   /**

@@ -249,9 +249,11 @@ export class MiClinicaController {
     @Param('id') id: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    // Antes de llamar al servicio: los 404 y 503 de la ruta también deben
+    // salir con la cabecera.
+    res.setHeader('Cache-Control', 'private, no-store');
     const { pdf, numero } = await this.miClinica.cuentaPdf(req.user.id, id);
     const nombre = numero.replace(/[^A-Za-z0-9._-]/g, '_') || 'cuenta';
-    res.setHeader('Cache-Control', 'private, no-store');
     return new StreamableFile(pdf, {
       type: 'application/pdf',
       disposition: `attachment; filename="cuenta-${nombre}.pdf"`,

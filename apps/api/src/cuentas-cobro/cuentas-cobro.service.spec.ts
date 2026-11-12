@@ -270,4 +270,129 @@ describe('CuentasCobroService.obtenerPdfBytes', () => {
       ServiceUnavailableException,
     );
   });
+
+  /**
+   * Ronda adversarial T11: el fetch de `pdfUrl` no tenía esquema ni host
+   * permitido; solo la propia subida de la app (Cloudinary, secure) es válida.
+   */
+  it('rechaza sin fetch un pdfUrl que no es https', async () => {
+    const { service } = montarPdf({
+      id: '3',
+      pdfUrl: 'http://res.cloudinary.com/cuenta.pdf',
+    });
+
+    await expect(service.obtenerPdfBytes('3')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rechaza sin fetch un pdfUrl de un host ajeno a Cloudinary', async () => {
+    const { service } = montarPdf({
+      id: '3',
+      pdfUrl: 'https://evil.example.com/cuenta.pdf',
+    });
+
+    await expect(service.obtenerPdfBytes('3')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('dos peticiones concurrentes sin PDF generan una sola vez y reciben los mismos bytes', async () => {
+    const cuenta: {
+      id: string;
+      estado: string;
+      pdfUrl: string | null;
+      numero: string;
+    } = { id: '3', estado: 'emitida', pdfUrl: null, numero: 'CC-2025-1' };
+    let liberar: (valor: Buffer) => void;
+    const generate = vi.fn(
+      () =>
+        new Promise<Buffer>((resolve) => {
+          liberar = resolve;
+        }),
+    );
+    const upload = vi.fn(async () => ({
+      url: 'https://res.cloudinary.com/demo/raw/upload/orthopro/cuentas/CC_2025_1.pdf',
+      hash: 'h',
+    }));
+    const findOne = vi.fn(async () => ({ ...cuenta }));
+    const update = vi.fn(async (_w: unknown, vals: Record<string, unknown>) => {
+      Object.assign(cuenta, vals);
+    });
+    const service = new CuentasCobroService(
+      { findOne, update } as never,
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+      {} as never, {} as never,
+      { generate, uploadToCloudinary: upload } as never,
+      {} as never, {} as never, {} as never,
+      { emitir: vi.fn() } as never,
+    );
+    fetchMock.mockImplementation(async () => ({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode('%PDF-1.7 unica').buffer,
+    }));
+
+    const primera = service.obtenerPdfBytes('3');
+    const segunda = service.obtenerPdfBytes('3');
+    // generate corre tras awaits internos: espera a que arranque la generación
+    // (nunca resuelve sola, el diferido la controla) antes de liberarla.
+    await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    liberar!(Buffer.from('%PDF-1.7 unica'));
+    const [a, b] = await Promise.all([primera, segunda]);
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(a.equals(b)).toBe(true);
+  });
+
+  it('rechaza con 503 un PDF que supera el tamaño maximo', async () => {
+    const { service } = montarPdf({
+      id: '3',
+      pdfUrl: 'https://res.cloudinary.com/enorme.pdf',
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(5 * 1024 * 1024 + 1),
+    });
+
+    await expect(service.obtenerPdfBytes('3')).rejects.toThrow(/tama/);
+  });
+
+  it('persiste pdfUrl solo tras la subida y responde 503 si la descarga posterior falla', async () => {
+    const cuenta: {
+      id: string;
+      estado: string;
+      pdfUrl: string | null;
+      numero: string;
+    } = { id: '3', estado: 'emitida', pdfUrl: null, numero: 'CC-2025-1' };
+    const update = vi.fn(async (_w: unknown, vals: Record<string, unknown>) => {
+      Object.assign(cuenta, vals);
+    });
+    const findOne = vi.fn(async () => ({ ...cuenta }));
+    const service = new CuentasCobroService(
+      { findOne, update } as never,
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+      {} as never, {} as never,
+      {
+        generate: vi.fn(async () => Buffer.from('%PDF')),
+        uploadToCloudinary: vi.fn(async () => ({
+          url: 'https://res.cloudinary.com/demo/raw/upload/orthopro/cuentas/CC_2025_1.pdf',
+          hash: 'h',
+        })),
+      } as never,
+      {} as never, {} as never, {} as never,
+      { emitir: vi.fn() } as never,
+    );
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
+
+    await expect(service.obtenerPdfBytes('3')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0]![1]).toMatchObject({
+      pdfUrl: 'https://res.cloudinary.com/demo/raw/upload/orthopro/cuentas/CC_2025_1.pdf',
+    });
+  });
 });
