@@ -9,7 +9,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { crearCliente, NO_HABILITADO, type ApiClient } from './api'
 import { configuracionDesdeEntorno, DatosBot } from './datos'
-import { ClienteGroq, configuracionLlm, StoreLlm } from './llm'
+import { ClienteGroq, configuracionLlm, StoreLlm, type RespuestaLlm } from './llm'
 import { ReadFlows, type Respuesta } from './flows'
 import { buildMenu } from './menu'
 import { MENSAJE_LIMITE, RateLimiter } from './rate-limit'
@@ -47,17 +47,21 @@ const configLlm = configuracionLlm()
 const datosBot = new DatosBot(configuracionDesdeEntorno())
 const flujoLlm = configLlm ? new ClienteGroq(configLlm) : null
 const storeLlm = new StoreLlm()
-// Comandos del menú que el flujo determinista atiende aunque el LLM esté on.
-const ES_COMANDO_MENU = /^(?:0|[1-5]|cancelar|ayuda|help)$/i
+// Escape con palabras naturales (IA7): nunca llega al modelo; el flujo
+// determinista responde con el saludo sin gastar tokens.
+const ES_ESCAPE = /^(?:0|cancelar|menú|menu|volver|inicio)$/i
 
-/** Texto del LLM para el mensaje libre, o null si toca el flujo del menú. */
+/**
+ * Ruta o texto del modelo (IA7/S13); null si el modelo no está disponible y
+ * toca el flujo determinista del menú como red de seguridad.
+ */
 async function respuestaLlm(
   telefono: string,
   texto: string,
   clinicaId: string,
-): Promise<string | null> {
-  if (!flujoLlm || !configLlm) return null
-  return (await flujoLlm.manejar(telefono, texto, datosBot, clinicaId, storeLlm)).texto
+): Promise<RespuestaLlm> {
+  if (!flujoLlm || !configLlm) return { texto: null }
+  return await flujoLlm.manejar(telefono, texto, datosBot, clinicaId, storeLlm)
 }
 
 /** Create the auth dir with owner-only permissions and chmod every credential file to 0600. */
@@ -156,24 +160,44 @@ async function start(attempt = 1): Promise<void> {
         await socket.sendMessage(senderId, { text: media.text })
         continue
       }
-      // IA3: texto libre en el paso de menú y con la IA activa va primero al
-      // LLM; si el LLM no puede (sin llave, caído, respuesta inválida) o el
-      // contacto tecleó un comando del menú, manda el flujo determinista.
+      // IA7/S13: en el paso de saludo TODO el texto libre lo enruta el modelo
+      // ("1", "la A", "quiero ver mi pedido", "mándame la cuenta"). Solo el
+      // escape con palabras naturales va derecho al flujo determinista. Sin
+      // modelo, o si el modelo no respondió, el menú numerado es la red de
+      // seguridad: el bot nunca queda mudo.
       const textoMensaje = messageText(message)
       const pasoActual = conversations.get(identidad.telefono)?.step ?? 'menu'
       if (
         flujoLlm &&
         pasoActual === 'menu' &&
         textoMensaje.trim() !== '' &&
-        !ES_COMANDO_MENU.test(textoMensaje.trim())
+        !ES_ESCAPE.test(textoMensaje.trim())
       ) {
         const ia = await respuestaLlm(
           identidad.telefono,
           textoMensaje,
           identidad.identidad.clinicId,
         )
-        if (ia !== null) {
-          await socket.sendMessage(senderId, { text: ia })
+        if (ia.ruta !== undefined) {
+          const respuesta = await flows.atenderRuta(
+            identidad.telefono,
+            ia.ruta,
+            identidad.identidad.doctorId,
+          )
+          if (respuesta.kind === 'document') {
+            await socket.sendMessage(senderId, {
+              document: respuesta.buffer,
+              mimetype: 'application/pdf',
+              fileName: respuesta.filename,
+              caption: respuesta.text,
+            })
+          } else {
+            await socket.sendMessage(senderId, { text: respuesta.text })
+          }
+          continue
+        }
+        if (ia.texto !== null) {
+          await socket.sendMessage(senderId, { text: ia.texto })
           continue
         }
       }

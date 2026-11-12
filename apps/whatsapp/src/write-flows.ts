@@ -3,7 +3,7 @@ import { esDienteValido, nombreDiente } from '@repo/api-client/dientes'
 import type { ApiClient, NuevaOrdenPayload, PacienteApi } from './api.js'
 import { ApiError } from './api.js'
 import { extraerNumero } from './digitos.js'
-import { buildMenu } from './menu.js'
+import { SALUDO } from './menu.js'
 import { PREGUNTA_CONFIRMAR } from './flows.js'
 import type { ConversationStore } from './state.js'
 
@@ -15,7 +15,8 @@ import type { ConversationStore } from './state.js'
  * nunca los valores (contienen datos de pacientes).
  */
 
-export const OPCION_CANCELAR_ORDEN = /^(0|cancelar)$/i
+// Escape con palabras naturales (IA7/S13); "0" sigue siendo el alias universal.
+export const OPCION_CANCELAR_ORDEN = /^(0|cancelar|menú|menu|volver|inicio)$/i
 /** Confirmación tolerante (S11): 1, sí/si o confirmar, sin importar mayúsculas. */
 export const CONFIRMAR_SI = /^(1|sí|si|confirmar)$/i
 export const CONFIRMAR_NO = /^(0|no|cancelar)$/i
@@ -131,7 +132,7 @@ export class OrderFlows {
 
     if (OPCION_CANCELAR_ORDEN.test(entrada)) {
       this.store.clear(telefono)
-      return { kind: 'text', text: `De vuelta al menú.\n\n${buildMenu()}`, intencion: 'menu' }
+      return { kind: 'text', text: SALUDO, intencion: 'menu' }
     }
 
     if (step === '') return this.inicio(telefono, campos, doctorContacto)
@@ -144,7 +145,7 @@ export class OrderFlows {
     if (step === 'orden-color') return this.pasoColor(telefono, campos, entrada)
     if (step === 'orden-observaciones') return this.pasoObservaciones(telefono, campos, entrada)
     if (step === 'orden-confirmar') return this.pasoConfirmar(telefono, campos, entrada)
-    return { kind: 'text', text: buildMenu() }
+    return { kind: 'text', text: SALUDO }
   }
 
   /** Inicio: fija el doctor (silencioso si el contacto lo tiene) y pasa al paciente. */
@@ -214,7 +215,7 @@ export class OrderFlows {
       case 'orden-confirmar':
         return resumenOrden(campos)
       default:
-        return buildMenu()
+        return SALUDO
     }
   }
 
@@ -457,7 +458,7 @@ export class OrderFlows {
   private async pasoConfirmar(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     if (CONFIRMAR_NO.test(entrada)) {
       this.store.clear(telefono)
-      return { kind: 'text', text: `Orden descartada.\n\n${buildMenu()}`, intencion: 'menu' }
+      return { kind: 'text', text: `Orden descartada.\n\n${SALUDO}`, intencion: 'menu' }
     }
     if (!CONFIRMAR_SI.test(entrada)) {
       return { kind: 'text', text: PREGUNTA_CONFIRMAR }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import type { ApiClient, DoctorApi, ServicioApi } from '../src/api.js'
 import { extraerNumero } from '../src/digitos.js'
 import { AVISO_AUDIO, AVISO_MEDIA, PREGUNTA_AYUDA, PREGUNTA_CONFIRMAR } from '../src/flows.js'
-import { buildMenu } from '../src/menu.js'
+import { buildMenu, SALUDO } from '../src/menu.js'
 import { ConversationStore } from '../src/state.js'
 import { ReadFlows, type Respuesta } from '../src/flows.js'
 import { OrderFlows } from '../src/write-flows.js'
@@ -56,11 +56,11 @@ function texto(r: Respuesta): string {
 }
 
 describe('0 = volver al menú en todos los flujos (S11/T12)', () => {
-  it('en el menú, 0 ya no llama: muestra el menú', async () => {
+  it('en el menú, 0 ya no llama: muestra el saludo (IA7)', async () => {
     const api = apiFalso()
     const { flows } = par(api)
     const r = await flows.handle(TEL, '0')
-    expect(texto(r)).toBe(buildMenu())
+    expect(texto(r)).toBe(SALUDO)
     expect(api.llamadasLlamada).toBe(0)
   })
 
@@ -71,7 +71,7 @@ describe('0 = volver al menú en todos los flujos (S11/T12)', () => {
       await flows.handle(TEL, opcion)
       expect(store.get(TEL)).toBeDefined()
       const r = await flows.handle(TEL, '0')
-      expect(texto(r)).toContain('De vuelta al menú')
+      expect(texto(r)).toBe(SALUDO)
       expect(store.get(TEL)).toBeUndefined()
     }
   })
@@ -82,7 +82,7 @@ describe('0 = volver al menú en todos los flujos (S11/T12)', () => {
       const { flows, esc, store } = par(api)
       for (const p of pasos) await esc.handle(TEL, p)
       const r = await flows.handle(TEL, '0')
-      expect(texto(r)).toContain('De vuelta al menú')
+      expect(texto(r)).toBe(SALUDO)
       expect(store.get(TEL)).toBeUndefined()
       expect(api.crearOrdenLlamadas).toHaveLength(0)
     }
@@ -114,7 +114,7 @@ describe('"ayuda" pregunta antes de llamar (S11/T12)', () => {
     await flows.handle(TEL, 'ayuda')
     const r = await flows.handle(TEL, '0')
     expect(api.llamadasLlamada).toBe(0)
-    expect(texto(r)).toBe(buildMenu())
+    expect(texto(r)).toBe(SALUDO)
   })
 
   it('respuesta desconocida: "No entendí" y la pregunta otra vez', async () => {
@@ -175,11 +175,11 @@ describe('"ayuda" pregunta antes de llamar (S11/T12)', () => {
 })
 
 describe('medios no legibles (S11/T12)', () => {
-  it('audio en el menú: aviso de audio + menú; el estado no cambia', async () => {
+  it('audio en el menú: aviso de audio + saludo; el estado no cambia (IA7)', async () => {
     const api = apiFalso()
     const { flows } = par(api)
     const r = await flows.media(TEL, true)
-    expect(texto(r)).toBe(`${AVISO_AUDIO}\n\n${buildMenu()}`)
+    expect(texto(r)).toBe(`${AVISO_AUDIO}\n\n${SALUDO}`)
   })
 
   it('imagen en un paso de lectura: aviso genérico + la pregunta de ese paso', async () => {

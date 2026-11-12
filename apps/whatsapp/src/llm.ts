@@ -1,6 +1,8 @@
 import { NO_DISPONIBLE, NO_ENCONTRADO, type DatosBot } from './datos.js'
 import { ejecutarHerramienta, type LlamadaHerramienta } from './herramientas.js'
+import { PREGUNTA_ACLARAR, SALUDO } from './menu.js'
 import {
+  NOMBRE_BOT_DEFECTO,
   NEGATIVA_ESCRITURA,
   NEGATIVA_FIJA,
   NEGATIVA_IDENTIDAD,
@@ -8,6 +10,7 @@ import {
   NEGATIVA_SUPLANTACION,
   clasificarNegativa,
   construirPromptSistema,
+  negativaIdentidad,
   type ClaseNegativa,
 } from './prompt.js'
 export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION, construirPromptSistema } from './prompt.js'
@@ -36,6 +39,8 @@ export interface ConfigLlm {
   apiKey: string
   modelo: string
   timeoutMs: number
+  /** Nombre con el que el bot responde quién es (IA7); hoy es constante, luego vendrá de la base. */
+  nombre: string
 }
 
 /**
@@ -50,6 +55,7 @@ export function configuracionLlm(env: Record<string, string | undefined> = proce
     apiKey: env.GROQ_API_KEY,
     modelo: env.WHATSAPP_LLM_MODEL || MODELO_DEFECTO,
     timeoutMs: TIMEOUT_MS,
+    nombre: NOMBRE_BOT_DEFECTO,
   }
 }
 
@@ -61,6 +67,27 @@ const ESQUEMAS: Record<string, Record<string, TipoParam>> = {
   cuenta_de_cobro: { numero: 'texto' },
   listar_doctores: {},
   listar_servicios: {},
+  // Intenciones de enrutado (IA7/S13): la puerta, no la escritura. El
+  // parámetro es opcional: sin número, el flujo determinista lo pregunta.
+  ver_pedido: {},
+  nuevo_pedido: {},
+  pedir_llamada: {},
+  enviar_control: { orden: 'numero' },
+  enviar_cuenta: { numero: 'texto' },
+}
+
+/** Herramientas de intención: devuelven una ruta al flujo determinista, no consultan la base. */
+const ES_INTENCION = new Set(['ver_pedido', 'nuevo_pedido', 'pedir_llamada', 'enviar_control', 'enviar_cuenta'])
+
+/** Ruta decidida por el modelo; la ejecuta el flujo determinista (IA7). */
+export type Ruta = {
+  tipo: 'ver_pedido' | 'enviar_control' | 'enviar_cuenta' | 'nuevo_pedido' | 'pedir_llamada'
+  numero?: string
+}
+
+function rutaDe(llamada: LlamadaHerramienta): Ruta {
+  const numero = typeof llamada.entrada === 'string' && llamada.entrada !== '' ? llamada.entrada : undefined
+  return { tipo: llamada.nombre as Ruta['tipo'], ...(numero ? { numero } : {}) }
 }
 
 const REGEX_NUMERO = /^\d{1,18}$/
@@ -76,6 +103,22 @@ const REGEX_TEXTO = /^[0-9A-Za-z-]{1,20}$/
 export function validarLlamada(nombre: string, argumentos: unknown): { ok: true; entrada: unknown } | { ok: false } {
   const esquema = ESQUEMAS[nombre]
   if (!esquema) return { ok: false }
+  if (ES_INTENCION.has(nombre)) {
+    // Intención: todos los parámetros son opcionales, pero si llegan deben
+    // ser exactos en nombre y tipo; nada de claves extra ni clinica_id.
+    if (argumentos === null || argumentos === undefined) return { ok: true, entrada: null }
+    if (typeof argumentos !== 'object' || Array.isArray(argumentos)) return { ok: false }
+    const objeto = argumentos as Record<string, unknown>
+    const claves = Object.keys(objeto)
+    for (const clave of claves) {
+      const tipo = esquema[clave]
+      if (!tipo) return { ok: false }
+      const valor = objeto[clave]
+      if (tipo === 'numero' && !(typeof valor === 'string' && REGEX_NUMERO.test(valor))) return { ok: false }
+      if (tipo === 'texto' && !(typeof valor === 'string' && REGEX_TEXTO.test(valor))) return { ok: false }
+    }
+    return { ok: true, entrada: claves.length === 1 ? objeto[claves[0]!] : null }
+  }
   if (argumentos === null || typeof argumentos !== 'object' || Array.isArray(argumentos)) {
     return esquema && Object.keys(esquema).length === 0 ? { ok: true, entrada: null } : { ok: false }
   }
@@ -209,11 +252,11 @@ export const LIMITE_COSTO =
 /** Mensaje cuando el modelo pidió algo fuera del catálogo o inválido: la misma negativa fija. */
 export const NO_PUEDO = NEGATIVA_FIJA
 
-/** Frase fija por clase de negativa (IA4). */
-function textoNegativa(clase: ClaseNegativa): string {
+/** Frase fija por clase de negativa (IA4). La de identidad lleva el nombre del bot. */
+function textoNegativa(clase: ClaseNegativa, nombre: string): string {
   return clase === 'escritura' ? NEGATIVA_ESCRITURA
     : clase === 'suplantacion' ? NEGATIVA_SUPLANTACION
-    : clase === 'identidad' ? NEGATIVA_IDENTIDAD
+    : clase === 'identidad' ? negativaIdentidad(nombre)
     : NEGATIVA_FIJA
 }
 
@@ -229,7 +272,9 @@ function parseUso(cuerpo: unknown): UsoGroq {
 }
 
 /** Un turno de conversación completo: posible ida y vuelta al modelo (máx 2). */
-export type RespuestaLlm = { texto: string } | { texto: null } // null => fallback al menú
+export type RespuestaLlm =
+  | { texto: string | null; ruta?: undefined } // texto null => fallback al menú
+  | { texto?: undefined; ruta: Ruta }
 
 export class ClienteGroq {
   constructor(
@@ -251,6 +296,11 @@ export class ClienteGroq {
             : nombre === 'ultima_orden_doctor' ? 'La orden más reciente del doctor.'
             : nombre === 'cuenta_de_cobro' ? 'Una cuenta de cobro por su número.'
             : nombre === 'listar_doctores' ? 'Doctores activos de la clínica.'
+            : nombre === 'ver_pedido' ? 'La persona quiere saber cómo va un pedido o ver una orden. Sin número, el flujo lo pregunta.'
+            : nombre === 'nuevo_pedido' ? 'La persona quiere tomar un pedido nuevo; el flujo lo toma paso a paso y confirma antes de crear.'
+            : nombre === 'pedir_llamada' ? 'La persona pide que el laboratorio la llame.'
+            : nombre === 'enviar_control' ? 'Enviar el control de trabajos de una orden en PDF. El número de orden es opcional.'
+            : nombre === 'enviar_cuenta' ? 'Enviar una cuenta de cobro en PDF. El número es opcional.'
             : 'Catálogo de servicios activos.',
         ),
       ),
@@ -313,7 +363,7 @@ export class ClienteGroq {
     if (clase !== null) {
       store.set(telefono, previo, ahora)
       this.auditar({ intencion: 'conversacion', herramienta: null, tokensEntrada: 0, tokensSalida: 0, resultado: 'negado' })
-      return { texto: textoNegativa(clase) }
+      return { texto: textoNegativa(clase, this.config.nombre) }
     }
     const historial = previo.historial.slice(-MAX_TURNOS_HISTORIAL * 2)
     const mensajes: Mensaje[] = [
@@ -338,10 +388,15 @@ export class ClienteGroq {
       }
       tokens += respuesta.uso.entrada + respuesta.uso.salida
       if ('texto' in respuesta) {
-        historialNuevo.push({ role: 'assistant', content: respuesta.texto })
+        // IA7/S13: el modelo enruta; el texto libre suyo nunca es la puerta.
+        // Sin acción nombrada en la primera ronda: saludo al llegar, una sola
+        // pregunta de aclaración si ya hay conversación. Con datos ya
+        // consultados (ronda mayor a 0), la respuesta del modelo sí se muestra.
+        const textoFinal = ronda === 0 ? (previo.historial.length === 0 ? SALUDO : PREGUNTA_ACLARAR) : respuesta.texto
+        historialNuevo.push({ role: 'assistant', content: textoFinal })
         store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
         this.auditar({ intencion: 'conversacion', herramienta: null, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'texto' })
-        return { texto: respuesta.texto }
+        return { texto: textoFinal }
       }
       // Validar TODAS las llamadas antes de ejecutar ninguna: una inválida
       // niega el turno completo sin tocar la base (IA3, punto 3).
@@ -368,6 +423,15 @@ export class ClienteGroq {
         store.set(telefono, previo, ahora)
         this.auditar({ intencion: 'conversacion', herramienta: nombrePrimera, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'negado' })
         return { texto: NO_PUEDO }
+      }
+      // IA7/S13: una intención de enrutado cierra el turno sin tocar la base;
+      // el flujo determinista (atenderRuta en flows.ts) es el ejecutor.
+      const intencion = validas.find((v) => ES_INTENCION.has(v.llamada.nombre))
+      if (intencion) {
+        historialNuevo.push({ role: 'assistant', content: `[ruta ${intencion.llamada.nombre}]` })
+        store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
+        this.auditar({ intencion: intencion.llamada.nombre, herramienta: intencion.llamada.nombre, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'herramienta_ok' })
+        return { ruta: rutaDe(intencion.llamada) }
       }
       historialNuevo.push({ role: 'assistant', content: `[consultó ${nombrePrimera}]` })
       mensajes.push({ role: 'assistant', content: null, tool_calls: respuesta.llamadas })

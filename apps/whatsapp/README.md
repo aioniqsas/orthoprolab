@@ -26,12 +26,21 @@ contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
 Si falta `WHATSAPP_SERVICE_TOKEN` o `WHATSAPP_HMAC_SECRET`, el bot responde a
 cada mensaje que no está configurado y no crashea.
 
-## Inteligencia con Groq (IA3)
+## Inteligencia con Groq (IA3, IA7)
 
-El texto libre (fuera de los comandos del menú) puede pasar por un modelo con
-tool calling. La identidad, la sesión y las escrituras siguen siendo
-deterministas; el modelo solo elige entre las herramientas de lectura del
-catálogo cerrado (`src/herramientas.ts`).
+La entrada no es un menú numerado: el bot saluda con una frase fija que nombra
+sus capacidades (IA7). En el saludo, todo lo que la persona escriba («1», «la
+A», «quiero ver mi pedido», «mándame la cuenta de la 1234», «hazme un pedido»)
+lo enruta el modelo con herramientas de intención (`ver_pedido`,
+`nuevo_pedido`, `pedir_llamada`, `enviar_control`, `enviar_cuenta`); los flujos
+deterministas siguen siendo los ejecutores y el modelo nunca escribe ni
+confirma. El escape es con palabras naturales (`menú`, `volver`, `inicio` y
+`0`); un mensaje sin acción recibe una sola pregunta de aclaración. Sin modelo
+disponible (sin llave, bandera apagada, timeout, HTTP != 200 o respuesta
+malformada) el menú numerado responde como red de seguridad: el bot nunca
+queda mudo. La sesión y las escrituras siguen siendo deterministas; el modelo
+también elige entre las herramientas de lectura del catálogo cerrado
+(`src/herramientas.ts`).
 
 - `GROQ_API_KEY`: llave de Groq. Si falta, el bot vuelve al menú
   determinista sin anunciar nada.
