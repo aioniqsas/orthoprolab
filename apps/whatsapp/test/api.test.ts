@@ -7,6 +7,7 @@ import {
   NO_HABILITADO,
   SESSION_PATH,
   textoPorEstado,
+  urlPdfPermitida,
 } from '../src/api.js'
 import { jidToPhone, resolveIdentity } from '../src/identity.js'
 
@@ -46,6 +47,29 @@ function cliente(
     llamadas,
   }
 }
+
+describe('urlPdfPermitida (SSRF: allowlist + hosts privados)', () => {
+  it('acepta https del host Cloudinary permitido', () => {
+    expect(urlPdfPermitida('https://res.cloudinary.com/demo/cuenta.pdf')).toBe(true)
+  })
+
+  it('rechaza http y hosts desconocidos', () => {
+    expect(urlPdfPermitida('http://res.cloudinary.com/demo/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://evil.test/cuenta.pdf')).toBe(false)
+  })
+
+  it('rechaza hosts privados, de loopback, link-local e internos', () => {
+    expect(urlPdfPermitida('https://localhost/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://127.0.0.1/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://10.0.0.5/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://172.16.3.4/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://172.31.9.9/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://192.168.1.1/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://169.254.169.254/latest/meta-data')).toBe(false)
+    expect(urlPdfPermitida('https://[::1]/cuenta.pdf')).toBe(false)
+    expect(urlPdfPermitida('https://api.internal/cuenta.pdf')).toBe(false)
+  })
+})
 
 describe('cabeceras de firma', () => {
   it('firma HMAC-SHA256 de telefono|timestamp|nonce con el secreto HMAC', () => {
@@ -160,6 +184,20 @@ describe('resolveIdentity', () => {
   })
 })
 
+describe('clave de caché canónica', () => {
+  it('dos representaciones del mismo número comparten una entrada de caché', async () => {
+    const { client, llamadas } = cliente([{ status: 200, body: SESION }])
+    await client.sesion('+573001234567')
+    await client.sesion('3001234567')
+    expect(llamadas).toHaveLength(1)
+  })
+
+  it('rechaza un número que no puede canonicalizarse', async () => {
+    const { client } = cliente([{ status: 200, body: SESION }])
+    await expect(client.sesion('abc')).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
 describe('cliente sin configuración', () => {
   it('informa que el bot no está configurado sin crashear', () => {
     const sinConfig = new ApiClient(falsoFetch([]).fetchFn, BASE)
@@ -213,7 +251,8 @@ describe('rutas de lectura', () => {
 
   it('descargarPdf propaga el estado de la URL del PDF', async () => {
     const client = new ApiClient((async () => new Response(null, { status: 404 })) as unknown as typeof fetch, BASE, 't', 's')
-    await expect(client.descargarPdf('https://pdf.test/x.pdf')).rejects.toMatchObject({ status: 404 })
+    // Host en la allowlist: el 404 del servidor debe propagarse igual.
+    await expect(client.descargarPdf('https://res.cloudinary.com/x.pdf')).rejects.toMatchObject({ status: 404 })
     expect(new ApiError(404, 'x')).toBeInstanceOf(ApiError)
   })
 })

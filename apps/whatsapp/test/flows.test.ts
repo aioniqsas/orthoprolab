@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { ApiError, type ApiClient, type CuentaCobroApi, type OrdenApi } from '../src/api.js'
 import { buildMenu } from '../src/menu.js'
 import { ConversationStore } from '../src/state.js'
-import { formatoOrden, ReadFlows, type Respuesta } from '../src/flows.js'
+import { formatoOrden, nombreArchivoSeguro, ReadFlows, type Respuesta } from '../src/flows.js'
 
 const TELEFONO = '+573001234567'
 
@@ -94,11 +94,44 @@ describe('flujo 2: control de trabajos (PDF)', () => {
   })
 })
 
+describe('nombres de archivo seguros', () => {
+  it('cuenta: sanitiza ../, saltos de línea y valores largos', async () => {
+    const cuenta: CuentaCobroApi = { numero: '../../etc/passwd\nCC-2025-07', pdfUrl: 'https://pdf.test/cc.pdf' }
+    const api = falsoApi({
+      getCuentaCobro: async () => cuenta,
+      descargarPdf: async () => Buffer.from('%PDF'),
+    })
+    const r = await enviar(flujos(api), ['3', '42'])
+    expect(r.kind).toBe('document')
+    const d = r as { filename: string }
+    expect(d.filename).toBe('cuenta-....etcpasswdCC-2025-07.pdf')
+    expect(d.filename).not.toContain('/')
+    expect(d.filename).not.toContain('\n')
+    const largo200 = 'A'.repeat(100) + '/' + 'B'.repeat(100)
+    const cuenta2: CuentaCobroApi = { numero: largo200, pdfUrl: 'https://pdf.test/cc.pdf' }
+    const api2 = falsoApi({ getCuentaCobro: async () => cuenta2, descargarPdf: async () => Buffer.from('%PDF') })
+    const r2 = await enviar(flujos(api2), ['3', '42'])
+    expect((r2 as { filename: string }).filename.length).toBeLessThanOrEqual(60)
+  })
+
+  it('si nada es utilizable, cae al id numérico', () => {
+    expect(nombreArchivoSeguro('///', '7')).toBe('7')
+  })
+
+  it('control de trabajos también sanitiza', () => {
+    expect(nombreArchivoSeguro('..\nx', '1')).toBe('..x')
+  })
+})
+
 describe('flujo 3: cuenta de cobro (PDF)', () => {
   it('feliz: descarga el pdfUrl y lo envía como cuenta-<numero>.pdf', async () => {
     const cuenta: CuentaCobroApi = { numero: 'CC-2025-07', pdfUrl: 'https://pdf.test/cc.pdf' }
+    const consultas: Array<[string, string]> = []
     const api = falsoApi({
-      getCuentaCobro: async () => cuenta,
+      getCuentaCobro: async (telefono: string, id: string) => {
+        consultas.push([telefono, id])
+        return cuenta
+      },
       descargarPdf: async () => Buffer.from('%PDF'),
     })
     const r = await enviar(flujos(api), ['3', '07'])
@@ -106,6 +139,8 @@ describe('flujo 3: cuenta de cobro (PDF)', () => {
     const d = r as { filename: string; buffer: Buffer }
     expect(d.filename).toBe('cuenta-CC-2025-07.pdf')
     expect(d.buffer.length).toBeGreaterThan(0)
+    // La consulta usa el teléfono verificado y el id pedido, nunca otro (S3).
+    expect(consultas).toEqual([['+573001234567', '07']])
   })
 
   it('404 → "no encontrada" y no reintenta con otro id', async () => {

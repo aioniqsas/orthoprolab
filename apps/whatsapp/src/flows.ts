@@ -1,5 +1,5 @@
 import type { ApiClient, OrdenApi } from './api.js'
-import { ApiError } from './api.js'
+import { ApiError, UrlRechazadaError } from './api.js'
 import { buildMenu, replyToInput } from './menu.js'
 import type { ConversationStore } from './state.js'
 
@@ -23,6 +23,16 @@ const OPCION_CANCELAR = /^(0|cancelar)$/i
 
 function esNumero(texto: string): boolean {
   return /^\d{1,9}$/.test(texto.trim())
+}
+
+/**
+ * Nombre de archivo seguro (T5, ronda adversarial): solo [A-Za-z0-9._-], sin
+ * separadores de ruta ni saltos de línea, con tope de longitud; si nada es
+ * utilizable, cae al id numérico entregado por el propio flujo.
+ */
+export function nombreArchivoSeguro(valor: string, fallback: string): string {
+  const limpio = valor.replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40)
+  return limpio === '' ? fallback : limpio
 }
 
 function fecha(fechaIso: string | null | undefined): string {
@@ -129,7 +139,7 @@ export class ReadFlows {
       return {
         kind: 'document',
         text: `Control de trabajos de la orden ${ordenId}.`,
-        filename: `control-${ordenId}.pdf`,
+        filename: `control-${nombreArchivoSeguro(ordenId, ordenId)}.pdf`,
         buffer: pdf,
       }
     } catch (error) {
@@ -150,10 +160,13 @@ export class ReadFlows {
       return {
         kind: 'document',
         text: `Cuenta de cobro N.º ${cuenta.numero}.`,
-        filename: `cuenta-${cuenta.numero}.pdf`,
+        filename: `cuenta-${nombreArchivoSeguro(cuenta.numero, cuentaId)}.pdf`,
         buffer: pdf,
       }
     } catch (error) {
+      if (error instanceof UrlRechazadaError) {
+        return { kind: 'text', text: 'El PDF de esa cuenta no está disponible en este momento. Escríbele al laboratorio.' }
+      }
       return this.errorPdf(error, CUENTA_NO_ENCONTRADA)
     }
   }
