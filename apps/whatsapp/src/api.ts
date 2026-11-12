@@ -94,6 +94,89 @@ export interface CuentaCobroApi {
 
 export const PDF_MIME = 'application/pdf'
 
+/** Tope de tamaño del PDF descargado (unos pocos MB). */
+export const PDF_CAP_BYTES = 5 * 1024 * 1024
+
+/**
+ * Allowlist de hosts de los que el bot puede descargar un PDF (Cloudinary es
+ * el almacenamiento actual). Viene de WHATSAPP_PDF_HOSTS (separada por
+ * comas); el valor documentado por defecto es res.cloudinary.com.
+ */
+export function hostsPdfPermitidos(): string[] {
+  const crudos = (process.env.WHATSAPP_PDF_HOSTS ?? 'res.cloudinary.com').split(',')
+  return crudos.map((h) => h.trim().toLowerCase()).filter((h) => h !== '')
+}
+
+/**
+ * Decisión pura sobre una URL de PDF (T5, ronda adversarial): solo https,
+ * solo el host en la allowlist, y nunca un host privado/loopback/link-local
+ * ni un dominio interno. Solo se registran errores, nunca la URL completa.
+ */
+export function urlPdfPermitida(url: string, hosts: string[] = hostsPdfPermitidos()): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'https:') return false
+  const host = parsed.hostname.toLowerCase()
+  if (!hosts.includes(host)) return false
+  if (
+    host === 'localhost' ||
+    host.endsWith('.internal') ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    host === '::1' ||
+    host === '[::1]'
+  ) {
+    return false
+  }
+  return true
+}
+
+/**
+ * Forma canónica de un número colombiano para usarlo como clave de caché
+ * (ronda adversarial de T5): misma regla que normalizeTelefono de la API —
+ * "+57" + 10 dígitos nacionales. Acepta el JID crudo de Baileys, el prefijo
+ * internacional "00", un "57" opcional y separadores. Lanza si no puede
+ * canonicalizarse: mejor rechazar que cachear basura.
+ */
+export function telefonoCanonical(value: string): string {
+  let base = value
+  const arroba = base.indexOf('@')
+  if (arroba !== -1) {
+    const sufijo = base.slice(arroba)
+    if (!['@s.whatsapp.net', '@c.us', '@g.us', '@broadcast'].includes(sufijo)) {
+      throw new ApiError(400, 'teléfono inválido')
+    }
+    base = base.slice(0, arroba)
+  }
+  base = base.replace(/:\d+$/, '')
+  let digits = base.replace(/[\s.()\-]/g, '').replace(/^\+/, '')
+  if (digits.startsWith('00')) digits = digits.slice(2)
+  if (!/^\d+$/.test(digits) || digits.length < 10) {
+    throw new ApiError(400, 'teléfono inválido')
+  }
+  if (digits.length > 10) {
+    const country = digits.slice(0, -10)
+    if (country !== '57') throw new ApiError(400, 'teléfono inválido')
+    digits = digits.slice(-10)
+  }
+  return `+57${digits}`
+}
+
+/** Error cuando la URL del PDF no pasó la verificación de SSRF. */
+export class UrlRechazadaError extends Error {
+  constructor(message = 'La URL del PDF no está permitida.') {
+    super(message)
+    this.name = 'UrlRechazadaError'
+  }
+}
+
 /** Margen antes de la expiración en que se pide una sesión nueva. */
 export const TOKEN_MARGEN_MS = 30_000
 
@@ -113,7 +196,8 @@ export class ApiClient {
     return !this.serviceToken || !this.hmacSecret ? CONFIG_FALTANTE : undefined
   }
 
-  async sesion(telefono: string): Promise<SesionBot> {
+  async sesion(telefonoRaw: string): Promise<SesionBot> {
+    const telefono = telefonoCanonical(telefonoRaw)
     const cache = this.tokens.get(telefono)
     if (cache && cache.expiresAt > this.ahora()) return cache.sesion
     if (!this.serviceToken || !this.hmacSecret) {
@@ -156,7 +240,7 @@ export class ApiClient {
       headers: { authorization: `Bearer ${sesion.token}` },
     })
     if (res.status === 401 && reintento) {
-      this.tokens.delete(telefono)
+      this.tokens.delete(telefonoCanonical(telefono))
       return this.getJson(telefono, path, false)
     }
     if (!res.ok) throw new ApiError(res.status, `${path} falló`)
@@ -188,11 +272,46 @@ export class ApiClient {
     )) as CuentaCobroApi
   }
 
-  /** Descarga el PDF ya alojado (pdfUrl de la cuenta de cobro). Sin auth. */
+  /**
+   * Descarga el PDF ya alojado (pdfUrl de la cuenta de cobro). Sin auth,
+   * pero con verificación anti-SSRF (T5, ronda adversarial): la URL debe
+   * pasar urlPdfPermitida, la respuesta debe ser application/pdf y el cuerpo
+   * se trunca/rechaza al tope PDF_CAP_BYTES. Nunca se devuelve bytes parciales.
+   */
   async descargarPdf(url: string): Promise<Buffer> {
+    if (!urlPdfPermitida(url)) {
+      const host = (() => {
+        try {
+          return new URL(url).hostname
+        } catch {
+          return 'invalida'
+        }
+      })()
+      console.warn(`[whatsapp] PDF descartado: host no permitido (${host})`)
+      throw new UrlRechazadaError()
+    }
     const res = await this.fetchFn(url)
     if (!res.ok) throw new ApiError(res.status, 'pdf no disponible')
-    return Buffer.from(await res.arrayBuffer())
+    const tipo = (res.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase()
+    if (tipo !== PDF_MIME) throw new UrlRechazadaError('El archivo no es un PDF.')
+    const declarado = Number(res.headers.get('content-length') ?? Number.MAX_SAFE_INTEGER)
+    if (declarado > PDF_CAP_BYTES) throw new UrlRechazadaError('El PDF excede el tamaño permitido.')
+    // Lectura con tope real: aborta si el cuerpo supera el límite.
+    if (!res.body) throw new UrlRechazadaError('Respuesta sin cuerpo.')
+    const lector = res.body.getReader()
+    const trozos: Uint8Array[] = []
+    let total = 0
+    for (;;) {
+      const { done, value } = await lector.read()
+      if (done) break
+      total += value.byteLength
+      if (total > PDF_CAP_BYTES) {
+        await lector.cancel()
+        throw new UrlRechazadaError('El PDF excede el tamaño permitido.')
+      }
+      trozos.push(value)
+    }
+    return Buffer.concat(trozos.map((t) => Buffer.from(t)))
   }
 }
 
