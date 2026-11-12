@@ -128,8 +128,20 @@ export class ReadFlows {
     if (step === 'ayuda') {
       const previo = estado?.fields.previo ?? 'menu'
       if (entrada === '1') {
-        this.store.clear(telefono)
-        return this.llamada(telefono)
+        const respuesta = await this.llamada(telefono)
+        // Pedir ayuda no puede costar el trabajo a medias: se vuelve al paso
+        // donde estaba en vez de descartar lo que ya había respondido.
+        if (previo === 'menu') {
+          this.store.clear(telefono)
+          return respuesta
+        }
+        const campos = { ...estado?.fields }
+        delete campos.previo
+        this.store.set(telefono, previo, campos)
+        return {
+          kind: 'text',
+          text: `${respuesta.text}\n\nSigamos:\n${await this.preguntaDelPaso(telefono, previo)}`,
+        }
       }
       if (OPCION_CANCELAR.test(entrada)) {
         const campos = { ...estado?.fields }
