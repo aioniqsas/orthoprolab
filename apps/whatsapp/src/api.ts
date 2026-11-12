@@ -77,7 +77,7 @@ export interface OrdenApi {
   estado?: { nombre?: string } | null
   fechaEntrega: string | null
   asignacion?: {
-    doctor?: { nombres?: string; apellidos?: string } | null
+    doctor?: { id?: string; nombres?: string; apellidos?: string } | null
     paciente?: { nombre?: string } | null
   } | null
   detalles: Array<{
@@ -318,6 +318,12 @@ export class ApiClient {
     )
     if (!res.ok) throw new ApiError(res.status, 'control-trabajos falló')
     return Buffer.from(await res.arrayBuffer())
+  }
+
+  /** Lista de órdenes de la clínica (GET /mi-clinica/ordenes, ya en el
+   *  allowlist del bot): la usa T13 para precargar el trabajo del doctor. */
+  async getOrdenes(telefono: string): Promise<OrdenApi[]> {
+    return (await this.getJson(telefono, '/mi-clinica/ordenes')) as OrdenApi[]
   }
 
   async getOrden(telefono: string, ordenId: string): Promise<OrdenApi> {

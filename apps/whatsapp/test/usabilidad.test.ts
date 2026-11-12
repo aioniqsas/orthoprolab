@@ -15,7 +15,7 @@ const SERVICIOS: ServicioApi[] = [{ id: 's1', nombre: 'Corona zirconio' }]
 
 interface ApiFalso extends ApiClient {
   llamadasLlamada: number
-  crearOrdenLlamadas: unknown[]
+  crearOrdenLlamadas: Array<{ payload: unknown }>
 }
 
 function apiFalso(): ApiFalso {
@@ -25,8 +25,9 @@ function apiFalso(): ApiFalso {
     getDoctores: async () => DOCTORES,
     getPacientes: async () => PACIENTES.map((f) => f.paciente),
     getServicios: async () => SERVICIOS,
-    crearOrden: async (_t: string, _p: unknown, _k?: string) => {
-      api.crearOrdenLlamadas.push({})
+    getOrdenes: async () => [],
+    crearOrden: async (_t: string, payload: unknown, _k?: string) => {
+      api.crearOrdenLlamadas.push({ payload })
       return { id: '1234', estado: { nombre: 'Creada' }, fechaEntrega: null, detalles: [] }
     },
     solicitarLlamada: async () => {
@@ -42,6 +43,12 @@ function par(apiFalsoInst: ApiFalso): { flows: ReadFlows; esc: OrderFlows; store
   const esc = new OrderFlows(store, apiFalsoInst)
   const flows = new ReadFlows(store, apiFalsoInst, esc)
   return { flows, esc, store }
+}
+
+async function enviar(esc: OrderFlows, textos: string[]): Promise<{ text: string }> {
+  let r: { text: string } = { text: '' }
+  for (const t of textos) r = (await esc.handle(TEL, t)) as { text: string }
+  return r
 }
 
 function texto(r: Respuesta): string {
@@ -130,6 +137,41 @@ describe('"ayuda" pregunta antes de llamar (S11/T12)', () => {
     expect(store.get(TEL)?.step).toBe('orden-doctor')
     expect(api.llamadasLlamada).toBe(0)
   })
+  it('"ayuda" en medio del flujo de orden pregunta y 0 regresa al paso del pedido', async () => {
+    const api = apiFalso()
+    const { flows, esc, store } = par(api)
+    await esc.handle(TEL, '4')
+    const r1 = await flows.handle(TEL, 'ayuda')
+    expect(texto(r1)).toBe(PREGUNTA_AYUDA)
+    const r2 = await flows.handle(TEL, '0')
+    expect(texto(r2)).toContain('Selecciona el doctor')
+    expect(store.get(TEL)?.step).toBe('orden-doctor')
+    expect(api.llamadasLlamada).toBe(0)
+  })
+
+  it('"ayuda" → 1 en medio del flujo: registra la llamada y retoma el paso con las respuestas intactas', async () => {
+    const api = apiFalso()
+    const { flows, esc, store } = par(api)
+    // Servicio y cantidad ya respondidos: quedan en el borrador.
+    for (const p of ['4', '1', '2', '1', '1', '3']) await esc.handle(TEL, p)
+    expect(store.get(TEL)?.step).toBe('orden-dientes')
+    expect(store.get(TEL)?.fields.servicioNombre).toBe('Corona zirconio')
+    expect(store.get(TEL)?.fields.cantidad).toBe('3')
+    const r = await flows.handle(TEL, 'ayuda')
+    expect(texto(r)).toBe(PREGUNTA_AYUDA)
+    expect(api.llamadasLlamada).toBe(0)
+    const r2 = await flows.handle(TEL, '1')
+    expect(api.llamadasLlamada).toBe(1)
+    // Retoma en dientes con el borrador intacto.
+    expect(texto(r2)).toContain('dientes')
+    expect(store.get(TEL)?.step).toBe('orden-dientes')
+    expect(store.get(TEL)?.fields.servicioNombre).toBe('Corona zirconio')
+    expect(store.get(TEL)?.fields.cantidad).toBe('3')
+    const r3 = await enviar(esc, ['26', 'A1', 'no', 'CONFIRMAR'])
+    const payload = api.crearOrdenLlamadas[0]!.payload as { detalles: Array<{ cantidad: number }> }
+    expect(payload.detalles[0]!.cantidad).toBe(3)
+    expect((r3 as unknown as Respuesta).text).toContain('Orden 1234')
+  })
 })
 
 describe('medios no legibles (S11/T12)', () => {
@@ -193,6 +235,39 @@ describe('"Paso X de Y" (S11/T12)', () => {
     expect(texto(await esc.handle(TEL, 'A1'))).toContain('Paso 7 de 7.') // observaciones
     expect(texto(await esc.handle(TEL, 'no'))).not.toContain('Paso')
     expect(texto(await esc.handle(TEL, '1'))).toContain('Orden 1234')
+  })
+
+  it('precarga aceptada (S12): Y baja a 4 y la numeración se recalcula', async () => {
+    const api = apiFalso()
+    ;(api as unknown as Record<string, unknown>).getOrdenes = async () => [
+      {
+        id: '99',
+        asignacion: { doctor: { id: 'doc-1' } },
+        detalles: [{ servicio: 'Corona zirconio', cantidad: 3, dientes: [16], colorDiente: 'A2' }],
+      },
+    ]
+    const { esc } = par(api)
+    expect(texto(await esc.handle(TEL, '4'))).toContain('Paso 1 de 7.') // doctor
+    expect(texto(await esc.handle(TEL, '1'))).toContain('¿Mismo trabajo y color')
+    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 2 de 4.') // paciente
+    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 3 de 4.') // dientes
+    expect(texto(await esc.handle(TEL, '26'))).toContain('Paso 4 de 4.') // observaciones
+  })
+
+  it('precarga aceptada con 1:1: Y baja a 3', async () => {
+    const api = apiFalso()
+    ;(api as unknown as Record<string, unknown>).getOrdenes = async () => [
+      {
+        id: '99',
+        asignacion: { doctor: { id: 'doc-1' } },
+        detalles: [{ servicio: 'Corona zirconio', cantidad: 3, dientes: [16], colorDiente: 'A2' }],
+      },
+    ]
+    const { esc } = par(api)
+    expect(texto(await esc.handle(TEL, '4', 'doc-1'))).toContain('¿Mismo trabajo y color')
+    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 1 de 3.') // paciente
+    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 2 de 3.') // dientes
+    expect(texto(await esc.handle(TEL, '26'))).toContain('Paso 3 de 3.') // observaciones
   })
 
   it('con doctor 1:1: seis preguntas, el paso del doctor desaparece', async () => {
