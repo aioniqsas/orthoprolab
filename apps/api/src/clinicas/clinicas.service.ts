@@ -124,6 +124,8 @@ export class ClinicasService {
           nombre: dto.nombre,
           direccion: dto.direccion ?? null,
           correo: dto.correo,
+          // DB default is true, but TypeORM does not read defaults back.
+          activo: true,
         }),
       );
 
