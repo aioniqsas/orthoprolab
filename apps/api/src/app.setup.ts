@@ -3,6 +3,7 @@ import type { NestApplicationOptions } from '@nestjs/common';
 import { ClassSerializerInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
@@ -78,6 +79,19 @@ export function configureApp(
   });
   app.use(createOriginCheck(origins));
 
+  // Gzip for JSON (optimizacion B1). SSE is never compressed: a compressed
+  // event stream is buffered and stops arriving in real time. PDFs are
+  // already deflated by PDFKit.
+  app.use(
+    compression({
+      threshold: 1024,
+      filter: (req, res) => {
+        const tipo = String(res.getHeader('Content-Type') ?? '');
+        if (tipo.includes('text/event-stream') || tipo.includes('application/pdf')) return false;
+        return compression.filter(req, res);
+      },
+    }),
+  );
   app.use(cookieParser());
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   // Body parser failures (413, malformed JSON) bypass Nest filters: answer
