@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { MiClinicaService } from './mi-clinica.service.js';
 
 /** Servicio con `getOrden` simulado: el estado decide si hay control descargable. */
@@ -26,6 +26,29 @@ function montar(estadoCodigo: string) {
 
   return { service, generar, getOrden };
 }
+
+describe('MiClinicaService.resolveClinicaId', () => {
+  const resolver = (clinica: { activo: boolean } | null) =>
+    new MiClinicaService(
+      { findOneBy: vi.fn(async () => ({ clinicaId: '2' })) } as never,
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+      { findOneBy: vi.fn(async () => clinica) } as never,
+      {} as never, {} as never, {} as never, {} as never,
+    );
+
+  it('devuelve el id cuando la clínica está activa', async () => {
+    await expect(resolver({ activo: true }).resolveClinicaId('u')).resolves.toBe('2');
+  });
+
+  it.each([
+    ['inactiva', { activo: false }],
+    ['inexistente', null],
+  ])('rechaza una clínica %s con 403', async (_nombre, clinica) => {
+    await expect(resolver(clinica).resolveClinicaId('u')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+});
 
 describe('MiClinicaService.controlTrabajos', () => {
   it('entrega el PDF de una orden terminada', async () => {

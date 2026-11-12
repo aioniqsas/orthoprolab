@@ -4,10 +4,17 @@ import { ClinicasService } from './clinicas.service.js';
 import { UpdateClinicaDto } from './dto/update-clinica.dto.js';
 
 /** Servicio sobre un repositorio de clínicas falso. */
-function montar(clinica: { id: string; nombre: string; correo: string | null; direccion: string | null }) {
+function montar(clinica: {
+  id: string;
+  nombre: string;
+  correo: string | null;
+  direccion: string | null;
+  activo?: boolean;
+}) {
   const guardadas: typeof clinica[] = [];
   const clinicaRepo = {
     findOneBy: vi.fn(async () => ({ ...clinica })),
+    delete: vi.fn(),
     save: vi.fn(async (guardada: typeof clinica) => {
       guardadas.push(guardada);
       return guardada;
@@ -24,15 +31,27 @@ function montar(clinica: { id: string; nombre: string; correo: string | null; di
     {} as never,
   );
 
-  return { service, guardadas };
+  return { service, guardadas, clinicaRepo };
 }
 
 const clinicaBase = {
   id: '2',
+  activo: true,
   nombre: 'Clinica Muelas Flojas',
   correo: 'correo-mal-escrito@proton.me',
   direccion: null,
 };
+
+describe('ClinicasService.remove', () => {
+  it('desactiva y guarda sin borrar aunque tenga doctores asociados', async () => {
+    const { service, guardadas, clinicaRepo } = montar(clinicaBase);
+
+    await expect(service.remove('2')).resolves.toBeUndefined();
+
+    expect(guardadas[0]?.activo).toBe(false);
+    expect(clinicaRepo.delete).not.toHaveBeenCalled();
+  });
+});
 
 describe('ClinicasService.update · correo', () => {
   it('permite corregir el correo de la clínica', async () => {

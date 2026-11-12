@@ -201,6 +201,7 @@ export class PedidosService {
       }
       const asignacion = await manager.findOne(PacienteDoctor, {
         where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
+        withDeleted: true,
       });
       if (!asignacion) {
         const link = manager.create(PacienteDoctor, {
@@ -208,6 +209,11 @@ export class PedidosService {
           doctorId: dto.doctorId,
         });
         await manager.save(PacienteDoctor, link);
+      } else if (asignacion.eliminadoEn) {
+        await manager.restore(PacienteDoctor, {
+          doctorId: dto.doctorId,
+          pacienteId: resolvedPacienteId,
+        });
       }
 
       // 2. Load the initial state.
@@ -386,7 +392,7 @@ export class PedidosService {
       }
 
       if (dto.detalles) {
-        await manager.delete(DetalleOrden, { ordenId: orden.id });
+        await manager.softDelete(DetalleOrden, { ordenId: orden.id });
         for (const d of dto.detalles) {
           const numeros = new Set(d.dientes);
           if (numeros.size !== d.dientes.length) {
