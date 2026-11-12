@@ -48,6 +48,18 @@ function cliente(
   }
 }
 
+describe('ApiClient.getPacientes', () => {
+  it('mapea las filas de paciente-doctor a pacientes y usa ?doctorId=', async () => {
+    const { client, llamadas } = cliente([
+      { status: 200, body: SESION },
+      { status: 200, body: [{ id: '1', paciente: { id: '7', nombre: 'Luis', cedula: null } }] },
+    ])
+    const pacientes = await client.getPacientes('+573001234567', 'doc-1')
+    expect(pacientes).toEqual([{ id: '7', nombre: 'Luis', cedula: null }])
+    expect(llamadas[1]!.url).toBe(`${BASE}/mi-clinica/pacientes?doctorId=doc-1`)
+  })
+})
+
 describe('urlPdfPermitida (SSRF: allowlist + hosts privados)', () => {
   it('acepta https del host Cloudinary permitido', () => {
     expect(urlPdfPermitida('https://res.cloudinary.com/demo/cuenta.pdf')).toBe(true)

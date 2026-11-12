@@ -11,6 +11,7 @@ import { crearCliente, NO_HABILITADO, type ApiClient } from './api'
 import { ReadFlows, type Respuesta } from './flows'
 import { buildMenu } from './menu'
 import { ConversationStore } from './state'
+import { OrderFlows } from './write-flows'
 import { resolveIdentity } from './identity'
 import {
   assertAuthDirOutsideRepo,
@@ -29,7 +30,7 @@ const conversations = new ConversationStore()
 // bot responde "no está configurado" en vez de crashear (API_BASE_URL,
 // WHATSAPP_SERVICE_TOKEN, WHATSAPP_HMAC_SECRET).
 const api: ApiClient = crearCliente()
-const flows = new ReadFlows(conversations, api)
+const flows = new ReadFlows(conversations, api, new OrderFlows(conversations, api))
 
 /** Create the auth dir with owner-only permissions and chmod every credential file to 0600. */
 async function secureAuthDir(dir: string): Promise<void> {
@@ -104,7 +105,11 @@ async function start(attempt = 1): Promise<void> {
         await socket.sendMessage(senderId, { text: buildMenu() })
         continue
       }
-      const respuesta: Respuesta = await flows.handle(identidad.telefono, messageText(message))
+      const respuesta: Respuesta = await flows.handle(
+        identidad.telefono,
+        messageText(message),
+        identidad.identidad.doctorId,
+      )
       if (respuesta.kind === 'document') {
         await socket.sendMessage(senderId, {
           document: respuesta.buffer,

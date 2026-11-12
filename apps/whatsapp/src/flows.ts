@@ -2,6 +2,7 @@ import type { ApiClient, OrdenApi } from './api.js'
 import { ApiError, UrlRechazadaError } from './api.js'
 import { buildMenu, replyToInput } from './menu.js'
 import type { ConversationStore } from './state.js'
+import type { OrderFlows } from './write-flows.js'
 
 /**
  * Flujos de lectura del menú (T5): estado de pedido (1), control de trabajos
@@ -68,13 +69,21 @@ export class ReadFlows {
   constructor(
     private readonly store: ConversationStore,
     private readonly api: ApiClient,
+    private readonly escritor?: OrderFlows,
   ) {}
 
   /** Un turno de conversación para un contacto ya identificado. */
-  async handle(telefono: string, texto: string): Promise<Respuesta> {
+  async handle(telefono: string, texto: string, doctorContacto?: string): Promise<Respuesta> {
     const estado = this.store.get(telefono)
     const step = estado?.step ?? 'menu'
     const entrada = texto.trim()
+
+    // El flujo de escritura maneja sus propios pasos y su cancelación (T6).
+    if (step.startsWith('orden-')) {
+      return this.escritor
+        ? await this.escritor.handle(telefono, texto, doctorContacto)
+        : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
+    }
 
     // Cancelable en cualquier paso del flujo.
     if (step !== 'menu' && OPCION_CANCELAR.test(entrada)) {
@@ -118,7 +127,9 @@ export class ReadFlows {
       return { kind: 'text', text: 'Escribe el número de la cuenta de cobro para enviártela en PDF (o 0 para volver al menú).' }
     }
     if (entrada === '4') {
-      return { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
+      return this.escritor
+        ? await this.escritor.handle(telefono, texto, doctorContacto)
+        : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
     }
     // "0" y texto desconocido en el menú: comportamiento existente.
     return { kind: 'text', text: replyToInput(entrada) }

@@ -149,6 +149,7 @@
       "name": "whatsapp",
       "version": "0.1.0",
       "dependencies": {
+        "@repo/api-client": "*",
         "@whiskeysockets/baileys": "7.0.0-rc.6",
       },
       "devDependencies": {

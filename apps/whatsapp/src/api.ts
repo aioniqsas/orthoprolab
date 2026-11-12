@@ -313,8 +313,89 @@ export class ApiClient {
     }
     return Buffer.concat(trozos.map((t) => Buffer.from(t)))
   }
+
+  /** POST autenticado bajo /mi-clinica; reintenta una vez si el token venció. */
+  private async postJson(
+    telefono: string,
+    path: string,
+    body: unknown,
+    reintento = true,
+  ): Promise<unknown> {
+    const sesion = await this.sesion(telefono)
+    const res = await this.fetchFn(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${sesion.token}` },
+      body: JSON.stringify(body),
+    })
+    if (res.status === 401 && reintento) {
+      this.tokens.delete(telefonoCanonical(telefono))
+      return this.postJson(telefono, path, body, false)
+    }
+    if (!res.ok) throw new ApiError(res.status, `${path} falló`)
+    return res.json()
+  }
+
+  async getDoctores(telefono: string): Promise<DoctorApi[]> {
+    return (await this.getJson(telefono, '/mi-clinica/doctores')) as DoctorApi[]
+  }
+
+  /** Pacientes del doctor: GET /mi-clinica/pacientes?doctorId=:id (la API no
+   *  expone /mi-clinica/doctores/:id/pacientes). */
+  async getPacientes(telefono: string, doctorId: string): Promise<PacienteApi[]> {
+    const crudos = (await this.getJson(
+      telefono,
+      `/mi-clinica/pacientes?doctorId=${encodeURIComponent(doctorId)}`,
+    )) as Array<{ paciente?: PacienteApi } | PacienteApi>
+    return crudos.map((fila) => ('paciente' in fila && fila.paciente ? fila.paciente : (fila as PacienteApi)))
+  }
+
+  async crearPaciente(telefono: string, cedula: string, nombre: string): Promise<PacienteApi> {
+    return (await this.postJson(telefono, '/mi-clinica/pacientes', { cedula, nombre })) as PacienteApi
+  }
+
+  async getServicios(telefono: string): Promise<ServicioApi[]> {
+    return (await this.getJson(telefono, '/mi-clinica/servicios')) as ServicioApi[]
+  }
+
+  async crearOrden(telefono: string, payload: NuevaOrdenPayload): Promise<OrdenApi> {
+    return (await this.postJson(telefono, '/mi-clinica/ordenes', payload)) as OrdenApi
+  }
+}
+
+export interface DoctorApi {
+  id: string
+  nombres: string
+  apellidos: string
+  activo?: boolean
+}
+
+export interface PacienteApi {
+  id: string
+  nombre: string
+  cedula?: string | null
+}
+
+export interface ServicioApi {
+  id: string
+  nombre: string
+}
+
+/** Cuerpo de POST /mi-clinica/ordenes (CreateOrdenDto de la API). */
+export interface NuevaOrdenPayload {
+  doctorId: string
+  pacienteId?: number
+  detalles: Array<{
+    servicio: string
+    cantidad: number
+    dientes: number[]
+    colorDiente: string
+    observaciones?: string
+  }>
 }
 
 export function crearCliente(): ApiClient {
   return new ApiClient()
 }
+
+// Métodos del flujo de escritura (T6): lectura de doctores/pacientes/servicios
+// y la escritura final, siempre bajo /mi-clinica con la sesión del contacto.
