@@ -45,6 +45,16 @@ El bot además limita por número (20 interacciones por minuto, 3 solicitudes de
 
 En `apps/api`: `WHATSAPP_SERVICE_TOKEN`, `WHATSAPP_HMAC_SECRET`, `WHATSAPP_LAB_EMAIL` (opcional: sin ella la solicitud de llamada se registra sin notificar). En `apps/whatsapp`: `API_BASE_URL`, `WHATSAPP_SERVICE_TOKEN`, `WHATSAPP_HMAC_SECRET`, `WHATSAPP_AUTH_DIR` (sesión de Baileys, fuera del repositorio y en 0700), `WHATSAPP_PDF_HOSTS`.
 
+## IA conversacional y rol de base de datos
+
+El menú numerado sigue siendo la base; encima hay una capa opcional con Groq (`GROQ_API_KEY`, `WHATSAPP_LLM_MODEL`, `WHATSAPP_LLM_ENABLED`). Si la bandera está apagada, falta la llave, el modelo tarda o responde mal, contesta el menú: la conversación nunca depende del proveedor.
+
+El modelo **no escribe SQL**. Elige entre un catálogo cerrado de herramientas de lectura, cada una parametrizada, y toda llamada se valida contra su esquema antes de ejecutarse: herramienta inexistente, tipo incorrecto, clave extra o un `clinica_id` inyectado se rechazan sin tocar la base. Las escrituras no pasan por el modelo: crear una orden sigue yendo por la API con su resumen y su confirmación.
+
+Las lecturas usan el rol `whatsapp_bot` (`bun run db:bot-role`), de solo lectura, con `SELECT` sobre once tablas de negocio y RLS por clínica vía `app.clinica_id`, que el servidor fija por transacción desde el contacto verificado. Nunca accede a `usuario`, `sesion_refresco` ni a la allowlist del bot. Las columnas cifradas a nivel de aplicación (`paciente.nombre`, `paciente.cedula`, observaciones, referencias de pago) quedan **fuera de todo SQL**: los nombres de paciente se resuelven por la API, que es la que descifra.
+
+Las clases de ataque que el arnés debe resistir están listadas en `odd/tasks/whatsapp-ia.md` (cruce de clínicas, inyección de instrucciones, SQL en parámetros, PII por rodeo, exfiltración de configuración, escritura disfrazada, suplantación).
+
 ## Límites conocidos
 
 - Baileys no es oficial: usa un número desechable. La reconexión tiene backoff y tope para no provocar un baneo.

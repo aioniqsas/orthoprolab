@@ -1,5 +1,15 @@
-import { NO_DISPONIBLE, type DatosBot } from './datos.js'
+import { NO_DISPONIBLE, NO_ENCONTRADO, type DatosBot } from './datos.js'
 import { ejecutarHerramienta, type LlamadaHerramienta } from './herramientas.js'
+import {
+  NEGATIVA_ESCRITURA,
+  NEGATIVA_FIJA,
+  NEGATIVA_NO_ENCONTRADO,
+  NEGATIVA_SUPLANTACION,
+  clasificarNegativa,
+  construirPromptSistema,
+  type ClaseNegativa,
+} from './prompt.js'
+export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION, construirPromptSistema } from './prompt.js'
 
 /**
  * Cliente Groq con tool calling (IA3, S4). Sin SDK: `fetch` es global. El
@@ -191,22 +201,17 @@ export class StoreLlm {
   }
 }
 
-const SISTEMA = [
-  'Eres el asistente del laboratorio dental OrthoPro Lab para sus clínicas por WhatsApp.',
-  'Responde en español, breve y en lenguaje llano. Puedes consultar el estado de una orden,',
-  'la última orden de un doctor, una cuenta de cobro, los doctores y los servicios.',
-  'Nunca das precios ni datos de pacientes (nombre o cédula). Si algo no está en tus',
-  'herramientas, o piden datos de pacientes, precios o eliminar algo, di que no puedes',
-  'ayudar con eso y sugiere escribir 0 para ver el menú del bot.',
-].join(' ')
-
 /** Mensaje cortés cuando el tope de costo se alcanzó. */
 export const LIMITE_COSTO =
   'Hemos alcanzado el límite de consultas de esta conversación. Escribe 0 para volver al menú del bot.'
 
-/** Mensaje cuando el modelo pidió algo fuera del catálogo o inválido. */
-export const NO_PUEDO =
-  'No puedo hacer eso con el bot. Escribe 0 para ver lo que sí puedo consultar.'
+/** Mensaje cuando el modelo pidió algo fuera del catálogo o inválido: la misma negativa fija. */
+export const NO_PUEDO = NEGATIVA_FIJA
+
+/** Frase fija por clase de negativa (IA4). */
+function textoNegativa(clase: ClaseNegativa): string {
+  return clase === 'escritura' ? NEGATIVA_ESCRITURA : clase === 'suplantacion' ? NEGATIVA_SUPLANTACION : NEGATIVA_FIJA
+}
 
 /** Mensaje cuando el modelo no dio respuesta utilizable en las rondas permitidas. */
 const SIN_RESPUESTA = 'No pude generar una respuesta ahora mismo. Escribe 0 para volver al menú.'
@@ -289,6 +294,7 @@ export class ClienteGroq {
     clinicaId: string,
     store: StoreLlm,
     ahora = Date.now(),
+    contexto?: { clinica?: string; doctor?: string },
   ): Promise<RespuestaLlm> {
     const previo = store.get(telefono, ahora) ?? { historial: [], tokens: 0, expiresAt: ahora }
     if (previo.tokens >= LIMITE_TOKENS) {
@@ -296,9 +302,18 @@ export class ClienteGroq {
       return { texto: LIMITE_COSTO }
     }
     const usuarioRedactado = redactar(texto)
+    // Política de negativas en código (IA4, S3): se revisa ANTES de llamar al
+    // modelo. Así la negativa no depende de que el modelo obedezca: cero
+    // fetches, cero tokens, y el estado de la conversación queda intacto.
+    const clase = clasificarNegativa(usuarioRedactado)
+    if (clase !== null) {
+      store.set(telefono, previo, ahora)
+      this.auditar({ intencion: 'conversacion', herramienta: null, tokensEntrada: 0, tokensSalida: 0, resultado: 'negado' })
+      return { texto: textoNegativa(clase) }
+    }
     const historial = previo.historial.slice(-MAX_TURNOS_HISTORIAL * 2)
     const mensajes: Mensaje[] = [
-      { role: 'system', content: SISTEMA },
+      { role: 'system', content: construirPromptSistema(contexto) },
       ...historial.map((m) => ({ role: m.role, content: m.content }) as Mensaje),
       { role: 'user', content: usuarioRedactado },
     ]
@@ -354,6 +369,13 @@ export class ClienteGroq {
       mensajes.push({ role: 'assistant', content: null, tool_calls: respuesta.llamadas })
       for (const { llamada, id } of validas) {
         const resultado = await ejecutarHerramienta(datos, clinicaId, llamada)
+        // "No encontré" nunca vuelve al modelo (IA4): el modelo podría
+        // inventar datos para llenar el vacío. La frase fija responde.
+        if (!resultado.ok && resultado.texto === NO_ENCONTRADO) {
+          store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
+          this.auditar({ intencion: 'conversacion', herramienta: nombrePrimera, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'negado' })
+          return { texto: NEGATIVA_NO_ENCONTRADO }
+        }
         mensajes.push({ role: 'tool', tool_call_id: id, content: JSON.stringify(resultado.ok ? resultado.filas : { error: resultado.texto }) })
       }
       this.auditar({ intencion: 'conversacion', herramienta: nombrePrimera, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'herramienta_ok' })
