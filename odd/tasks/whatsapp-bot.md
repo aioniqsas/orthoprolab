@@ -32,6 +32,14 @@ El teléfono se guarda cifrado (AES-256-GCM) con blind index para búsqueda, igu
 **S9 — Número desechable.**
 Baileys corre sobre un número sin valor comercial; si WhatsApp lo banea no se pierde la línea del laboratorio. La sesión de Baileys (`auth_info`) vive fuera del repo y está ignorada por git.
 
+**S10 — Blindaje del endpoint interno: conocer el secreto no basta.**
+Texto del usuario: "Vamos a hacer el blindaje necesario para que aun sabiendo el secreto, no se pueda pedir sesión de la clinica."
+Cuatro capas independientes, de modo que filtrar una no abra la puerta:
+1. **Alcance del token.** El JWT que emite el endpoint lleva `scope: 'whatsapp-bot'` y solo es aceptado en las rutas del bot; el guard global rechaza ese token en cualquier otra ruta. Un secreto filtrado no compra una sesión de portal completa.
+2. **Firma por solicitud.** Además del token de servicio, cada llamada envía un HMAC de `telefono|timestamp|nonce` con `WHATSAPP_HMAC_SECRET`, distinto del token de servicio, con ventana de ±120 s y nonce de un solo uso en Redis. Dos secretos en dos lugares: saber el de ruteo no alcanza.
+3. **Límite por clínica.** Máximo de sesiones emitidas por clínica por minuto y por contacto por ventana; se responde 429 y se registra el intento.
+4. **Elegibilidad y auditoría.** Solo contactos `verificado`, nunca `bloqueado`, con clínica activa y cuenta designada; cada emisión se registra (clínica, contacto, resultado) sin datos personales, para detectar barridos.
+
 ## Tasks
 
 | ID | Tarea | Specs | Ruta |
@@ -45,6 +53,8 @@ Baileys corre sobre un número sin valor comercial; si WhatsApp lo banea no se p
 | T7 | Fallback `0` → aviso al admin; rate limit por número; auditoría sin texto plano | S5,S8 | worker |
 | T8 | OTP de vinculación desde el portal (código 6 dígitos, 10 min, un uso) | S1 | worker |
 | T9 | Docs: `apps/api/docs/whatsapp.md`, `docs/portals.md`, `.gitignore` de la sesión | S9 | inline |
+
+| T10 | Blindaje del endpoint interno: token de alcance `whatsapp-bot` con allowlist de rutas, HMAC por solicitud con nonce de un solo uso, límite por clínica y auditoría de emisiones | S10 | worker |
 
 **Requisitos derivados de la ronda adversarial de T1 (obligatorios en T2):**
 
