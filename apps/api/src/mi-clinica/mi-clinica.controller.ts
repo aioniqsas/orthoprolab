@@ -34,6 +34,8 @@ import { ListOrdenesQueryDto } from '../pedidos/dto/list-ordenes-query.dto.js';
 import { ListCuentasQueryDto } from '../cuentas-cobro/dto/list-cuentas-query.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
+import type { CodigoVinculacion } from '../whatsapp/whatsapp-vinculacion.service.js';
+import { WhatsappVinculacionService } from '../whatsapp/whatsapp-vinculacion.service.js';
 import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
 import {
   filter,
@@ -59,6 +61,7 @@ export class MiClinicaController {
     private readonly cuentasCobro: CuentasCobroService,
     private readonly eventos: PedidosEventosService,
     private readonly eventosCuentas: CuentasCobroEventosService,
+    private readonly vinculacion: WhatsappVinculacionService,
   ) {}
 
   @Get('doctores')
@@ -309,6 +312,18 @@ export class MiClinicaController {
       type: 'application/pdf',
       disposition: `attachment; filename="cuenta-${nombre}.pdf"`,
     });
+  }
+
+  /**
+   * OTP de vinculación de WhatsApp (T8): la clínica sale de la sesión
+   * (resolveClinicaId), nunca del cuerpo; el endpoint ni siquiera acepta uno.
+   */
+  @Post('whatsapp/codigo')
+  @HttpCode(HttpStatus.CREATED)
+  async crearCodigoVinculacion(@Req() req: AuthenticatedRequest): Promise<CodigoVinculacion> {
+    // Reutiliza el resolver existente: clínica activa de la cuenta llamante.
+    const clinicaId = await this.miClinica.resolveClinicaId(req.user.id);
+    return this.vinculacion.emitirCodigo(clinicaId);
   }
 
   @Get('metodos-pago-bancarios')

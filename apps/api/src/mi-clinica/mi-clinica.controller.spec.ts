@@ -11,6 +11,7 @@ const montar = (cuentaPdf: () => Promise<unknown>) =>
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
 
 const req = { user: { id: 'u' } } as never;
@@ -36,5 +37,38 @@ describe('MiClinicaController.descargarCuentaCobroPdf', () => {
       controller.descargarCuentaCobroPdf(req, '3', res),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
+  });
+});
+
+describe('MiClinicaController.crearCodigoVinculacion', () => {
+  const montarVinculacion = (clinicaId: string) => {
+    const emitirCodigo = vi.fn().mockResolvedValue({ codigo: '123456', expiraEnSegundos: 600 });
+    const resolveClinicaId = vi.fn().mockResolvedValue(clinicaId);
+    const controller = new MiClinicaController(
+      { resolveClinicaId } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emitirCodigo } as never,
+    );
+    return { controller, emitirCodigo, resolveClinicaId };
+  };
+
+  it('usa la clínica de la sesión; el endpoint no acepta cuerpo que la force', async () => {
+    const { controller, emitirCodigo, resolveClinicaId } = montarVinculacion('42');
+    // La firma del método no recibe cuerpo: la clínica solo puede venir de la sesión.
+    const salida = await controller.crearCodigoVinculacion({ user: { id: 'u1' } } as never);
+    expect(resolveClinicaId).toHaveBeenCalledWith('u1');
+    expect(emitirCodigo).toHaveBeenCalledWith('42');
+    expect(salida).toEqual({ codigo: '123456', expiraEnSegundos: 600 });
+  });
+
+  it('sin clínica activa propaga el error del resolver', async () => {
+    const { controller } = montarVinculacion('42');
+    (controller as never as { miClinica: { resolveClinicaId: () => Promise<never> } }).miClinica.resolveClinicaId =
+      () => Promise.reject(new NotFoundException('Sin clínica asignada'));
+    await expect(controller.crearCodigoVinculacion({ user: { id: 'u1' } } as never)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

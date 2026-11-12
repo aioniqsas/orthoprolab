@@ -81,7 +81,9 @@ function montar() {
     auditoria as never,
     redis as never,
   );
-  const originalController = new WhatsappSesionController(service);
+  const originalController = new WhatsappSesionController(service, {
+    vincular: vi.fn(),
+  } as never);
   const controller = {
     crearSesion: (dto: { telefono: string }, token: string | undefined) => {
       const h = headers(dto.telefono);

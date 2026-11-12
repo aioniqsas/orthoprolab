@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@repo/ui/components/button";
+import { WhatsappVinculacion } from "./whatsapp-vinculacion";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -44,6 +45,8 @@ export default function PortalHomePage() {
           </Link>
         ))}
       </div>
+
+      <WhatsappVinculacion />
 
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold mb-2">Acciones rápidas</h2>

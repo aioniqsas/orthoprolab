@@ -26,6 +26,17 @@ contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
 Si falta `WHATSAPP_SERVICE_TOKEN` o `WHATSAPP_HMAC_SECRET`, el bot responde a
 cada mensaje que no está configurado y no crashea.
 
+## Vinculación por código (T8)
+
+Un contacto escribe `VINCULAR <código>` (6 dígitos, mayúsculas o minúsculas) y
+el bot lo canjea en `POST /internal/whatsapp/vincular` con las mismas cuatro
+cabeceras de firma del resto de endpoints internos. El código lo genera la
+clínica desde su portal (`POST /mi-clinica/whatsapp/codigo`) y vive solo en
+Redis de la API: vence a los 10 minutos, sirve una sola vez y un puñado de
+intentos errados por teléfono lo bloquea. **No hay variables de entorno
+nuevas** para esta función: usa el mismo Redis y los mismos dos secretos que
+ya tenía el bot.
+
 La sesión contiene credenciales de WhatsApp y queda fuera del repositorio por
 configuración. No se debe copiar ni compartir.
 
