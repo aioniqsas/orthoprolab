@@ -156,8 +156,10 @@ export function validarLlamada(nombre: string, argumentos: unknown): { ok: true;
     const objeto = argumentos as Record<string, unknown>
     const claves = Object.keys(objeto)
     for (const clave of claves) {
+      // Object.hasOwn y no esquema[clave]: con '__proto__' el acceso devuelve
+      // Object.prototype (verdadero) y la clave se colaría sin validar el tipo.
+      if (!Object.hasOwn(esquema, clave)) return { ok: false }
       const tipo = esquema[clave]
-      if (!tipo) return { ok: false }
       const valor = objeto[clave]
       if (tipo === 'numero' && !(typeof valor === 'string' && REGEX_NUMERO.test(valor))) return { ok: false }
       if (tipo === 'texto' && !(typeof valor === 'string' && REGEX_TEXTO.test(valor))) return { ok: false }
@@ -172,8 +174,8 @@ export function validarLlamada(nombre: string, argumentos: unknown): { ok: true;
   const esperadas = Object.keys(esquema)
   if (claves.length !== esperadas.length) return { ok: false }
   for (const clave of claves) {
+    if (!Object.hasOwn(esquema, clave)) return { ok: false } // clave extra, __proto__ o clinica_id
     const tipo = esquema[clave]
-    if (!tipo) return { ok: false } // clave extra o clinica_id
     const valor = objeto[clave]
     if (tipo === 'numero' && !(typeof valor === 'string' && REGEX_NUMERO.test(valor))) return { ok: false }
     if (tipo === 'texto' && !(typeof valor === 'string' && REGEX_TEXTO.test(valor))) return { ok: false }

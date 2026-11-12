@@ -22,6 +22,18 @@ import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
 import type { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 
+/**
+ * Los ids de negocio son bigint identity: un id no numérico (SQL inyectado,
+ * byte nulo en el parámetro) jamás debe llegar a PostgreSQL como cast de
+ * bigint fallido (500); se responde 400 con un mensaje plano.
+ */
+function asegurarIdNumerico(id: string, etiqueta: string): string {
+  if (!/^\d+$/.test(id)) {
+    throw new BadRequestException(`${etiqueta} inválido.`);
+  }
+  return id;
+}
+
 @Injectable()
 export class MiClinicaService {
   constructor(
@@ -87,6 +99,7 @@ export class MiClinicaService {
   }
 
   async getDoctor(usuarioId: string, doctorId: string): Promise<Doctor> {
+    doctorId = asegurarIdNumerico(doctorId, 'Doctor');
     const clinicaId = await this.resolveClinicaId(usuarioId);
     const doctor = await this.doctorRepo.findOneBy({ id: doctorId, clinicaId });
     if (!doctor) throw new NotFoundException(`Doctor ${doctorId} no encontrado`);
@@ -139,6 +152,7 @@ export class MiClinicaService {
 
   /** Detail view for the client portal; rejects accounts from other clinics. */
   async getCuentaCobro(usuarioId: string, cuentaId: string): Promise<CuentaCobro> {
+    cuentaId = asegurarIdNumerico(cuentaId, 'Cuenta de cobro');
     const clinicaId = await this.resolveClinicaId(usuarioId);
     const cuenta = await this.cuentaCobroRepo.findOne({
       where: { id: cuentaId, clinicaId },
@@ -330,6 +344,7 @@ export class MiClinicaService {
   }
 
   async getOrden(usuarioId: string, ordenId: string): Promise<Orden> {
+    ordenId = asegurarIdNumerico(ordenId, 'Orden');
     const clinicaId = await this.resolveClinicaId(usuarioId);
     const orden = await this.ordenRepo
       .createQueryBuilder('o')
