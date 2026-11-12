@@ -49,6 +49,10 @@ export class MiClinicaService {
     if (!usuario?.clinicaId) {
       throw new ForbiddenException('Sin clínica asignada');
     }
+    const clinica = await this.clinicaRepo.findOneBy({ id: usuario.clinicaId });
+    if (!clinica?.activo) {
+      throw new ForbiddenException('Clínica inactiva');
+    }
     return usuario.clinicaId;
   }
 

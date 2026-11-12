@@ -208,6 +208,7 @@ export class CuentasCobroService {
         // Idempotent: skip if already attached to this cuenta
         const alreadyAttached = await em.findOne(CuentaCobroOrden, {
           where: { cuentaCobroId, ordenId: String(ordenId) },
+          withDeleted: true,
         });
         if (!alreadyAttached) {
           const cco = em.create(CuentaCobroOrden, {
@@ -216,6 +217,13 @@ export class CuentasCobroService {
             valorSnapshot: valor.toFixed(2),
           });
           await em.save(cco);
+        } else if (alreadyAttached.eliminadoEn) {
+          await em.restore(CuentaCobroOrden, { cuentaCobroId, ordenId: String(ordenId) });
+          await em.update(
+            CuentaCobroOrden,
+            { cuentaCobroId, ordenId: String(ordenId) },
+            { valorSnapshot: valor.toFixed(2) },
+          );
         }
       }
 
@@ -239,7 +247,7 @@ export class CuentasCobroService {
     cuentaCobroId: string,
     ordenId: string,
   ): Promise<CuentaCobro> {
-    await this.cuentaCobroOrdenRepo.delete({ cuentaCobroId, ordenId });
+    await this.cuentaCobroOrdenRepo.softDelete({ cuentaCobroId, ordenId });
 
     const allAttached = await this.cuentaCobroOrdenRepo.find({
       where: { cuentaCobroId },

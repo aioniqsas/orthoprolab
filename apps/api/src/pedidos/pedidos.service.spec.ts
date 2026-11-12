@@ -5,6 +5,7 @@ import { Paciente } from '../pacientes/paciente.entity.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { HistorialEstadoOrden } from './historial-estado-orden.entity.js';
 import { Orden } from './orden.entity.js';
+import { DetalleOrden } from './detalle-orden.entity.js';
 
 const dto = {
   doctorId: '7',
@@ -18,7 +19,11 @@ const dto = {
  * Builds the service over a fake transaction manager. `linkExistente` decides
  * whether the doctor↔patient row is already there.
  */
-function montar(opciones: { linkExistente: boolean; pacienteExiste?: boolean }) {
+function montar(opciones: {
+  linkExistente: boolean;
+  linkEliminado?: boolean;
+  pacienteExiste?: boolean;
+}) {
   const guardados: { entidad: unknown; valor: unknown }[] = [];
 
   const manager = {
@@ -27,7 +32,13 @@ function montar(opciones: { linkExistente: boolean; pacienteExiste?: boolean }) 
         return opciones.pacienteExiste === false ? null : { id: '42' };
       }
       if (entidad === PacienteDoctor) {
-        return opciones.linkExistente ? { pacienteId: '42', doctorId: '7' } : null;
+        return opciones.linkExistente
+          ? {
+              pacienteId: '42',
+              doctorId: '7',
+              ...(opciones.linkEliminado ? { eliminadoEn: new Date() } : {}),
+            }
+          : null;
       }
       // EstadoOrden
       return { id: '1', codigo: 'creada' };
@@ -37,6 +48,7 @@ function montar(opciones: { linkExistente: boolean; pacienteExiste?: boolean }) 
       guardados.push({ entidad, valor });
       return entidad === PacienteDoctor ? valor : { id: '99', ...(valor as object) };
     }),
+    restore: vi.fn(async () => undefined),
   };
 
   const service = new PedidosService(
@@ -69,6 +81,18 @@ describe('PedidosService.create · paciente de otra clínica', () => {
 
     await service.create(dto as never, 'usuario-1');
 
+    expect(guardados.filter((g) => g.entidad === PacienteDoctor)).toHaveLength(0);
+  });
+
+  it('restaura un vínculo paciente-doctor eliminado en vez de insertarlo', async () => {
+    const { service, manager, guardados } = montar({ linkExistente: true, linkEliminado: true });
+
+    await service.create(dto as never, 'usuario-1');
+
+    expect(manager.restore).toHaveBeenCalledWith(PacienteDoctor, {
+      doctorId: '7',
+      pacienteId: '42',
+    });
     expect(guardados.filter((g) => g.entidad === PacienteDoctor)).toHaveLength(0);
   });
 
@@ -132,6 +156,37 @@ function montarEstados(opciones: {
 
   return { service, guardados };
 }
+
+describe('PedidosService.update · detalle de orden', () => {
+  it('hace soft-delete de las líneas anteriores y devuelve solo las vivas', async () => {
+    const detalleVivo = { id: '2', ordenId: '5', servicio: 'Nueva línea' };
+    let findOneCalls = 0;
+    const manager = {
+      findOne: vi.fn(async (entidad: unknown) => {
+        findOneCalls += 1;
+        return findOneCalls === 1 && entidad === Orden
+          ? { id: '5', estado: { codigo: 'creada' }, fechaCreacion: new Date() }
+          : { id: '5', detalles: [detalleVivo] };
+      }),
+      softDelete: vi.fn(async () => undefined),
+      create: vi.fn((_entidad: unknown, valor: unknown) => valor),
+      save: vi.fn(async (_entidad: unknown, valor: unknown) => valor),
+    };
+    const service = new PedidosService(
+      {} as never, {} as never, {} as never,
+      { findOne: vi.fn(async () => null) } as never,
+      {} as never,
+      { transaction: (cb: (m: unknown) => unknown) => cb(manager) } as never,
+      {} as never, { emitir: vi.fn() } as never,
+    );
+
+    const result = await service.update('5', { detalles: [] } as never);
+
+    expect(manager.softDelete).toHaveBeenCalledWith(DetalleOrden, { ordenId: '5' });
+    expect(manager).not.toHaveProperty('delete');
+    expect(result.detalles).toEqual([detalleVivo]);
+  });
+});
 
 describe('PedidosService.cancelar · ventana de cancelación', () => {
   it('cancela una orden que ya fue recibida y guarda el motivo en el historial', async () => {

@@ -2,12 +2,13 @@ import { BadRequestException } from '@nestjs/common';
 import { CuentasCobroService } from './cuentas-cobro.service.js';
 import { CuentaCobro } from './cuenta-cobro.entity.js';
 import { Orden } from '../pedidos/orden.entity.js';
+import { CuentaCobroOrden } from './cuenta-cobro-orden.entity.js';
 
 /**
  * Servicio sobre una transacción falsa. `estadoCodigo` es el estado de la orden
  * que se intenta adjuntar.
  */
-function montar(estadoCodigo: string) {
+function montar(estadoCodigo: string, vinculoEliminado = false) {
   const guardadas: unknown[] = [];
 
   const cadenaConsulta = {
@@ -19,6 +20,9 @@ function montar(estadoCodigo: string) {
 
   const em = {
     findOne: vi.fn(async (entidad: unknown) => {
+      if (entidad === CuentaCobroOrden && vinculoEliminado) {
+        return { cuentaCobroId: '3', ordenId: '9', eliminadoEn: new Date() };
+      }
       if (entidad === CuentaCobro) {
         return { id: '3', clinicaId: '2', estado: 'borrador', total: '0.00' };
       }
@@ -36,6 +40,7 @@ function montar(estadoCodigo: string) {
     }),
     find: vi.fn(async () => []),
     update: vi.fn(async () => undefined),
+    restore: vi.fn(async () => undefined),
   };
 
   const service = new CuentasCobroService(
@@ -54,7 +59,7 @@ function montar(estadoCodigo: string) {
     { emitir: vi.fn() } as never,
   );
 
-  return { service, guardadas };
+  return { service, guardadas, em };
 }
 
 describe('CuentasCobroService.adjuntarOrdenes · gate de estado', () => {
@@ -72,6 +77,22 @@ describe('CuentasCobroService.adjuntarOrdenes · gate de estado', () => {
     await expect(
       service.adjuntarOrdenes('3', { ordenes: [{ ordenId: 9, valor: 100 }] } as never),
     ).rejects.toThrow(/Solo se cobran órdenes terminadas/);
+  });
+
+  it('restaura el vínculo eliminado y actualiza el snapshot al volver a adjuntar', async () => {
+    const { service, em } = montar('terminada', true);
+
+    await service.adjuntarOrdenes('3', { ordenes: [{ ordenId: 9, valor: 125 }] } as never);
+
+    expect(em.restore).toHaveBeenCalledWith(CuentaCobroOrden, {
+      cuentaCobroId: '3',
+      ordenId: '9',
+    });
+    expect(em.update).toHaveBeenCalledWith(
+      CuentaCobroOrden,
+      { cuentaCobroId: '3', ordenId: '9' },
+      { valorSnapshot: '125.00' },
+    );
   });
 
   it('acepta una orden terminada', async () => {

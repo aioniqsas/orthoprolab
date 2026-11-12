@@ -172,12 +172,7 @@ export class ClinicasService {
   async remove(id: string): Promise<void> {
     const clinica = await this.clinicaRepo.findOneBy({ id });
     if (!clinica) throw new NotFoundException(`Clínica ${id} no encontrada`);
-    const doctorCount = await this.doctorRepo.countBy({ clinicaId: id });
-    if (doctorCount > 0) {
-      throw new BadRequestException(
-        'No se puede eliminar una clínica con doctores asociados',
-      );
-    }
-    await this.clinicaRepo.delete(id);
+    clinica.activo = false;
+    await this.clinicaRepo.save(clinica);
   }
 }
