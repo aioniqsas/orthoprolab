@@ -63,6 +63,11 @@ function redisFalso() {
       ttl.delete(k);
       return v ?? null;
     },
+    async pttl(k: string) {
+      if (!datos.has(k)) return -2;
+      const seg = ttl.get(k);
+      return seg === undefined ? -1 : seg * 1000;
+    },
   };
 }
 type RedisFalso = ReturnType<typeof redisFalso>;
@@ -339,5 +344,70 @@ describe('WhatsappVinculacionService — canje', () => {
     expect(fila).not.toContain(TELEFONO);
     expect(fila).not.toContain('000000');
     expect(auditoria.at(-1)).toMatchObject({ intencion: 'vinculacion' });
+  });
+
+  it('un teléfono malformado consume intento: al sexto se limita aunque cambie el código', async () => {
+    const { servicio, auditoria, redis } = montar();
+    for (let i = 0; i < MAX_INTENTOS; i++) {
+      const h = cabeceras('no-soy-un-telefono', '000000');
+      const res = await servicio.vincular('no-soy-un-telefono', h.token, h, '000000');
+      expect(res).toMatchObject({ ok: false, motivo: 'codigo_invalido' });
+    }
+    const h = cabeceras('no-soy-un-telefono', '123456');
+    const res = await servicio.vincular('no-soy-un-telefono', h.token, h, '123456');
+    expect(res).toMatchObject({ ok: false, motivo: 'limitada' });
+    // Guardia del borrador cosmético: nunca queda una clave con sufijo vacío.
+    expect([...redis.datos.keys()].some((k) => k === 'whatsapp:otp:clinica:')).toBe(false);
+    expect(JSON.stringify(auditoria)).not.toContain('no-soy-un-telefono');
+  });
+
+  it('un fallo técnico de escritura no quema el código: se restaura con su TTL', async () => {
+    const { servicio, redis, auditoria } = montar();
+    const codigo = await codigoPara(servicio, CLINICA_A);
+    const hashCodigo = (await import('node:crypto')).createHash('sha256').update(codigo).digest('hex');
+    const claveCodigo = `whatsapp:otp:codigo:${hashCodigo}`;
+    // Escritura que falla: el save() del contacto lanza.
+    const repoRoto = {
+      findOneBy: async () => ({
+        id: 'c1',
+        telefonoHash: hashTelefono(normalizeTelefono(TELEFONO)),
+        clinicaId: CLINICA_B,
+        doctorId: null,
+        estado: 'pendiente',
+        verificadoEn: null,
+      }),
+      save: async () => {
+        throw new Error('boom');
+      },
+    } as unknown as Repository<WhatsappContacto>;
+    (servicio as unknown as { contactos: Repository<WhatsappContacto> }).contactos = repoRoto;
+    const h = cabeceras(TELEFONO, codigo);
+    const res = await servicio.vincular(TELEFONO, h.token, h, codigo);
+    expect(res).toMatchObject({ ok: false, motivo: 'rechazado' });
+    // El código sigue canjeable y conserva TTL; la auditoría distingue el fallo.
+    expect(await redis.get(claveCodigo)).toBe(CLINICA_A);
+    expect(await redis.pttl(claveCodigo)).toBeGreaterThan(0);
+    expect(auditoria.at(-1)).toMatchObject({ resultado: 'fallo_tecnico' });
+    // Con la escritura reparada, el mismo código vincula.
+    (servicio as unknown as { contactos: Repository<WhatsappContacto> }).contactos = repoContactos();
+    const h2 = cabeceras(TELEFONO, codigo);
+    const res2 = await servicio.vincular(TELEFONO, h2.token, h2, codigo);
+    expect(res2.ok).toBe(true);
+  });
+
+  it('dos canjes concurrentes del mismo código producen exactamente un éxito', async () => {
+    const { servicio: base, redis } = montar();
+    const codigo = await codigoPara(base, CLINICA_A);
+    const a = montar(redis);
+    const b = montar(redis);
+    const h1 = cabeceras(TELEFONO, codigo);
+    const h2 = cabeceras(TELEFONO, codigo);
+    const [r1, r2] = await Promise.all([
+      a.servicio.vincular(TELEFONO, h1.token, h1, codigo),
+      b.servicio.vincular(TELEFONO, h2.token, h2, codigo),
+    ]);
+    const exitos = [r1, r2].filter((r) => r.ok);
+    expect(exitos.length).toBe(1);
+    expect([r1, r2].some((r) => r.ok === false)).toBe(true);
   });
 });

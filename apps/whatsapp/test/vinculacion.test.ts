@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { ApiError } from '../src/api.js'
-import { VINCULAR_FALLO, VINCULAR_OK, parseVincular } from '../src/vinculacion.js'
+import { VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA, parseVincular } from '../src/vinculacion.js'
 
 describe('parseVincular', () => {
   it('acepta VINCULAR 123456 en mayúsculas, minúsculas y con espacios', () => {
@@ -39,5 +39,11 @@ describe('respuestas del vínculo', () => {
     }
     // El bot elige VINCULAR_FALLO ante cualquier fallo: un solo mensaje.
     expect(VINCULAR_FALLO).toBe('No pude vincular ese código, verifica que sea el vigente.')
+  })
+
+  it('un número ya verificado recibe una respuesta específica, no la genérica', () => {
+    expect(VINCULAR_YA).toContain('ya está vinculado')
+    expect(VINCULAR_YA).toContain('desvincular')
+    expect(VINCULAR_YA).not.toBe(VINCULAR_FALLO)
   })
 })

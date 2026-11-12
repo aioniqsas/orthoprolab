@@ -20,6 +20,10 @@ export const VINCULAR_OK =
 /** Un solo texto para todo fallo: no revela si el código existió (T8). */
 export const VINCULAR_FALLO = 'No pude vincular ese código, verifica que sea el vigente.'
 
+/** Número ya verificado: moverlo exige que el laboratorio lo desvincule. */
+export const VINCULAR_YA =
+  'Este número ya está vinculado a una clínica. Para moverlo a otra, el laboratorio debe desvincularlo primero.'
+
 /** Canje contra la API; true solo si la API confirmó el vínculo. */
 export async function canjearVinculacion(
   api: ApiClient,
