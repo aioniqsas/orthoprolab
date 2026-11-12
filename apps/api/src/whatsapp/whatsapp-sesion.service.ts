@@ -1,5 +1,5 @@
-import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { Inject, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -10,12 +10,12 @@ import type { EnvConfig } from '../config/env.validation.js';
 import { THROTTLER_REDIS } from '../security/redis-throttler.storage.js';
 import { Clinica } from '../usuarios/clinica.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
+import { verificarFirma } from './whatsapp-firma.js';
 import { WhatsappIdentidadService } from './whatsapp-identidad.service.js';
 import { WhatsappSesionAuditoria } from './whatsapp-sesion-auditoria.entity.js';
 
 export interface SesionBot { accessToken: string; expiresIn: number; clinicaId: string; doctorId: string | null; }
 const NO_CONFIG = 'La sesión del bot de WhatsApp no está configurada.';
-const BAD = 'Token de servicio inválido.';
 const NO = 'Este número no está habilitado para el bot de WhatsApp.';
 const LIMIT = 'Límite de sesiones del bot excedido.';
 
@@ -36,13 +36,7 @@ export class WhatsappSesionService {
     if (!service || !hmacSecret) throw new ServiceUnavailableException(NO_CONFIG);
     // Sin Redis no hay protección de nonce ni cuotas: se falla cerrado en vez de emitir sesiones sin límite.
     if (!this.redis) throw new ServiceUnavailableException(NO_CONFIG);
-    const same = (a: string | undefined, b: string) => timingSafeEqual(createHash('sha256').update(a ?? '').digest(), createHash('sha256').update(b).digest()) && a !== undefined;
-    if (!same(token, service)) throw new UnauthorizedException(BAD);
-    const seconds = Number(timestamp);
-    if (!Number.isInteger(seconds) || Math.abs(Math.floor(Date.now() / 1000) - seconds) > 120 || !nonce || !/^[A-Za-z0-9_-]{16,40}$/.test(nonce) || !signature || !/^[0-9a-f]{64}$/i.test(signature)) throw new UnauthorizedException(BAD);
-    const expected = createHmac('sha256', hmacSecret).update(`${typeof telefono === 'string' ? telefono : ''}|${timestamp}|${nonce}`).digest('hex');
-    if (!timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'))) throw new UnauthorizedException(BAD);
-    if ((await this.redis.set(`whatsapp:nonce:${nonce}`, '1', 'EX', 120, 'NX')) !== 'OK') throw new UnauthorizedException(BAD);
+    await verificarFirma({ telefono, token, timestamp, nonce, signature }, service, hmacSecret, this.redis);
     const resultado = await this.identidad.resolverContacto(typeof telefono === 'string' ? telefono : '');
     if (!resultado.ok) { await this.auditar(`rechazada_contacto_${resultado.motivo}`); throw new ForbiddenException(NO); }
     const clinica = await this.clinicas.findOneBy({ id: resultado.contacto.clinicaId });

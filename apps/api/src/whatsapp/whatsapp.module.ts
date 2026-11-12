@@ -7,6 +7,9 @@ import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import { WhatsappContacto } from './whatsapp-contacto.entity.js';
 import { WhatsappIdentidadService } from './whatsapp-identidad.service.js';
+import { WhatsappLlamada } from './whatsapp-llamada.entity.js';
+import { WhatsappLlamadaController } from './whatsapp-llamada.controller.js';
+import { WhatsappLlamadaService } from './whatsapp-llamada.service.js';
 import { WhatsappSesionController } from './whatsapp-sesion.controller.js';
 import { WhatsappSesionService } from './whatsapp-sesion.service.js';
 import { WhatsappSesionAuditoria } from './whatsapp-sesion-auditoria.entity.js';
@@ -22,10 +25,10 @@ import { WhatsappSesionAuditoria } from './whatsapp-sesion-auditoria.entity.js';
   imports: [
     AuthModule,
     SecurityModule,
-    TypeOrmModule.forFeature([WhatsappContacto, Clinica, Doctor, Usuario, WhatsappSesionAuditoria]),
+    TypeOrmModule.forFeature([WhatsappContacto, Clinica, Doctor, Usuario, WhatsappSesionAuditoria, WhatsappLlamada]),
   ],
-  controllers: [WhatsappSesionController],
-  providers: [WhatsappIdentidadService, WhatsappSesionService],
+  controllers: [WhatsappSesionController, WhatsappLlamadaController],
+  providers: [WhatsappIdentidadService, WhatsappSesionService, WhatsappLlamadaService],
   exports: [WhatsappIdentidadService],
 })
 export class WhatsappModule {}

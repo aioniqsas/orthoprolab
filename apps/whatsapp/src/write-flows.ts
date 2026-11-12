@@ -74,7 +74,7 @@ export class OrderFlows {
    * Un turno del flujo de creación. `doctorContacto` es el doctor 1:1 del
    * contacto verificado (S2): si existe, nunca se pregunta.
    */
-  async handle(telefono: string, texto: string, doctorContacto?: string): Promise<{ kind: 'text'; text: string }> {
+  async handle(telefono: string, texto: string, doctorContacto?: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     const estado = this.store.get(telefono)
     const step = estado?.step ?? ''
     const entrada = texto.trim()
@@ -82,7 +82,7 @@ export class OrderFlows {
 
     if (OPCION_CANCELAR_ORDEN.test(entrada)) {
       this.store.clear(telefono)
-      return { kind: 'text', text: `De vuelta al menú.\n\n${buildMenu()}` }
+      return { kind: 'text', text: `De vuelta al menú.\n\n${buildMenu()}`, intencion: 'menu' }
     }
 
     if (step === '') return this.inicio(telefono, campos, doctorContacto)
@@ -98,7 +98,7 @@ export class OrderFlows {
   }
 
   /** Inicio: fija el doctor (silencioso si el contacto lo tiene) y pasa al paciente. */
-  private async inicio(telefono: string, campos: Campos, doctorContacto?: string): Promise<{ kind: 'text'; text: string }> {
+  private async inicio(telefono: string, campos: Campos, doctorContacto?: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     if (doctorContacto) {
       let nombre = 'Doctor asignado'
       try {
@@ -128,7 +128,7 @@ export class OrderFlows {
     }
   }
 
-  private async pasoDoctor(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoDoctor(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
       const doctores = await this.api.getDoctores(telefono)
       const i = indiceValido(entrada, doctores.length)
@@ -144,7 +144,7 @@ export class OrderFlows {
     }
   }
 
-  private async pedirPaciente(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string }> {
+  private async pedirPaciente(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
       const pacientes = await this.api.getPacientes(telefono, campos.doctorId!)
       this.store.set(telefono, 'orden-paciente', campos)
@@ -159,7 +159,7 @@ export class OrderFlows {
     }
   }
 
-  private async pasoPaciente(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoPaciente(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     const nuevo = /^nuevo\s+(\S+)\s+(.+)$/i.exec(entrada)
     if (nuevo) {
       try {
@@ -190,7 +190,7 @@ export class OrderFlows {
   }
 
   /** Re-muestra el paso del paciente conservando lo ya recolectado. */
-  private async pedirPacienteOtraVez(telefono: string, campos: Campos, encabezado: string): Promise<{ kind: 'text'; text: string }> {
+  private async pedirPacienteOtraVez(telefono: string, campos: Campos, encabezado: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
       const pacientes = await this.api.getPacientes(telefono, campos.doctorId!)
       this.store.set(telefono, 'orden-paciente', campos)
@@ -202,7 +202,7 @@ export class OrderFlows {
     }
   }
 
-  private async pedirServicio(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string }> {
+  private async pedirServicio(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
       const servicios = await this.api.getServicios(telefono)
       if (servicios.length === 0) {
@@ -222,7 +222,7 @@ export class OrderFlows {
     }
   }
 
-  private async pasoServicio(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoServicio(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
       const servicios = await this.api.getServicios(telefono)
       const i = indiceValido(entrada, servicios.length)
@@ -239,7 +239,7 @@ export class OrderFlows {
     }
   }
 
-  private async pasoCantidad(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoCantidad(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     if (!/^\d{1,2}$/.test(entrada) || Number(entrada) < 1) {
       return { kind: 'text', text: 'Escribe un número entero mayor que 0 (o 0 para volver al menú).' }
     }
@@ -251,7 +251,7 @@ export class OrderFlows {
     }
   }
 
-  private async pasoDientes(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoDientes(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     const tokens = entrada.split(/[\s,]+/).filter((t) => t !== '')
     if (tokens.length === 0) {
       return { kind: 'text', text: 'Escribe al menos un número de diente (FDI), u 0 para volver al menú.' }
@@ -272,7 +272,7 @@ export class OrderFlows {
     return { kind: 'text', text: '¿Color? Escribe el color del trabajo (1–20 caracteres), o 0 para volver al menú.' }
   }
 
-  private async pasoColor(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoColor(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     const color = entrada.trim()
     if (color.length < 1 || color.length > 20) {
       return { kind: 'text', text: 'El color debe tener entre 1 y 20 caracteres (o 0 para volver al menú).' }
@@ -285,7 +285,7 @@ export class OrderFlows {
     }
   }
 
-  private async pasoObservaciones(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoObservaciones(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     const observaciones = /^(no|omitir)$/i.test(entrada) ? '' : entrada.trim()
     if (observaciones.length > 500) {
       return { kind: 'text', text: `${NO_MAS_500}\n\nO escribe 0 para volver al menú.` }
@@ -304,7 +304,7 @@ export class OrderFlows {
    * Cualquier otra entrada re-muestra el resumen sin llamar a la API; tras un
    * fallo el estado se conserva para reintentar con CONFIRMAR.
    */
-  private async pasoConfirmar(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string }> {
+  private async pasoConfirmar(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     if (entrada !== 'CONFIRMAR') {
       return { kind: 'text', text: resumenOrden(campos) }
     }
@@ -324,7 +324,7 @@ export class OrderFlows {
     try {
       const orden = await this.api.crearOrden(telefono, payload, campos.idemKey)
       this.store.clear(telefono)
-      return { kind: 'text', text: `Orden ${orden.id} creada.` }
+      return { kind: 'text', text: `Orden ${orden.id} creada.`, intencion: 'orden_creada' }
     } catch (error) {
       // Los datos se conservan (con la misma clave de idempotencia):
       // CONFIRMAR reintenta, cancelar descarta.

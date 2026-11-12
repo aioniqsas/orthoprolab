@@ -14,6 +14,10 @@ contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
 - `WHATSAPP_AUTH_DIR`: directorio externo para `auth_info`; por defecto
   `~/.orthopro-lab/whatsapp/auth_info`.
 - `WHATSAPP_AUTH_DIR` nunca debe apuntar al repositorio.
+- `WHATSAPP_LAB_EMAIL`: dirección del laboratorio para las notificaciones de
+  la opción 0 (solicitud de llamada). Es una variable de la API
+  (`apps/api`): si falta, `POST /internal/whatsapp/llamada` responde 503 y el
+  bot ofrece la vía directa.
 - `WHATSAPP_PDF_HOSTS`: hosts (separados por comas) de los que el bot puede
   descargar un PDF de cuenta de cobro. Por defecto `res.cloudinary.com`.
   Solo se aceptan URLs `https:` de esos hosts; cualquier otra URL se rechaza
