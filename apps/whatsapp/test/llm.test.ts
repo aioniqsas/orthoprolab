@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { configuracionDesdeEntorno, DatosBot, type ClientePg } from '../src/datos'
 import { ClienteGroq, configuracionLlm, LIMITE_COSTO, NO_PUEDO, redactar, StoreLlm, validarLlamada, type RegistroLlm } from '../src/llm'
+import { SISTEMA_PARTES } from '../src/prompt'
 import { construirPromptSistema, NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION } from '../src/prompt'
 
 const CONFIG = { host: 'db', port: 5432, database: 'orthopro', user: 'whatsapp_bot', password: 'secreto' }
@@ -40,7 +41,7 @@ function respuestaHerramienta(nombre: string, argumentos: string, id = 'call_1')
   )
 }
 
-const CONFIG_LLM = { apiKey: 'gsk_prueba', modelo: 'llama-3.3-70b-versatile', timeoutMs: 50 }
+const CONFIG_LLM = { apiKey: 'gsk_prueba', modelo: 'openai/gpt-oss-20b', timeoutMs: 50 }
 
 /** Firma de fetch que Bun exige (preconnect) pero los dobles no implementan. */
 type FetchFalso = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
@@ -61,7 +62,7 @@ describe('configuración (S4)', () => {
   it('con llave y bandera por defecto hay LLM con el modelo por defecto', () => {
     expect(configuracionLlm({ GROQ_API_KEY: 'gsk' })).toEqual({
       apiKey: 'gsk',
-      modelo: 'llama-3.3-70b-versatile',
+      modelo: 'openai/gpt-oss-20b',
       timeoutMs: expect.any(Number),
     })
   })
@@ -238,6 +239,52 @@ describe('redacción defensiva', () => {
     expect(redactar('Bearer abc.def')).toBe('[token]')
     expect(redactar('redis://:pass@host')).toBe('[dsn]')
     expect(redactar('orden 7')).toBe('orden 7')
+  })
+})
+
+describe('voz humana y cálida (S3/S5, voz del bot)', () => {
+  const TERMOS_PROHIBIDOS = ['bot', 'IA', 'inteligencia artificial', 'asistente virtual', 'modelo', 'no eres una persona']
+
+  it('el prompt no se presenta como bot, IA, modelo ni asistente virtual', () => {
+    const prompt = construirPromptSistema({ clinica: 'Clínica Sonrisa', doctor: 'Dr. Gómez' })
+    for (const termino of TERMOS_PROHIBIDOS) expect(prompt).not.toContain(termino)
+  })
+
+  it('el prompt instruye calidez y cómo negarse sin cortar a la persona', () => {
+    const prompt = construirPromptSistema().split('\n')
+    expect(SISTEMA_PARTES.some((l) => l.includes('calidez'))).toBe(true)
+    expect(SISTEMA_PARTES.some((l) => l.includes('nunca como un formulario'))).toBe(true)
+    expect(SISTEMA_PARTES.some((l) => l.includes('sin cortar a la persona'))).toBe(true)
+    expect(SISTEMA_PARTES.some((l) => l.includes('nombre de la clínica o del doctor'))).toBe(true)
+    expect(prompt.join('\n')).toContain('OrthoPro Lab te atendemos por WhatsApp')
+  })
+
+  it('el prompt conserva la excepción honesta de identidad', () => {
+    expect(SISTEMA_PARTES.some((l) => l.includes('máquina o con una persona'))).toBe(true)
+    expect(SISTEMA_PARTES.some((l) => l.includes('sin fingir ser humano'))).toBe(true)
+  })
+
+  it('cada negativa es su frase fija cálida, sin markdown, sin emoji y sin promesas', () => {
+    const negativas = [NEGATIVA_FIJA, NEGATIVA_ESCRITURA, NEGATIVA_SUPLANTACION, NEGATIVA_NO_ENCONTRADO, LIMITE_COSTO]
+    for (const frase of negativas) {
+      expect(frase).not.toMatch(/[*#_~`]/)
+      expect(frase).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
+      expect(frase).not.toMatch(/te llamo|yo llamo/i)
+    }
+    expect(NEGATIVA_FIJA).toContain('Eso no lo puedo hacer por acá')
+    expect(NEGATIVA_ESCRITURA).toContain('para no equivocarme con tus datos')
+    expect(NEGATIVA_SUPLANTACION).toContain('el laboratorio te puede llamar')
+    expect(NEGATIVA_NO_ENCONTRADO).toContain('No lo encontré')
+    expect(LIMITE_COSTO).toContain('Más tarde seguimos')
+  })
+
+  it('la negativa de llamada inválida usa la frase fija cálida, nunca un texto vacío', async () => {
+    const fetchFake: FetchFalso = async () => respuestaHerramienta('borrar_orden', '{}')
+    const { cliente, datos, store, pool } = montar(fetchFake)
+    const r = await cliente.manejar('tel', 'sabotaje', datos, '42', store)
+    expect(r).toEqual({ texto: NEGATIVA_FIJA })
+    expect(r.texto!.length).toBeGreaterThan(0)
+    expect(pool.registros).toEqual([])
   })
 })
 

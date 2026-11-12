@@ -21,7 +21,7 @@ export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUP
  */
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const MODELO_DEFECTO = 'llama-3.3-70b-versatile'
+const MODELO_DEFECTO = 'openai/gpt-oss-20b'
 /** Timeout de una llamada (ms): un chat no puede esperar un minuto. */
 const TIMEOUT_MS = 12_000
 /** Máximo de rondas modelo→respuesta por mensaje del usuario. */
@@ -203,7 +203,7 @@ export class StoreLlm {
 
 /** Mensaje cortés cuando el tope de costo se alcanzó. */
 export const LIMITE_COSTO =
-  'Hemos alcanzado el límite de consultas de esta conversación. Escribe 0 para volver al menú del bot.'
+  'Hemos llegado al tope de consultas de esta conversación, disculpa. Más tarde seguimos con gusto: escribe 0 y volvemos al menú.'
 
 /** Mensaje cuando el modelo pidió algo fuera del catálogo o inválido: la misma negativa fija. */
 export const NO_PUEDO = NEGATIVA_FIJA
@@ -214,7 +214,7 @@ function textoNegativa(clase: ClaseNegativa): string {
 }
 
 /** Mensaje cuando el modelo no dio respuesta utilizable en las rondas permitidas. */
-const SIN_RESPUESTA = 'No pude generar una respuesta ahora mismo. Escribe 0 para volver al menú.'
+const SIN_RESPUESTA = 'Ahora mismo no pude darte una respuesta, disculpa. Escribe 0 y seguimos paso a paso.'
 
 function parseUso(cuerpo: unknown): UsoGroq {
   const uso = (cuerpo as { usage?: { prompt_tokens?: unknown; completion_tokens?: unknown } })?.usage

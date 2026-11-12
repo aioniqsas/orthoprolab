@@ -36,7 +36,7 @@ catálogo cerrado (`src/herramientas.ts`).
 - `GROQ_API_KEY`: llave de Groq. Si falta, el bot vuelve al menú
   determinista sin anunciar nada.
 - `WHATSAPP_LLM_MODEL`: modelo de Groq; por defecto
-  `llama-3.3-70b-versatile`.
+  `openai/gpt-oss-20b`.
 - `WHATSAPP_LLM_ENABLED`: por defecto `true`; con `false` el bot vuelve al
   menú sin desplegar.
 
