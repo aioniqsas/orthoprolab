@@ -51,3 +51,18 @@ En `apps/api`: `WHATSAPP_SERVICE_TOKEN`, `WHATSAPP_HMAC_SECRET`, `WHATSAPP_LAB_E
 - La deduplicación del PDF y los límites del bot viven en memoria del proceso: con más de una instancia hacen falta candados distribuidos.
 - La suite e2e del repositorio no puede pasar hoy: los specs consultan `doctor.usuario_id`, columna que el esquema actual no tiene. Es deuda anterior a este trabajo y está registrada aparte.
 - `enviarPorEmail` (ruta de administración) sigue descargando `pdfUrl` sin la validación de host que ya tiene la ruta de clínicas.
+
+## Rol de base de datos del bot
+
+El bot consulta PostgreSQL con un rol exclusivo de mínimo privilegio: `whatsapp_bot` (se puede cambiar con `WHATSAPP_DB_USER`). Solo `LOGIN`, sin superusuario ni creación de bases/roles, con `default_transaction_read_only = on`, `statement_timeout = '5s'`, `idle_in_transaction_session_timeout = '10s'`, `work_mem = '16MB'` y `search_path` limitado a `public`.
+
+El script de despliegue (tarea IA1) es idempotente y concede `SELECT` — solo `SELECT` — sobre el allowlist de tablas de negocio (`orden`, `detalle_orden`, `estado_orden`, `cuenta_cobro`, `cuenta_cobro_orden`, `pago`, `doctor`, `paciente`, `paciente_doctor`, `servicio`, `clinica`), con `GRANT CONNECT` a la base y `USAGE` en `public`. No hay `GRANT ALL`, ni escrituras, ni secuencias; cualquier privilegio heredado se revoca en cada corrida. Quedan denegadas `usuario`, `sesion_refresco`, `whatsapp_contacto`, `whatsapp_sesion_auditoria`, `whatsapp_llamada`, `migrations`, `historial_estado_orden`, `rol`, `contenido_web`, `envio_cuenta_cobro` y `metodo_pago_bancario`.
+
+Cada tabla concedida tiene `ROW LEVEL SECURITY` con una política `FOR SELECT` de la clínica del contacto verificado (GUC `app.clinica_id`, fijado con `SET LOCAL` por el pool del bot). Las tablas con `clinica_id` filtran directo; `orden` llega a la clínica vía su doctor, `detalle_orden` vía la orden, `pago` y `cuenta_cobro_orden` vía la cuenta de cobro, `paciente` y `paciente_doctor` vía el doctor; `servicio` y `estado_orden` son catálogos globales legibles solo con contexto de clínica. No se usa `FORCE ROW LEVEL SECURITY`: el usuario de la API es dueño de las tablas y sigue intacto.
+
+```sh
+bun run db:bot-role            # crear/converger el rol
+bun run db:bot-role -- --rotate  # además re-aplica la contraseña
+```
+
+Conexión administrativa: `WHATSAPP_DB_ADMIN_URL` si existe, si no las `DATABASE_*` de la API. `WHATSAPP_DB_PASSWORD` es obligatoria y nunca se imprime ni se escribe en archivos. Si la conexión no tiene `CREATEROLE`, el script termina con código distinto de cero y le dice al operador exactamente qué ejecutar como administrador.
