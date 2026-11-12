@@ -1,35 +1,28 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 /**
- * Search text kept in the URL (`?q=`) so the server can filter the list.
- * The input updates at once; the URL, and with it the server request, follows
- * after `delay` ms without typing (debounce), so each keystroke is not a
- * round-trip.
+ * Search kept in the URL (`?q=`) so the server filters the list. The text is
+ * sent only when the user submits (Buscar or Enter): the server searches its
+ * indexes with it, instead of the browser downloading and filtering everything.
  */
-export function useBusquedaUrl(inicial: string, delay = 300) {
+export function useBusquedaUrl(inicial: string) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [valor, setValor] = useState(inicial);
-  const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => () => clearTimeout(temporizador.current), []);
-
-  function onChange(nuevo: string) {
-    setValor(nuevo);
-    clearTimeout(temporizador.current);
-    temporizador.current = setTimeout(() => {
-      const next = new URLSearchParams(params.toString());
-      const q = nuevo.trim();
-      if (q) next.set("q", q);
-      else next.delete("q");
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    }, delay);
+  function onSearch(texto: string) {
+    setValor(texto);
+    const next = new URLSearchParams(params.toString());
+    const q = texto.trim();
+    if (q) next.set("q", q);
+    else next.delete("q");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
-  return { value: valor, onChange };
+  return { value: valor, onSearch };
 }

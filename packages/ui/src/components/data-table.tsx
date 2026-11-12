@@ -46,14 +46,13 @@ export type DataTableProps<T> = {
     label: string
   }
   /**
-   * Search owned by the caller (server-side search, optimizacion B10): the
-   * input shows `value` and reports every keystroke through `onChange`; rows
-   * are not filtered by `searchValue` here. Use it when the matching must run
-   * on the server, e.g. over encrypted fields the browser must never receive.
+   * Search run by the server. `value` is the search last submitted; the user
+   * types in the box and submits with the Buscar button or Enter, so only the
+   * submitted text travels and the server searches with its indexes.
    */
   serverSearch?: {
     value: string
-    onChange: (value: string) => void
+    onSearch: (text: string) => void
   }
   filters?: readonly DataTableFilter<T>[]
   /** Mobile rendering; the table itself is hidden below md. */
@@ -148,6 +147,13 @@ function DataTable<T>({
   }
 
   const busqueda = serverSearch ? serverSearch.value : query
+  // Server search: what the user is typing, until submitted.
+  const [borrador, setBorrador] = React.useState(serverSearch?.value ?? "")
+  React.useEffect(() => {
+    if (serverSearch) setBorrador(serverSearch.value)
+    // Only when the submitted value changes from outside (e.g. cleared).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverSearch?.value])
   const filtered = filterRows(rows, columns, filters, filterValues, serverSearch ? "" : query)
 
   const sorted = React.useMemo(() => {
@@ -173,7 +179,8 @@ function DataTable<T>({
 
   const clearFilters = () => {
     setQuery("")
-    serverSearch?.onChange("")
+    setBorrador("")
+    serverSearch?.onSearch("")
     setFilterValues({})
     setPage(0)
   }
@@ -182,6 +189,35 @@ function DataTable<T>({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         {search ? (
+          serverSearch ? (
+            <form
+              role="search"
+              className="flex min-w-56 flex-1 items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                setPage(0)
+                serverSearch.onSearch(borrador.trim())
+              }}
+            >
+              <div className="relative flex-1">
+                <SearchIcon
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  type="search"
+                  value={borrador}
+                  onChange={(event) => setBorrador(event.target.value)}
+                  aria-label={search.label}
+                  placeholder={search.placeholder}
+                  className="h-10 rounded-xl pl-8"
+                />
+              </div>
+              <Button type="submit" variant="outline" className="h-10 rounded-xl">
+                Buscar
+              </Button>
+            </form>
+          ) : (
           <div className="relative min-w-56 flex-1">
             <SearchIcon
               aria-hidden
@@ -191,8 +227,7 @@ function DataTable<T>({
               type="search"
               value={busqueda}
               onChange={(event) => {
-                if (serverSearch) serverSearch.onChange(event.target.value)
-                else setQuery(event.target.value)
+                setQuery(event.target.value)
                 setPage(0)
               }}
               aria-label={search.label}
@@ -200,6 +235,7 @@ function DataTable<T>({
               className="h-10 rounded-xl pl-8"
             />
           </div>
+          )
         ) : null}
         {filters.map((filter) => (
           <label key={filter.id} className="flex items-center gap-2 text-sm">
