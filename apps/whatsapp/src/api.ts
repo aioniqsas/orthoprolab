@@ -320,16 +320,21 @@ export class ApiClient {
     path: string,
     body: unknown,
     reintento = true,
+    extraHeaders: Record<string, string> = {},
   ): Promise<unknown> {
     const sesion = await this.sesion(telefono)
     const res = await this.fetchFn(`${this.baseUrl}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${sesion.token}` },
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${sesion.token}`,
+        ...extraHeaders,
+      },
       body: JSON.stringify(body),
     })
     if (res.status === 401 && reintento) {
       this.tokens.delete(telefonoCanonical(telefono))
-      return this.postJson(telefono, path, body, false)
+      return this.postJson(telefono, path, body, false, extraHeaders)
     }
     if (!res.ok) throw new ApiError(res.status, `${path} falló`)
     return res.json()
@@ -357,8 +362,25 @@ export class ApiClient {
     return (await this.getJson(telefono, '/mi-clinica/servicios')) as ServicioApi[]
   }
 
-  async crearOrden(telefono: string, payload: NuevaOrdenPayload): Promise<OrdenApi> {
-    return (await this.postJson(telefono, '/mi-clinica/ordenes', payload)) as OrdenApi
+  /** Crea la orden. Con idempotencyKey, POST /mi-clinica/ordenes es
+   *  reproducible: la misma clave devuelve la respuesta guardada (interceptor
+   *  global IdempotencyInterceptor de la API), así un reintento tras un
+   *  timeout no duplica la orden. */
+  async crearOrden(
+    telefono: string,
+    payload: NuevaOrdenPayload,
+    idempotencyKey?: string,
+  ): Promise<OrdenApi> {
+    const cabeceras: Record<string, string> = idempotencyKey
+      ? { 'Idempotency-Key': idempotencyKey }
+      : {}
+    return (await this.postJson(
+      telefono,
+      '/mi-clinica/ordenes',
+      payload,
+      true,
+      cabeceras,
+    )) as OrdenApi
   }
 }
 

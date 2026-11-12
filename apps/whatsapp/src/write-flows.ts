@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { esDienteValido, nombreDiente } from '@repo/api-client/dientes'
 import type { ApiClient, NuevaOrdenPayload, PacienteApi } from './api.js'
 import { ApiError } from './api.js'
@@ -289,7 +290,11 @@ export class OrderFlows {
     if (observaciones.length > 500) {
       return { kind: 'text', text: `${NO_MAS_500}\n\nO escribe 0 para volver al menú.` }
     }
-    const siguientes = { ...campos, observaciones }
+    // Una clave de idempotencia por orden: nace al llegar al resumen y se
+    // reutiliza en cada reintento del mismo CONFIRMAR (el interceptor global
+    // IdempotencyInterceptor de la API la captura vía cabecera). Cancelar o
+    // una orden nueva generan una clave nueva al volver a llegar aquí.
+    const siguientes = { ...campos, observaciones, idemKey: randomUUID() }
     this.store.set(telefono, 'orden-confirmar', siguientes)
     return { kind: 'text', text: resumenOrden(siguientes) }
   }
@@ -317,16 +322,26 @@ export class OrderFlows {
       ...(campos.pacienteId ? { pacienteId: Number(campos.pacienteId) } : {}),
     }
     try {
-      const orden = await this.api.crearOrden(telefono, payload)
+      const orden = await this.api.crearOrden(telefono, payload, campos.idemKey)
       this.store.clear(telefono)
       return { kind: 'text', text: `Orden ${orden.id} creada.` }
     } catch (error) {
-      const motivo =
-        error instanceof ApiError
-          ? textoErrorCreacion(error.status)
-          : 'no fue posible completar la solicitud'
-      // Los datos se conservan: CONFIRMAR reintenta, cancelar descarta.
+      // Los datos se conservan (con la misma clave de idempotencia):
+      // CONFIRMAR reintenta, cancelar descarta.
       this.store.set(telefono, 'orden-confirmar', campos)
+      // Un error de red o un 5xx puede que sí haya creado la orden (el POST
+      // pudo haber llegado y perderse la respuesta): lo decimos y damos la vía
+      // de verificación en vez de sugerir un reintento que duplicaría.
+      const dudoso = !(error instanceof ApiError) || error.status >= 500
+      if (dudoso) {
+        const motivo =
+          error instanceof ApiError ? textoErrorCreacion(error.status) : 'un problema de conexión'
+        return {
+          kind: 'text',
+          text: `Hubo ${motivo} y la orden puede que se haya creado. Verifica con la opción 1 (estado de pedido) antes de confirmar de nuevo; si no apareció, escribe CONFIRMAR para reintentar, o cancelar para descartar los datos.`,
+        }
+      }
+      const motivo = textoErrorCreacion(error.status)
       return {
         kind: 'text',
         text: `No pude crear la orden (${motivo}). Tus datos siguen guardados: escribe CONFIRMAR para reintentar, o cancelar para descartarlos.`,
