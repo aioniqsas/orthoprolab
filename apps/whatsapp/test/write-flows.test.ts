@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { ApiError, type ApiClient, type DoctorApi, type ServicioApi } from '../src/api.js'
-import { buildMenu } from '../src/menu.js'
+import { SALUDO } from '../src/menu.js'
 import { ConversationStore } from '../src/state.js'
 import { ReadFlows } from '../src/flows.js'
 import { OrderFlows } from '../src/write-flows.js'
@@ -148,7 +148,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
       const r = await enviar(esc, [palabra])
       expect(api.crearOrdenLlamadas).toHaveLength(0)
       // 0 siempre significa volver al menú (S11).
-      expect(r.text).toContain('De vuelta al menú')
+      expect(r.text).toBe(SALUDO)
     }
     for (const palabra of ['no', 'NO']) {
       const api = apiFalso()
@@ -167,7 +167,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     await esc.handle(TEL, '4')
     expect(store.get(TEL)?.step).toBe('orden-doctor')
     const r = await esc.handle(TEL, 'cancelar')
-    expect(r.text).toContain(buildMenu())
+    expect(r.text).toContain(SALUDO)
     expect(store.get(TEL)).toBeUndefined()
   })
 
@@ -178,7 +178,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
       const esc = escritor(api, store)
       for (const p of pasos) await esc.handle(TEL, p)
       const r = await esc.handle(TEL, '0')
-      expect(r.text).toContain('De vuelta al menú')
+      expect(r.text).toBe(SALUDO)
       expect(store.get(TEL)).toBeUndefined()
       expect(api.crearOrdenLlamadas).toHaveLength(0)
     }

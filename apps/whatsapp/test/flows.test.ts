@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { ApiError, type ApiClient, type CuentaCobroApi, type OrdenApi } from '../src/api.js'
-import { buildMenu } from '../src/menu.js'
+import { buildMenu, SALUDO } from '../src/menu.js'
 import { ConversationStore } from '../src/state.js'
 import { formatoOrden, nombreArchivoSeguro, ReadFlows, type Respuesta } from '../src/flows.js'
 
@@ -173,13 +173,13 @@ describe('flujo 3: cuenta de cobro (PDF)', () => {
 })
 
 describe('cancelación y menú', () => {
-  it('"0" en un paso vuelve al menú y borra el paso', async () => {
+  it('"0" en un paso vuelve al saludo y borra el paso (IA7)', async () => {
     const store = new ConversationStore()
     const flows = new ReadFlows(store, falsoApi({}))
     await flows.handle(TELEFONO, '1')
     expect(store.get(TELEFONO)?.step).toBe('pedido-numero')
     const r = await flows.handle(TELEFONO, '0')
-    expect((r as { text: string }).text).toContain(buildMenu())
+    expect((r as { text: string }).text).toContain(SALUDO)
     expect(store.get(TELEFONO)).toBeUndefined()
   })
 
@@ -188,7 +188,7 @@ describe('cancelación y menú', () => {
     const flows = new ReadFlows(store, falsoApi({}))
     await flows.handle(TELEFONO, '3')
     const r = await flows.handle(TELEFONO, 'Cancelar')
-    expect((r as { text: string }).text).toContain('De vuelta al menú')
+    expect((r as { text: string }).text).toBe(SALUDO)
     expect(store.get(TELEFONO)).toBeUndefined()
   })
 
@@ -199,6 +199,7 @@ describe('cancelación y menú', () => {
     await flows.handle(TELEFONO, '1234')
     expect(store.get(TELEFONO)).toBeUndefined()
     const r = await flows.handle(TELEFONO, 'texto suelto')
+    expect((r as { text: string }).text).toContain('No entendí')
     expect((r as { text: string }).text).toContain(buildMenu())
   })
 

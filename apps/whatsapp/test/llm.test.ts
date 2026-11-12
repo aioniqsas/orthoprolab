@@ -6,8 +6,9 @@ import { MENSAJE_LIMITE, MENSAJE_LIMITE_LLAMADA } from '../src/rate-limit'
 import { VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA } from '../src/vinculacion'
 import { IDENTIDAD_NO_RECONOCIDA } from '../src/identity'
 import { ClienteGroq, configuracionLlm, LIMITE_COSTO, NO_PUEDO, redactar, StoreLlm, validarLlamada, type RegistroLlm } from '../src/llm'
-import { SISTEMA_PARTES } from '../src/prompt'
+import { SISTEMA_PARTES, negativaIdentidad } from '../src/prompt'
 import { construirPromptSistema, NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION } from '../src/prompt'
+import { SALUDO, PREGUNTA_ACLARAR } from '../src/menu.js'
 
 const CONFIG = { host: 'db', port: 5432, database: 'orthopro', user: 'whatsapp_bot', password: 'secreto' }
 
@@ -46,7 +47,7 @@ function respuestaHerramienta(nombre: string, argumentos: string, id = 'call_1')
   )
 }
 
-const CONFIG_LLM = { apiKey: 'gsk_prueba', modelo: 'openai/gpt-oss-20b', timeoutMs: 50 }
+const CONFIG_LLM = { apiKey: 'gsk_prueba', modelo: 'openai/gpt-oss-20b', timeoutMs: 50, nombre: 'Aioniq' }
 
 /** Firma de fetch que Bun exige (preconnect) pero los dobles no implementan. */
 type FetchFalso = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
@@ -69,6 +70,7 @@ describe('configuración (S4)', () => {
       apiKey: 'gsk',
       modelo: 'openai/gpt-oss-20b',
       timeoutMs: expect.any(Number),
+      nombre: 'Aioniq',
     })
   })
 })
@@ -465,7 +467,27 @@ describe('pregunta de identidad → frase fija honesta, antes del modelo (IA5)',
 
   it('la frase fija de identidad nunca dice ser persona, humano ni asistente', () => {
     expect(NEGATIVA_IDENTIDAD).not.toMatch(/soy una persona|soy humano|soy un asistente/i)
-    expect(NEGATIVA_IDENTIDAD).toContain('equipo del laboratorio por este canal')
+    expect(NEGATIVA_IDENTIDAD).toContain('hablar con una persona')
+    expect(NEGATIVA_IDENTIDAD).toContain('escribe ayuda y te llamamos')
+  })
+
+  it('la identidad lleva el nombre configurado; sin nombre cae al valor por defecto', async () => {
+    let fetches = 0
+    const fetchFake: FetchFalso = async () => {
+      fetches++
+      return respuestaGroq('x')
+    }
+    const { cliente, datos, store, pool } = montar(fetchFake)
+    const r = await cliente.manejar('tel', '¿eres un robot?', datos, '42', store)
+    expect(r.texto).toBe('Soy Aioniq. Si prefieres hablar con una persona, escribe ayuda y te llamamos.')
+    // Nombre distinto, misma frase:
+    const otro = new ClienteGroq({ ...CONFIG_LLM, nombre: 'Laboratorio Azul' }, fetchFake as unknown as typeof fetch, () => {})
+    const r2 = await otro.manejar('tel2', '¿eres un robot?', datos, '42', store)
+    expect(r2.texto).toBe('Soy Laboratorio Azul. Si prefieres hablar con una persona, escribe ayuda y te llamamos.')
+    expect(negativaIdentidad()).toBe(NEGATIVA_IDENTIDAD)
+    expect(negativaIdentidad()).toContain('Soy Aioniq.')
+    expect(fetches).toBe(0)
+    expect(pool.registros).toEqual([])
   })
 
   it('la inyección de identidad del corpus sigue en fija, no en identidad', async () => {
@@ -497,6 +519,7 @@ describe('vocabulario sencillo en todo lo que ve el contacto (regla del producto
     MENSAJE_LIMITE, MENSAJE_LIMITE_LLAMADA, VINCULAR_OK, VINCULAR_FALLO, VINCULAR_YA,
     IDENTIDAD_NO_RECONOCIDA, LIMITE_COSTO, NEGATIVA_FIJA, NEGATIVA_ESCRITURA, NEGATIVA_SUPLANTACION,
     NEGATIVA_NO_ENCONTRADO, NEGATIVA_IDENTIDAD, LIMITE_COSTO,
+    SALUDO, PREGUNTA_ACLARAR, negativaIdentidad(), negativaIdentidad('Laboratorio Azul'),
     construirPromptSistema(),
     ...SISTEMA_PARTES,
   ]

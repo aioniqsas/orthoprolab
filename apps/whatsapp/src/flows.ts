@@ -1,7 +1,8 @@
 import type { ApiClient, OrdenApi } from './api.js'
 import { ApiError, UrlRechazadaError } from './api.js'
 import { extraerNumero } from './digitos.js'
-import { buildMenu } from './menu.js'
+import { buildMenu, SALUDO } from './menu.js'
+import type { Ruta } from './llm.js'
 import { MENSAJE_LIMITE_LLAMADA, RateLimiter } from './rate-limit.js'
 import type { ConversationStore } from './state.js'
 import type { OrderFlows } from './write-flows.js'
@@ -50,7 +51,8 @@ export const PEDIDO_NO_ENCONTRADO =
 export const CUENTA_NO_ENCONTRADA =
   'No encontré esa cuenta de cobro. Revisa el número, por favor, o escribe 0 para volver al menú.'
 
-const OPCION_CANCELAR = /^(0|cancelar)$/i
+// Escape con palabras naturales (IA7/S13): "0" sigue siendo el alias universal.
+const OPCION_CANCELAR = /^(0|cancelar|menú|menu|volver|inicio)$/i
 const PALABRA_AYUDA = /^(ayuda|help)$/i
 
 /**
@@ -148,7 +150,7 @@ export class ReadFlows {
         delete campos.previo
         if (previo === 'menu') {
           this.store.clear(telefono)
-          return { kind: 'text', text: buildMenu() }
+          return { kind: 'text', text: SALUDO }
         }
         this.store.set(telefono, previo, campos)
         return { kind: 'text', text: await this.preguntaDelPaso(telefono, previo) }
@@ -163,10 +165,10 @@ export class ReadFlows {
         : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
     }
 
-    // Cancelable en cualquier paso del flujo.
+    // Cancelable en cualquier paso del flujo; el escape vuelve al saludo (IA7).
     if (step !== 'menu' && OPCION_CANCELAR.test(entrada)) {
       this.store.clear(telefono)
-      return { kind: 'text', text: `De vuelta al menú.\n\n${buildMenu()}` }
+      return { kind: 'text', text: SALUDO }
     }
 
     if (step === 'pedido-numero') {
@@ -194,7 +196,10 @@ export class ReadFlows {
       return this.cuenta(telefono, numero)
     }
 
-    // Menú.
+    // Menú. Con modelo, main enruta por el LLM antes de llegar aquí; sin
+    // modelo este menú numerado es la red de seguridad (IA7/S13). El escape
+    // con palabras naturales vuelve al saludo sin números.
+    if (OPCION_CANCELAR.test(entrada)) return { kind: 'text', text: SALUDO }
     if (entrada === '1') {
       this.store.set(telefono, 'pedido-numero', {})
       return { kind: 'text', text: PREGUNTA_PEDIDO }
@@ -227,7 +232,63 @@ export class ReadFlows {
     if (step === 'control-numero') return PREGUNTA_CONTROL
     if (step === 'cuenta-numero') return PREGUNTA_CUENTA
     if (step === 'ayuda') return PREGUNTA_AYUDA
-    return buildMenu()
+    return SALUDO
+  }
+
+  /**
+   * Ejecuta una ruta decidida por el modelo (IA7/S13): el modelo elige la
+   * puerta, el flujo determinista es el ejecutor. Nunca escribe ni confirma
+   * por su cuenta: `nuevo_pedido` entra al OrderFlows igual que la opción 4.
+   */
+  async atenderRuta(telefono: string, ruta: Ruta, doctorContacto?: string): Promise<Respuesta> {
+    const pasoPrevio = this.store.get(telefono)?.step ?? 'menu'
+    let respuesta: Respuesta
+    switch (ruta.tipo) {
+      case 'nuevo_pedido':
+        respuesta = this.escritor
+          ? await this.escritor.handle(telefono, '', doctorContacto)
+          : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
+        break
+      case 'pedir_llamada':
+        // Misma puerta que "ayuda": pregunta antes de registrar la llamada (S11).
+        this.store.set(telefono, 'ayuda', { previo: pasoPrevio })
+        respuesta = { kind: 'text', text: PREGUNTA_AYUDA }
+        break
+      case 'ver_pedido':
+        if (ruta.numero) {
+          this.store.clear(telefono)
+          respuesta = await this.pedido(telefono, ruta.numero)
+        } else {
+          this.store.set(telefono, 'pedido-numero', {})
+          respuesta = { kind: 'text', text: PREGUNTA_PEDIDO }
+        }
+        break
+      case 'enviar_control':
+        if (ruta.numero) {
+          this.store.clear(telefono)
+          respuesta = await this.control(telefono, ruta.numero)
+        } else {
+          this.store.set(telefono, 'control-numero', {})
+          respuesta = { kind: 'text', text: PREGUNTA_CONTROL }
+        }
+        break
+      case 'enviar_cuenta':
+        if (ruta.numero) {
+          this.store.clear(telefono)
+          respuesta = await this.cuenta(telefono, ruta.numero)
+        } else {
+          this.store.set(telefono, 'cuenta-numero', {})
+          respuesta = { kind: 'text', text: PREGUNTA_CUENTA }
+        }
+        break
+    }
+    if (respuesta.intencion === undefined) {
+      const intenciones = { ver_pedido: 'estado', enviar_control: 'control', enviar_cuenta: 'cuenta', nuevo_pedido: 'orden', pedir_llamada: 'llamada' } as const
+      respuesta.intencion = intenciones[ruta.tipo]
+      respuesta.paso = pasoPrevio
+    }
+    void this.api.registrarIntencion?.(telefono, respuesta.intencion!, pasoPrevio).catch(() => {})
+    return respuesta
   }
 
   /**

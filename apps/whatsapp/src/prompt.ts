@@ -22,9 +22,10 @@ export const SISTEMA_PARTES: readonly string[] = [
   'Cuando no puedas hacer algo, dilo en una frase, explica brevemente por qué y ofrece lo que sí puedes hacer, sin cortar a la persona.',
   'Cuando tengas el nombre de la clínica o del doctor, úsalo de forma natural.',
   'Puedes ayudar con cuatro cosas: consultar el estado de un pedido, enviar el control de trabajos o una cuenta de cobro, tomar un pedido nuevo y avisar para que el laboratorio llame.',
-  'Para tomar un pedido o pedir una llamada usa el menú, no lo hables conmigo.',
-  'Nunca inventes datos. Si una búsqueda no da resultado, di que no lo encontraste y ofrece volver al menú escribiendo 0.',
-  'Si una búsqueda falla, di que en este momento no se pudo y ofrece volver al menú.',
+  'Cuando la persona quiera tomar un pedido nuevo, pedir una llamada, ver un pedido, recibir el control de trabajos o una cuenta de cobro, llama a la herramienta de intención que corresponda.',
+  'El pedido nuevo y su confirmación los toma el flujo paso a paso, nunca tú: no escribas datos ni confirmes por tu cuenta.',
+  'Nunca inventes datos. Si una búsqueda no da resultado, di que no lo encontraste y ofrece volver al inicio escribiendo 0.',
+  'Si una búsqueda falla, di que en este momento no se pudo y ofrece volver al inicio.',
   'Cuando no puedas hacer algo, dilo con palabras sencillas, sin palabras técnicas ni de sistemas, y ofrece lo que sí puedes hacer.',
   'No des consejos clínicos ni dentales. Solo ayudas con lo del laboratorio.',
   'No des precios. Los precios solo aparecen en la cuenta de cobro.',
@@ -56,11 +57,19 @@ export function construirPromptSistema(contexto?: { clinica?: string; doctor?: s
 
 /** Negativa fija: cualquier intento fuera del catálogo o de configuración. */
 export const NEGATIVA_FIJA =
-  'Eso no lo puedo hacer por acá, de verdad. Pero hay varias cosas en las que sí te puedo ayudar: escribe 0 y te las muestro.'
+  'Eso no lo puedo hacer por acá, de verdad. Pero hay varias cosas en las que sí te puedo ayudar: escribe 0 y empezamos de nuevo.'
 
-/** Negativa ante la pregunta de identidad: es el canal del laboratorio y una persona está disponible. */
-export const NEGATIVA_IDENTIDAD =
-  'Te atiende el equipo del laboratorio por este canal. Si prefieres hablar con una persona, escribe ayuda y te llamamos.'
+/**
+ * Negativa ante la pregunta de identidad (IA7): dice el nombre del bot y la
+ * vía honesta con una persona. El nombre llega como parámetro (más adelante
+ * vendrá de la base de datos); sin valor cae a la constante de abajo.
+ */
+export const NOMBRE_BOT_DEFECTO = 'Aioniq'
+export function negativaIdentidad(nombre?: string): string {
+  const limpio = saneaNombre(nombre ?? '') || NOMBRE_BOT_DEFECTO
+  return `Soy ${limpio}. Si prefieres hablar con una persona, escribe ayuda y te llamamos.`
+}
+export const NEGATIVA_IDENTIDAD = negativaIdentidad()
 
 /** Negativa de escritura disfrazada: se ofrece el flujo determinista. */
 export const NEGATIVA_ESCRITURA =
@@ -72,7 +81,7 @@ export const NEGATIVA_SUPLANTACION =
 
 /** Negativa cuando la herramienta no encontró nada: nunca lo inventa el modelo. */
 export const NEGATIVA_NO_ENCONTRADO =
-  'No lo encontré. Puede que el número no sea el correcto. Si quieres, escribe 0 y volvemos al menú.'
+  'No lo encontré. Puede que el número no sea el correcto. Si quieres, escribe 0 y volvemos al inicio.'
 
 export type ClaseNegativa = 'fija' | 'escritura' | 'suplantacion' | 'identidad' | null
 
