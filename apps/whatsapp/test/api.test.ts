@@ -180,11 +180,11 @@ describe('resolveIdentity', () => {
     }
   })
 
-  it('503 de la API se traduce a servicio no disponible', async () => {
+  it('503 de la API se traduce a un aviso sencillo de indisponibilidad', async () => {
     const { client } = cliente([{ status: 503 }])
     const r = await resolveIdentity('573001234567@s.whatsapp.net', client)
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reply).toContain('no está disponible')
+    if (!r.ok) expect(r.reply).toContain('no pude consultar')
   })
 
   it('fallo de red responde sin exponer detalles', async () => {

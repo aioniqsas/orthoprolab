@@ -46,9 +46,9 @@ export function intencionDe(step: string, texto: string): string {
 }
 
 export const PEDIDO_NO_ENCONTRADO =
-  'No encontré esa orden en tu clínica. Verifica el número y vuelve a intentarlo, o escribe 0 para volver al menú.'
+  'No encontré esa orden. Revisa el número, por favor, o escribe 0 para volver al menú.'
 export const CUENTA_NO_ENCONTRADA =
-  'No encontré esa cuenta de cobro. Verifica el número y vuelve a intentarlo, o escribe 0 para volver al menú.'
+  'No encontré esa cuenta de cobro. Revisa el número, por favor, o escribe 0 para volver al menú.'
 
 const OPCION_CANCELAR = /^(0|cancelar)$/i
 const PALABRA_AYUDA = /^(ayuda|help)$/i

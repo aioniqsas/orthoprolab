@@ -142,12 +142,12 @@ export async function ejecutarHerramienta(
 ): Promise<RespuestaHerramienta> {
   if (!datos.disponible()) return { ok: false, texto: NO_DISPONIBLE }
   if (!ES_HERRAMIENTA.has(llamada.nombre)) {
-    return { ok: false, texto: 'Esa consulta no está disponible para el bot. Puedo ayudarte con órdenes, cuentas de cobro, doctores, pacientes y servicios.' }
+    return { ok: false, texto: 'Eso no está disponible para el bot. Puedo ayudarte con órdenes, cuentas de cobro, doctores, pacientes y servicios.' }
   }
   const herramienta = HERRAMIENTAS[llamada.nombre as NombreHerramienta]
   const params = herramienta.validar(llamada.entrada)
   if (params === null) {
-    return { ok: false, texto: 'Los datos de esa consulta no son válidos. Revisa e intenta de nuevo.' }
+    return { ok: false, texto: 'Esos datos no se entendieron bien. Revisa e intenta de nuevo.' }
   }
   if (!clinicaId) return { ok: false, texto: SIN_CLINICA }
   try {

@@ -17,7 +17,7 @@ export const NO_HABILITADO =
 export const LIMITE =
   'Estás enviando muchas solicitudes. Espera un momento y vuelve a intentarlo.'
 export const NO_DISPONIBLE =
-  'El servicio no está disponible en este momento. Vuelve a intentarlo en un rato.'
+  'Ahora mismo no pude consultar eso. Intenta de nuevo en un rato o escribe 0 al bot.'
 
 const CONFIG_FALTANTE =
   'El bot de WhatsApp no está configurado todavía. Mientras tanto, contacta al laboratorio por el portal o por teléfono.'

@@ -3,13 +3,14 @@ import { ejecutarHerramienta, type LlamadaHerramienta } from './herramientas.js'
 import {
   NEGATIVA_ESCRITURA,
   NEGATIVA_FIJA,
+  NEGATIVA_IDENTIDAD,
   NEGATIVA_NO_ENCONTRADO,
   NEGATIVA_SUPLANTACION,
   clasificarNegativa,
   construirPromptSistema,
   type ClaseNegativa,
 } from './prompt.js'
-export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION, construirPromptSistema } from './prompt.js'
+export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION, construirPromptSistema } from './prompt.js'
 
 /**
  * Cliente Groq con tool calling (IA3, S4). Sin SDK: `fetch` es global. El
@@ -203,14 +204,17 @@ export class StoreLlm {
 
 /** Mensaje cortés cuando el tope de costo se alcanzó. */
 export const LIMITE_COSTO =
-  'Hemos llegado al tope de consultas de esta conversación, disculpa. Más tarde seguimos con gusto: escribe 0 y volvemos al menú.'
+  'Hemos llegado al tope de mensajes de esta conversación, disculpa. Más tarde seguimos con gusto: escribe 0 y volvemos al menú.'
 
 /** Mensaje cuando el modelo pidió algo fuera del catálogo o inválido: la misma negativa fija. */
 export const NO_PUEDO = NEGATIVA_FIJA
 
 /** Frase fija por clase de negativa (IA4). */
 function textoNegativa(clase: ClaseNegativa): string {
-  return clase === 'escritura' ? NEGATIVA_ESCRITURA : clase === 'suplantacion' ? NEGATIVA_SUPLANTACION : NEGATIVA_FIJA
+  return clase === 'escritura' ? NEGATIVA_ESCRITURA
+    : clase === 'suplantacion' ? NEGATIVA_SUPLANTACION
+    : clase === 'identidad' ? NEGATIVA_IDENTIDAD
+    : NEGATIVA_FIJA
 }
 
 /** Mensaje cuando el modelo no dio respuesta utilizable en las rondas permitidas. */

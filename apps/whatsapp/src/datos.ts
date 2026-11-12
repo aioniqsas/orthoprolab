@@ -16,13 +16,13 @@ export interface DatosConfig {
 }
 
 export const NO_DISPONIBLE =
-  'El servicio no está disponible en este momento. Vuelve a intentarlo en un rato.'
+  'Ahora mismo no pude consultar eso. Intenta de nuevo en un rato o escribe 0 al bot.'
 
 /** El contacto verificado no trae clínica: se niega la consulta. */
 export const SIN_CLINICA =
   'No pude identificar tu clínica. Escríbele al laboratorio para que te vincule al bot.'
 
-export const NO_ENCONTRADO = 'No encontré ese registro.'
+export const NO_ENCONTRADO = 'No encontré eso. Revisa los datos, por favor.'
 
 /** Variables de entorno requeridas para el rol del bot (S4). */
 export function configuracionDesdeEntorno(env: Record<string, string | undefined> = process.env): DatosConfig | null {
