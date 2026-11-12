@@ -18,6 +18,7 @@ import { QueuesModule } from './queues/queues.module.js';
 import { HealthModule } from './health/health.module.js';
 import { SecurityModule } from './security/security.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { WhatsappModule } from './whatsapp/whatsapp.module.js';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AuthModule } from './auth/auth.module.js';
     CuentasCobroModule,
     QueuesModule,
     HealthModule,
+    WhatsappModule,
   ],
   controllers: [AppController],
   providers: [AppService],
