@@ -55,7 +55,7 @@ function textoErrorCreacion(status: number): string {
   if (status === 403 || status === 404) return 'el doctor o el paciente ya no están disponibles en tu clínica'
   if (status === 400) return 'alguno de los datos no fue aceptado'
   if (status === 429) return 'hay demasiadas solicitudes en este momento'
-  if (status >= 500) return 'el servicio no está disponible en este momento'
+  if (status >= 500) return 'ahora mismo no está disponible'
   return 'no fue posible completar la solicitud'
 }
 
