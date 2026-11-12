@@ -7,7 +7,7 @@ import { VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA } from '../src/vinculacion'
 import { IDENTIDAD_NO_RECONOCIDA } from '../src/identity'
 import { ClienteGroq, configuracionLlm, LIMITE_COSTO, NO_PUEDO, redactar, StoreLlm, validarLlamada, type RegistroLlm } from '../src/llm'
 import { SISTEMA_PARTES, negativaIdentidad } from '../src/prompt'
-import { construirPromptSistema, NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION } from '../src/prompt'
+import { construirPromptSistema, NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_INFRAESTRUCTURA, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION } from '../src/prompt'
 import { SALUDO, PREGUNTA_ACLARAR } from '../src/menu.js'
 
 const CONFIG = { host: 'db', port: 5432, database: 'orthopro', user: 'whatsapp_bot', password: 'secreto' }
@@ -184,20 +184,22 @@ describe('bucle acotado y tope de costo (IA3 punto 4)', () => {
 })
 
 describe('nada sensible sale en el prompt (IA3 punto 5)', () => {
-  it('el cuerpo serializado no contiene teléfono, JWT ni DSN', async () => {
+  it('el cuerpo serializado no contiene teléfono ni DSN (el JWT lo cubre la prueba de redactar; "[token]" ahora se niega antes del modelo)', async () => {
     const capturadas: LlamadaFetch[] = []
     const fetchFake: FetchFalso = async (url, init) => {
       capturadas.push({ url: String(url), cuerpo: String(init?.body ?? '') })
       return respuestaGroq('hola')
     }
     const { cliente, datos, store } = montar(fetchFake)
-    await cliente.manejar('tel', 'Mi teléfono +573001112233, token eyJabc.def.ghi y dsn postgres://u:p@db/x', datos, '42', store)
+    // El redactor convierte un JWT en el literal "[token]", y "token" ya se
+    // niega antes del modelo; el portador del JWT se cubre en 'redacción
+    // defensiva' (redactar('Bearer abc.def') → '[token]').
+    await cliente.manejar('tel', 'Mi teléfono +573001112233 y dsn postgres://u:p@db/x', datos, '42', store)
     const cuerpo = capturadas[0]!.cuerpo
     expect(cuerpo).not.toContain('+573001112233')
-    expect(cuerpo).not.toContain('eyJabc')
     expect(cuerpo).not.toContain('postgres://u:p@db/x')
     expect(cuerpo).toContain('[teléfono]')
-    expect(cuerpo).toContain('[token]')
+    expect(cuerpo).toContain('[dsn]')
   })
 })
 
@@ -273,7 +275,7 @@ describe('voz humana y cálida (S3/S5, voz del bot)', () => {
   })
 
   it('cada negativa es su frase fija cálida, sin markdown, sin emoji y sin promesas', () => {
-    const negativas = [NEGATIVA_FIJA, NEGATIVA_ESCRITURA, NEGATIVA_SUPLANTACION, NEGATIVA_NO_ENCONTRADO, LIMITE_COSTO, NEGATIVA_IDENTIDAD]
+    const negativas = [NEGATIVA_FIJA, NEGATIVA_ESCRITURA, NEGATIVA_SUPLANTACION, NEGATIVA_NO_ENCONTRADO, LIMITE_COSTO, NEGATIVA_IDENTIDAD, NEGATIVA_INFRAESTRUCTURA]
     for (const frase of negativas) {
       expect(frase).not.toMatch(/[*#_~`]/)
       expect(frase).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
@@ -517,7 +519,7 @@ describe('vocabulario sencillo en todo lo que ve el contacto (regla del producto
     PREGUNTA_PEDIDO, PREGUNTA_CONTROL, PREGUNTA_CUENTA, PREGUNTA_AYUDA, PREGUNTA_CONFIRMAR,
     AVISO_AUDIO, AVISO_MEDIA, LLAMADA_OK, LLAMADA_FALLO, PEDIDO_NO_ENCONTRADO, CUENTA_NO_ENCONTRADA,
     MENSAJE_LIMITE, MENSAJE_LIMITE_LLAMADA, VINCULAR_OK, VINCULAR_FALLO, VINCULAR_YA,
-    IDENTIDAD_NO_RECONOCIDA, LIMITE_COSTO, NEGATIVA_FIJA, NEGATIVA_ESCRITURA, NEGATIVA_SUPLANTACION,
+    IDENTIDAD_NO_RECONOCIDA, LIMITE_COSTO, NEGATIVA_FIJA, NEGATIVA_ESCRITURA, NEGATIVA_SUPLANTACION, NEGATIVA_INFRAESTRUCTURA,
     NEGATIVA_NO_ENCONTRADO, NEGATIVA_IDENTIDAD, LIMITE_COSTO,
     SALUDO, PREGUNTA_ACLARAR, negativaIdentidad(), negativaIdentidad('Laboratorio Azul'),
     construirPromptSistema(),
