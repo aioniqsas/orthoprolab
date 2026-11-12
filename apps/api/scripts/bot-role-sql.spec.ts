@@ -54,6 +54,16 @@ describe('buildBotRoleStatements', () => {
     }
   });
 
+  it('concede configuracion_bot solo de lectura y con contexto de clínica', () => {
+    expect(GRANTED_TABLES).toContain('configuracion_bot');
+    const statements = buildBotRoleStatements(base);
+    expect(statements).toContain('GRANT SELECT ON TABLE public."configuracion_bot" TO "whatsapp_bot"');
+    expect(statements.some((s) => /configuracion_bot/i.test(s) && /(INSERT|UPDATE|DELETE|GRANT ALL)/i.test(s))).toBe(false);
+    expect(statements).toContain(
+      `CREATE POLICY bot_read_configuracion_bot ON public."configuracion_bot" FOR SELECT TO "whatsapp_bot" USING (${RLS_POLICIES['configuracion_bot']})`,
+    );
+  });
+
   it('fija los límites a nivel de rol', () => {
     const statements = buildBotRoleStatements(base);
     expect(statements).toContain('ALTER ROLE "whatsapp_bot" SET default_transaction_read_only = on');

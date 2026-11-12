@@ -32,6 +32,7 @@ export const GRANTED_TABLES = [
   'paciente_doctor',
   'servicio',
   'clinica',
+  'configuracion_bot',
 ] as const;
 
 /** Tables explicitly denied, with the reason surfaced by the CLI summary. */
@@ -74,6 +75,8 @@ export const RLS_POLICIES: Readonly<Record<string, string>> = {
   // Global catalog tables: readable only with a clinic context set.
   servicio: `${CLINICA_GUC} IS NOT NULL`,
   estado_orden: `${CLINICA_GUC} IS NOT NULL`,
+  // Bot configuration (key/value, e.g. its name): same global-catalog rule.
+  configuracion_bot: `${CLINICA_GUC} IS NOT NULL`,
 };
 
 const q = (identifier: string): string => `"${identifier.replace(/"/g, '""')}"`;
