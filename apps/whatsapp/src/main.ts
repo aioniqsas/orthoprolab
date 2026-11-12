@@ -1,0 +1,105 @@
+import makeWASocket, {
+  DisconnectReason,
+  useMultiFileAuthState,
+  type WAMessage,
+} from '@whiskeysockets/baileys'
+import { chmod, mkdir, readdir } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { buildMenu, replyToInput } from './menu'
+import { ConversationStore } from './state'
+import { resolveIdentity } from './identity'
+import {
+  assertAuthDirOutsideRepo,
+  detectRepoRoot,
+  reconnectDelayMs,
+  RECONNECT_MAX_ATTEMPTS,
+  shouldIgnoreSender,
+  AUTH_DIR_MODE,
+  AUTH_FILE_MODE,
+} from './safety'
+
+// WHATSAPP_AUTH_DIR configures external Baileys credentials; never put it in this repo.
+const authDir = process.env.WHATSAPP_AUTH_DIR ?? join(homedir(), '.orthopro-lab', 'whatsapp', 'auth_info')
+const conversations = new ConversationStore()
+
+/** Create the auth dir with owner-only permissions and chmod every credential file to 0600. */
+async function secureAuthDir(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true, mode: AUTH_DIR_MODE })
+  await chmod(dir, AUTH_DIR_MODE)
+  const names = await readdir(dir).catch(() => [])
+  await Promise.all(names.map((name) => chmod(join(dir, name), AUTH_FILE_MODE).catch(() => {})))
+}
+
+/** saveCreds wrapper that re-tightens permissions after every Baileys write. */
+async function saveCredsSecured(saveCreds: () => Promise<void>, dir: string): Promise<void> {
+  await saveCreds()
+  await secureAuthDir(dir)
+}
+
+function senderTagHash(senderId: string): string {
+  // A stable tag is enough for correlation without logging the phone number.
+  return createHash('sha256').update(senderId).digest('hex').slice(0, 16)
+}
+
+function messageType(message: WAMessage): string {
+  if (message.message?.conversation || message.message?.extendedTextMessage) return 'text'
+  return 'other'
+}
+
+function messageText(message: WAMessage): string {
+  return message.message?.conversation ?? message.message?.extendedTextMessage?.text ?? ''
+}
+
+async function start(attempt = 1): Promise<void> {
+  await secureAuthDir(authDir)
+  const { state, saveCreds } = await useMultiFileAuthState(authDir)
+  const socket = makeWASocket({ auth: state, printQRInTerminal: false })
+
+  socket.ev.on('creds.update', () => void saveCredsSecured(saveCreds, authDir))
+  socket.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+    if (qr) console.log(`QR para emparejar (escanea desde WhatsApp):\n${qr}`)
+    if (connection === 'close') {
+      const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode
+      if (code === DisconnectReason.loggedOut) return
+      if (attempt >= RECONNECT_MAX_ATTEMPTS) {
+        console.error(`Reconexión fallida tras ${RECONNECT_MAX_ATTEMPTS} intentos. Revisa la red y vuelve a iniciar el bot.`)
+        process.exit(1)
+      }
+      const delay = reconnectDelayMs(attempt)
+      console.error(`Desconectado; reintentando en ${delay / 1000} s (intento ${attempt + 1} de ${RECONNECT_MAX_ATTEMPTS}).`)
+      setTimeout(() => void start(attempt + 1), delay)
+    }
+    if (connection === 'open') console.log('WhatsApp conectado.')
+  })
+
+  socket.ev.on('messages.upsert', async ({ messages }) => {
+    for (const message of messages) {
+      const senderId = message.key.remoteJid
+      // Solo chats 1:1 con el número del bot: nada de grupos ni difusiones.
+      if (!senderId || shouldIgnoreSender(senderId, message.key.fromMe === true)) continue
+      const type = messageType(message)
+      const state = conversations.get(senderId)
+      console.log(JSON.stringify({ senderTagHash: senderTagHash(senderId), type, step: state?.step ?? 'menu' }))
+      if (type !== 'text') {
+        await socket.sendMessage(senderId, { text: buildMenu() })
+        continue
+      }
+      // Identity remains an explicit seam until T5 connects the API allowlist.
+      await resolveIdentity(senderId)
+      await socket.sendMessage(senderId, { text: replyToInput(messageText(message)) })
+    }
+  })
+}
+
+const guard = assertAuthDirOutsideRepo(authDir, detectRepoRoot(process.cwd()))
+if (!guard.ok) {
+  console.error(`${guard.reason}\nWHATSAPP_AUTH_DIR=${authDir}`)
+  process.exit(1)
+}
+
+void start().catch(() => {
+  console.error('No fue posible iniciar el bot de WhatsApp.')
+  process.exitCode = 1
+})
