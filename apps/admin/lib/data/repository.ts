@@ -100,8 +100,9 @@ interface RawOrden {
   urgente: boolean;
   fechaCreacion: string;
   fechaEntrega: string | null;
-  detalles: RawDetalleOrden[];
-  historial: RawHistorialEstado[];
+  // Opcionales: la lista y la cuenta de cobro no los cargan (ver API B2/B3).
+  detalles?: RawDetalleOrden[];
+  historial?: RawHistorialEstado[];
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +130,7 @@ function mapOrden(raw: RawOrden): Orden {
     urgente: raw.urgente,
     fechaCreacion: raw.fechaCreacion,
     fechaEntrega: raw.fechaEntrega,
-    detalles: raw.detalles.map((d) => ({
+    detalles: (raw.detalles ?? []).map((d) => ({
       id: Number(d.id),
       servicio: d.servicio,
       cantidad: d.cantidad,
@@ -138,7 +139,7 @@ function mapOrden(raw: RawOrden): Orden {
       colorDiente: d.colorDiente ?? null,
       observaciones: d.observaciones,
     })),
-    historial: raw.historial.map((h) => ({
+    historial: (raw.historial ?? []).map((h) => ({
       id: Number(h.id),
       estadoAnterior: (h.estadoAnterior?.codigo ?? null) as EstadoOrden | null,
       estadoNuevo: h.estadoNuevo.codigo as EstadoOrden,

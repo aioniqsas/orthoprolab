@@ -49,13 +49,13 @@ export class PedidosService {
     if (filters?.urgente !== undefined) {
       where.urgente = filters.urgente;
     }
+    // Lista liviana: la tabla no usa detalles ni historial (se piden en el
+    // detalle con findOne). Ver optimizacion B2.
     return this.ordenRepo.find({
       where,
       relations: {
         estado: true,
         asignacion: { doctor: true, paciente: true },
-        detalles: true,
-        historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
       },
       order: { fechaCreacion: 'DESC' },
     });
