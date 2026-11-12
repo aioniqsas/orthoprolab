@@ -31,7 +31,16 @@ import { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
 import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
-import { interval, map, merge, type Observable } from 'rxjs';
+import {
+  filter,
+  from,
+  interval,
+  map,
+  merge,
+  type Observable,
+  switchMap,
+} from 'rxjs';
+import { esDeClinica } from './eventos-clinica.js';
 import { StreamableFile } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 
@@ -167,14 +176,21 @@ export class MiClinicaController {
   @Sse('ordenes/eventos')
   @Header('Cache-Control', 'no-cache, no-transform')
   @Header('X-Accel-Buffering', 'no')
-  ordenesEventos(): Observable<MessageEvent> {
+  ordenesEventos(@Req() req: AuthenticatedRequest): Observable<MessageEvent> {
     const SSE_HEARTBEAT_MS = 25_000;
-    return merge(
-      this.eventos.cambios$.pipe(
-        map((cambio): MessageEvent => ({ type: 'orden', data: { tipo: cambio.tipo } })),
-      ),
-      interval(SSE_HEARTBEAT_MS).pipe(
-        map((): MessageEvent => ({ type: 'ping', data: {} })),
+    // Only this clinic's order events (optimizacion B5): the event carries the
+    // clinic of the order, and the clinic is resolved from the session.
+    return from(this.miClinica.resolveClinicaId(req.user.id)).pipe(
+      switchMap((clinicaId) =>
+        merge(
+          this.eventos.cambios$.pipe(
+            filter((cambio) => esDeClinica(cambio, clinicaId)),
+            map((cambio): MessageEvent => ({ type: 'orden', data: { tipo: cambio.tipo } })),
+          ),
+          interval(SSE_HEARTBEAT_MS).pipe(
+            map((): MessageEvent => ({ type: 'ping', data: {} })),
+          ),
+        ),
       ),
     );
   }
