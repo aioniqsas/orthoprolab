@@ -41,6 +41,10 @@ yarn-error.log*
 # agent skill registry
 .atl/
 
+# tooling de agentes (memoria y configuración local, no del proyecto)
+.engram/
+.pi/
+
 # Playwright
 e2e/.results/
 test-results/
