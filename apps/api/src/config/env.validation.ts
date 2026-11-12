@@ -488,6 +488,10 @@ const envSchema = z
       }),
     ),
 
+    // ── WhatsApp bot (optional — POST /internal/whatsapp/sesion answers 503 without it) ──
+    /** Shared service token for the bot's internal session endpoint. */
+    WHATSAPP_SERVICE_TOKEN: z.preprocess(fromEnv, z.string().optional()),
+
     // ── SMTP (optional — email delivery is disabled when absent) ─────────────
     SMTP_HOST: z.preprocess(fromEnv, z.string().optional()),
     SMTP_PORT: z.preprocess(

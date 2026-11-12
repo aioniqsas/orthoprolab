@@ -27,6 +27,11 @@ export class Clinica {
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 
+  // Portal account that represents the clinic to the WhatsApp bot (S7).
+  // FK to usuario created in the migration; NULL = not designated yet.
+  @Column({ name: 'usuario_bot_id', type: 'uuid', nullable: true })
+  usuarioBotId: string | null;
+
   @CreateDateColumn({ name: 'fecha_creacion', type: 'timestamptz' })
   fechaCreacion: Date;
 
