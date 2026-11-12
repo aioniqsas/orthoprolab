@@ -207,13 +207,25 @@ export class MiClinicaService {
     usuarioId: string,
     cedula: string,
     nombre: string,
+    doctorId?: string,
   ): Promise<{ id: string; nombre: string }> {
     if (!cedula?.trim() || !nombre?.trim()) {
       throw new BadRequestException('Cédula y nombre son obligatorios.');
     }
     // Verify the user belongs to a valid clinic.
     await this.resolveClinicaId(usuarioId);
-    return this.pacientesService.findOrCreate(cedula.trim(), nombre.trim());
+    // Un doctorId nunca se confía: se valida contra la clínica del usuario.
+    // Sin doctorId no se adivina vínculo: el paciente vuelve sin relación.
+    let resolvedDoctorId: string | null = null;
+    if (doctorId) {
+      await this.getDoctor(usuarioId, doctorId);
+      resolvedDoctorId = doctorId;
+    }
+    return this.pacientesService.findOrCreateForClinica(
+      cedula.trim(),
+      nombre.trim(),
+      resolvedDoctorId,
+    );
   }
 
   async devolverOrden(

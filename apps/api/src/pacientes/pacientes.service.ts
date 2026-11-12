@@ -44,6 +44,42 @@ export class PacientesService {
     return { id: saved.id, nombre: saved.nombre };
   }
 
+  /**
+   * Resolución con alcance de clínica (decision del producto: los pacientes
+   * siguen globales por cédula, pero el vínculo con el doctor es explícito).
+   * Con doctorId, el paciente existente se vincula a ese doctor si no lo está
+   * ya; sin doctorId se devuelve el paciente sin adivinar vínculo.
+   */
+  async findOrCreateForClinica(
+    cedula: string,
+    nombre: string,
+    doctorId: string | null,
+  ): Promise<{ id: string; nombre: string }> {
+    const existing = await this.findByCedula(cedula);
+    if (!existing) {
+      const created = await this.findOrCreate(cedula, nombre);
+      if (doctorId) await this.ensureLink(created.id, doctorId);
+      return created;
+    }
+    if (doctorId) await this.ensureLink(existing.id, doctorId);
+    return existing;
+  }
+
+  /** Crea el vínculo o restaura uno borrado suave; es idempotente. */
+  private async ensureLink(pacienteId: string, doctorId: string): Promise<void> {
+    const link = await this.pacienteDoctorRepo.findOne({
+      where: { pacienteId, doctorId },
+      withDeleted: true,
+    });
+    if (!link) {
+      await this.pacienteDoctorRepo.save(
+        this.pacienteDoctorRepo.create({ pacienteId, doctorId }),
+      );
+    } else if (link.eliminadoEn) {
+      await this.pacienteDoctorRepo.restore({ pacienteId, doctorId });
+    }
+  }
+
   async listForClinica(
     clinicaId: string,
   ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {

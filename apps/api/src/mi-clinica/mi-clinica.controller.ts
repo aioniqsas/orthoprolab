@@ -102,9 +102,14 @@ export class MiClinicaController {
   @HttpCode(HttpStatus.CREATED)
   createPaciente(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { cedula: string; nombre: string },
+    @Body() body: { cedula: string; nombre: string; doctorId?: string },
   ) {
-    return this.miClinica.createPaciente(req.user.id, body.cedula, body.nombre);
+    return this.miClinica.createPaciente(
+      req.user.id,
+      body.cedula,
+      body.nombre,
+      body.doctorId,
+    );
   }
 
   @Patch('pacientes/:id')
