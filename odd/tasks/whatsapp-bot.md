@@ -52,6 +52,22 @@ Baileys corre sobre un número sin valor comercial; si WhatsApp lo banea no se p
 - El teléfono solo cambia por `save()` sobre la entidad, nunca por `Repository.update()` ni `QueryBuilder.update()`: esos caminos no ejecutan los listeners y dejan `telefono_hash` viejo.
 - La violación del índice único (`telefono_hash`) se traduce a 409 con mensaje claro, no se propaga el error crudo de Postgres.
 
+## Entrega
+
+Una sola rama: `feat/whatsapp-bot`, con un commit por tarea (decisión del usuario: no se abren ramas por rebanada).
+
+Al publicar, la revisión se puede cortar por rango de commits sin reescribir historia:
+
+| Rebanada | Commits |
+| --- | --- |
+| Allowlist e identidad | `de648db` T1, `a9f15e9` T2 |
+| Sesión corta para el bot | T3 |
+| Runtime de Baileys y lectura | T4, T5 |
+| Creación de órdenes y salvaguardas | T6, T7 |
+| OTP y documentación | T8, T9 |
+
+El soft delete (`odd/tasks/soft-delete.md`) viaja en la misma rama por la misma decisión, aunque toca tablas de todo el producto.
+
 ## Log
 
 **L1 — pedido original (textual):**
