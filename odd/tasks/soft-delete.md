@@ -33,6 +33,10 @@ Decisión del usuario: agregar `clinica.activo`, igual que `doctor`/`usuario`/`s
 - Las PK compuestas de `paciente_doctor` y `cuenta_cobro_orden` no admiten duplicados aunque la fila esté eliminada: por eso revincular restaura, no inserta.
 - `@DeleteDateColumn` hace que las consultas normales excluyan las filas eliminadas; `withDeleted()` queda reservado para auditoría.
 
+## Entrega
+
+Misma rama que el bot (`feat/whatsapp-bot`), un commit por tarea (SD1, SD2, SD3). Decisión del usuario: no se abren ramas por rebanada; al publicar, la revisión se corta por rango de commits.
+
 ## Log
 
 **L1 — pedido (textual):** "Agregaremos algo a las tareas en todas las tablas. Vamos a hacer soft delete de modo que no vamos a perder trazabilidad de la información"
