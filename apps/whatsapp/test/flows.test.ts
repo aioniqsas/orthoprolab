@@ -71,7 +71,7 @@ describe('flujo 1: estado de pedido', () => {
   it('entrada no numérica vuelve a pedir el número', async () => {
     const api = falsoApi({ getOrden: async () => ORDEN })
     const r = await enviar(flujos(api), ['1', 'hola'])
-    expect((r as { text: string }).text).toContain('Escribe solo el número')
+    expect((r as { text: string }).text).toContain('No entendí. Escribe el número de la orden')
   })
 })
 
@@ -199,7 +199,7 @@ describe('cancelación y menú', () => {
     await flows.handle(TELEFONO, '1234')
     expect(store.get(TELEFONO)).toBeUndefined()
     const r = await flows.handle(TELEFONO, 'texto suelto')
-    expect((r as { text: string }).text).toBe(buildMenu())
+    expect((r as { text: string }).text).toContain(buildMenu())
   })
 
   it('la opción 4 (crear orden) todavía no está disponible', async () => {

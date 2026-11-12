@@ -85,11 +85,11 @@ describe('flujo 4: crear orden (S5, S6)', () => {
   it('el payload coincide con lo que mostró el resumen', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    const resumen = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no', '__CONFIRMAR__'])
-    // El resumen anterior (paso de confirmación) mostró cada campo:
-    const previo = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
-    expect(resumen.text).not.toBe('')
-    void previo
+    const resumen = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    expect(resumen.text).toContain('Doctor: Ana Gómez')
+    // Entrada desconocida en el paso de confirmación: "No entendí" explícito.
+    const r = await enviar(esc, ['__CONFIRMAR__'])
+    expect(r.text).toBe('No entendí. Escribe 1 para crear o 0 para cancelar')
     const r2 = await enviar(esc, ['CONFIRMAR'])
     expect(r2.text).toContain('Orden 1234')
     expect(api.crearOrdenLlamadas[0]!.payload).toEqual({
@@ -115,14 +115,42 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     expect(r.text).toContain('27 – segundo molar superior izquierdo')
   })
 
-  it('la confirmación exige exactamente CONFIRMAR: si/dale/ok no escriben', async () => {
-    for (const palabra of ['si', 'dale', 'ok', 'confirmar']) {
+  it('palabras ajenas a la confirmación no escriben y piden "No entendí"', async () => {
+    for (const palabra of ['dale', 'ok']) {
       const api = apiFalso()
       const esc = escritor(api)
       await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
       const r = await enviar(esc, [palabra])
       expect(api.crearOrdenLlamadas).toHaveLength(0)
-      expect(r.text).toContain('Doctor: Ana Gómez')
+      expect(r.text).toBe('No entendí. Escribe 1 para crear o 0 para cancelar')
+    }
+  })
+
+  it('confirmación tolerante (S11): 1, sí, si y confirmar crean; 0, no y cancelar descartan', async () => {
+    for (const palabra of ['1', 'sí', 'si', 'SI', ' Confirmar ']) {
+      const api = apiFalso()
+      const esc = escritor(api)
+      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+      const r = await enviar(esc, [palabra])
+      expect(r.text).toContain('Orden 1234')
+      expect(api.crearOrdenLlamadas).toHaveLength(1)
+    }
+    for (const palabra of ['0', 'cancelar']) {
+      const api = apiFalso()
+      const esc = escritor(api)
+      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+      const r = await enviar(esc, [palabra])
+      expect(api.crearOrdenLlamadas).toHaveLength(0)
+      // 0 siempre significa volver al menú (S11).
+      expect(r.text).toContain('De vuelta al menú')
+    }
+    for (const palabra of ['no', 'NO']) {
+      const api = apiFalso()
+      const esc = escritor(api)
+      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+      const r = await enviar(esc, [palabra])
+      expect(api.crearOrdenLlamadas).toHaveLength(0)
+      expect(r.text).toContain('Orden descartada')
     }
   })
 
@@ -234,13 +262,21 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     expect(api.crearOrdenLlamadas).toHaveLength(2)
   })
 
-  it('cualquier otra entrada en el paso de confirmación re-muestra el resumen sin escribir', async () => {
+  it('cualquier otra entrada en el paso de confirmación pide 1 o 0, sin escribir', async () => {
     const api = apiFalso()
     const esc = escritor(api)
     await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
     const r = await esc.handle(TEL, '¿listo?')
-    expect(r.text).toContain('Servicio: Corona zirconio')
+    expect(r.text).toBe('No entendí. Escribe 1 para crear o 0 para cancelar')
     expect(api.crearOrdenLlamadas).toHaveLength(0)
+  })
+
+  it('el resumen obligatorio dice 1 crea y 0 cancela (S11)', async () => {
+    const api = apiFalso()
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    expect(r.text).toContain('Escribe 1 para crear la orden, o 0 para cancelar.')
+    expect(r.text).toContain('Servicio: Corona zirconio')
   })
 
   it('ReadFlows delega la opción 4 al escritor', async () => {

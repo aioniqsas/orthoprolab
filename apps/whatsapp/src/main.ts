@@ -126,8 +126,12 @@ async function start(attempt = 1): Promise<void> {
         await socket.sendMessage(senderId, { text: identidad.reply })
         continue
       }
+      // Medios no legibles (S11/T12): audio y el resto reciben su aviso y la
+      // pregunta del paso en curso, nunca el menú ni un salto de flujo.
       if (type !== 'text') {
-        await socket.sendMessage(senderId, { text: buildMenu() })
+        const esAudio = Boolean(message.message?.audioMessage)
+        const media = await flows.media(identidad.telefono, esAudio)
+        await socket.sendMessage(senderId, { text: media.text })
         continue
       }
       const respuesta: Respuesta = await flows.handle(

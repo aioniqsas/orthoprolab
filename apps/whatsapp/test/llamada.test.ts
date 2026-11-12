@@ -14,7 +14,7 @@ function flujos(api: ApiClient): ReadFlows {
   return new ReadFlows(new ConversationStore(), api, undefined, new RateLimiter())
 }
 
-describe('opción 0: solicitud de llamada (T7)', () => {
+describe('opción 5: solicitud de llamada (T7, S11)', () => {
   it('éxito: llama al endpoint una sola vez y responde que el laboratorio llamará', async () => {
     let llamadas = 0
     const api = falsoApi({
@@ -23,7 +23,7 @@ describe('opción 0: solicitud de llamada (T7)', () => {
       },
       registrarIntencion: async () => {},
     })
-    const r = await flujos(api).handle(TELEFONO, '0')
+    const r = await flujos(api).handle(TELEFONO, '5')
     expect(llamadas).toBe(1)
     expect(r.kind).toBe('text')
     expect(r.text).toContain('te llamaremos')
@@ -36,7 +36,7 @@ describe('opción 0: solicitud de llamada (T7)', () => {
       },
       registrarIntencion: async () => {},
     })
-    const r = await flujos(api).handle(TELEFONO, '0')
+    const r = await flujos(api).handle(TELEFONO, '5')
     expect(r.kind).toBe('text')
     expect(r.text).not.toContain('te llamaremos')
     expect(r.text).toContain('laboratorio')
@@ -51,8 +51,8 @@ describe('opción 0: solicitud de llamada (T7)', () => {
       registrarIntencion: async () => {},
     })
     const flows = flujos(api)
-    for (let i = 0; i < 10; i++) await flows.handle(TELEFONO, '0')
-    const r = await flows.handle(TELEFONO, '0')
+    for (let i = 0; i < 10; i++) await flows.handle(TELEFONO, '5')
+    const r = await flows.handle(TELEFONO, '5')
     expect(r.text).toBe(MENSAJE_LIMITE_LLAMADA)
     expect(llamadas).toBeLessThan(10)
   })
@@ -66,7 +66,7 @@ describe('opción 0: solicitud de llamada (T7)', () => {
       },
     })
     const flows = flujos(api)
-    await flows.handle(TELEFONO, '0')
+    await flows.handle(TELEFONO, '5')
     expect(cuerpos).toHaveLength(1)
     const claves = Object.keys(cuerpos[0]!)
     expect(claves.sort()).toEqual(['intencion', 'paso', 'telefono'].sort())
