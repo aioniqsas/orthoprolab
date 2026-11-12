@@ -145,20 +145,22 @@ describe('MiClinicaService.createPaciente', () => {
 });
 
 describe('MiClinicaService.cuentaPdf', () => {
-  function montarCuenta(cuenta: unknown) {
+  function montarCuenta(cuenta: unknown, clinica: { activo: boolean } | null = { activo: true }) {
     const cuentasCobro = {
       obtenerPdfBytes: vi.fn(async () => Buffer.from('%PDF-1.7 cuenta')),
     };
+    const findOne = vi.fn(async () => cuenta);
+    const clinicaFindOneBy = vi.fn(async () => clinica);
     const service = new MiClinicaService(
       { findOneBy: vi.fn(async () => ({ clinicaId: '2' })) } as never,
       {} as never, {} as never,
-      { findOne: vi.fn(async () => cuenta) } as never,
+      { findOne } as never,
       {} as never, {} as never,
-      { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
+      { findOneBy: clinicaFindOneBy } as never,
       {} as never, {} as never, {} as never, {} as never,
       cuentasCobro as never,
     );
-    return { service, cuentasCobro };
+    return { service, cuentasCobro, findOne, clinicaFindOneBy };
   }
 
   it('entrega los bytes y el numero de una cuenta propia', async () => {
@@ -178,11 +180,29 @@ describe('MiClinicaService.cuentaPdf', () => {
   });
 
   it('rechaza con 404 una cuenta de otra clinica, sin revelar que existe', async () => {
-    const { service, cuentasCobro } = montarCuenta(null);
+    const { service, cuentasCobro, findOne } = montarCuenta(null);
 
     await expect(service.cuentaPdf('u', '3')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+    // La consulta debe llevar el filtro del llamador: si se quitara `clinicaId`,
+    // este caso seguiria pasando con findOne devolviendo la cuenta de otra clinica.
+    expect(findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: '3', clinicaId: '2' } }),
+    );
+    expect(cuentasCobro.obtenerPdfBytes).not.toHaveBeenCalled();
+  });
+
+  it('rechaza con 403 si la clinica del llamador quedo inactiva entre peticiones', async () => {
+    const { service, cuentasCobro, clinicaFindOneBy } = montarCuenta(
+      { id: '3', clinicaId: '2', estado: 'emitida', numero: 'CC-2025-9', pagos: [] },
+      { activo: false },
+    );
+
+    await expect(service.cuentaPdf('u', '3')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(clinicaFindOneBy).toHaveBeenCalledWith({ id: '2' });
     expect(cuentasCobro.obtenerPdfBytes).not.toHaveBeenCalled();
   });
 
