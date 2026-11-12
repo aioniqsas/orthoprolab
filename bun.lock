@@ -151,9 +151,11 @@
       "dependencies": {
         "@repo/api-client": "*",
         "@whiskeysockets/baileys": "7.0.0-rc.6",
+        "pg": "^8.23.1",
       },
       "devDependencies": {
         "@types/bun": "1.3.9",
+        "@types/pg": "^8.23.1",
       },
     },
     "packages/api-client": {
