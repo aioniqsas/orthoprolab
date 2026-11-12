@@ -28,7 +28,7 @@ describe('Queues (e2e)', () => {
       connection: { ...(queue.opts.connection as object) },
     });
     await events.waitUntilReady();
-  });
+  }, 60_000); // app boot + Redis connection are slow under full-suite parallelism
 
   afterAll(async () => {
     await events?.close();
