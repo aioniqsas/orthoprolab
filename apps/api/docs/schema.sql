@@ -35,7 +35,9 @@ CREATE TABLE public.clinica (
     direccion character varying,
     fecha_creacion timestamp with time zone DEFAULT now() NOT NULL,
     fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL,
-    correo character varying
+    correo character varying,
+    activo boolean DEFAULT true NOT NULL,
+    usuario_bot_id uuid
 );
 
 
@@ -106,7 +108,8 @@ ALTER TABLE public.cuenta_cobro ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 CREATE TABLE public.cuenta_cobro_orden (
     cuenta_cobro_id bigint NOT NULL,
     orden_id bigint NOT NULL,
-    valor_snapshot numeric(12,2) NOT NULL
+    valor_snapshot numeric(12,2) NOT NULL,
+    eliminado_en timestamp with time zone
 );
 
 
@@ -123,6 +126,7 @@ CREATE TABLE public.detalle_orden (
     color_diente text,
     dientes jsonb DEFAULT '[]'::jsonb NOT NULL,
     servicio text NOT NULL,
+    eliminado_en timestamp with time zone,
     CONSTRAINT ck_detalle_orden_cantidad CHECK ((cantidad > 0)),
     CONSTRAINT ck_detalle_orden_dientes CHECK ((jsonb_typeof(dientes) = 'array'::text)),
     CONSTRAINT ck_detalle_orden_precio CHECK ((precio_unitario >= (0)::numeric))
@@ -364,7 +368,8 @@ CREATE TABLE public.paciente (
     cedula text,
     fecha_creacion timestamp with time zone DEFAULT now() NOT NULL,
     fecha_actualizacion timestamp with time zone DEFAULT now() NOT NULL,
-    cedula_hash character(64)
+    cedula_hash character(64),
+    eliminado_en timestamp with time zone
 );
 
 
@@ -375,7 +380,8 @@ CREATE TABLE public.paciente (
 CREATE TABLE public.paciente_doctor (
     paciente_id bigint NOT NULL,
     fecha_asignacion timestamp with time zone DEFAULT now() NOT NULL,
-    doctor_id bigint NOT NULL
+    doctor_id bigint NOT NULL,
+    eliminado_en timestamp with time zone
 );
 
 
@@ -540,6 +546,54 @@ CREATE TABLE public.usuario (
 
 
 --
+-- Name: whatsapp_contacto; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.whatsapp_contacto (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    telefono_cifrado text NOT NULL,
+    telefono_hash character(64) NOT NULL,
+    clinica_id bigint NOT NULL,
+    doctor_id bigint,
+    estado character varying(20) DEFAULT 'pendiente'::character varying NOT NULL,
+    verificado_en timestamp with time zone,
+    notas text,
+    creado_en timestamp with time zone DEFAULT now() NOT NULL,
+    actualizado_en timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: whatsapp_llamada; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.whatsapp_llamada (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    contacto_id uuid,
+    clinica_id bigint,
+    motivo character varying(120) NOT NULL,
+    atendida boolean DEFAULT false NOT NULL,
+    creado_en timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: whatsapp_sesion_auditoria; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.whatsapp_sesion_auditoria (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    clinica_id bigint,
+    contacto_id uuid,
+    resultado character varying(64) NOT NULL,
+    creado_en timestamp with time zone DEFAULT now() NOT NULL,
+    intencion character varying(32),
+    paso character varying(64),
+    emisor_tag character varying(16)
+);
+
+
+--
 -- Name: migrations id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -624,6 +678,22 @@ ALTER TABLE ONLY public.paciente
 
 ALTER TABLE ONLY public.detalle_orden
     ADD CONSTRAINT "PK_cf957cf32507d27e6015ea93515" PRIMARY KEY (id);
+
+
+--
+-- Name: whatsapp_llamada PK_whatsapp_llamada; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_llamada
+    ADD CONSTRAINT "PK_whatsapp_llamada" PRIMARY KEY (id);
+
+
+--
+-- Name: whatsapp_sesion_auditoria PK_whatsapp_sesion_auditoria; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_sesion_auditoria
+    ADD CONSTRAINT "PK_whatsapp_sesion_auditoria" PRIMARY KEY (id);
 
 
 --
@@ -731,6 +801,35 @@ ALTER TABLE ONLY public.sesion_refresco
 
 
 --
+-- Name: whatsapp_contacto whatsapp_contacto_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_contacto
+    ADD CONSTRAINT whatsapp_contacto_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: IDX_whatsapp_llamada_contacto; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IDX_whatsapp_llamada_contacto" ON public.whatsapp_llamada USING btree (contacto_id);
+
+
+--
+-- Name: IDX_whatsapp_llamada_creado_en; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IDX_whatsapp_llamada_creado_en" ON public.whatsapp_llamada USING btree (creado_en);
+
+
+--
+-- Name: IDX_whatsapp_sesion_auditoria_creado_en; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IDX_whatsapp_sesion_auditoria_creado_en" ON public.whatsapp_sesion_auditoria USING btree (creado_en);
+
+
+--
 -- Name: idx_cuenta_cobro_orden_orden; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -804,7 +903,7 @@ CREATE INDEX idx_sesion_refresco_usuario ON public.sesion_refresco USING btree (
 -- Name: uq_paciente_cedula_hash; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX uq_paciente_cedula_hash ON public.paciente USING btree (cedula_hash) WHERE (cedula_hash IS NOT NULL);
+CREATE UNIQUE INDEX uq_paciente_cedula_hash ON public.paciente USING btree (cedula_hash) WHERE ((cedula_hash IS NOT NULL) AND (eliminado_en IS NULL));
 
 
 --
@@ -833,6 +932,13 @@ CREATE UNIQUE INDEX uq_usuario_cedula_hash ON public.usuario USING btree (cedula
 --
 
 CREATE UNIQUE INDEX uq_usuario_correo_lower ON public.usuario USING btree (lower((correo)::text));
+
+
+--
+-- Name: uq_whatsapp_contacto_telefono_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_whatsapp_contacto_telefono_hash ON public.whatsapp_contacto USING btree (telefono_hash);
 
 
 --
@@ -897,6 +1003,46 @@ ALTER TABLE ONLY public.historial_estado_orden
 
 ALTER TABLE ONLY public.historial_estado_orden
     ADD CONSTRAINT "FK_dd0cd30ade629362196327faa07" FOREIGN KEY (estado_nuevo_id) REFERENCES public.estado_orden(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: whatsapp_llamada FK_whatsapp_llamada_clinica; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_llamada
+    ADD CONSTRAINT "FK_whatsapp_llamada_clinica" FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE SET NULL;
+
+
+--
+-- Name: whatsapp_llamada FK_whatsapp_llamada_contacto; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_llamada
+    ADD CONSTRAINT "FK_whatsapp_llamada_contacto" FOREIGN KEY (contacto_id) REFERENCES public.whatsapp_contacto(id) ON DELETE SET NULL;
+
+
+--
+-- Name: whatsapp_sesion_auditoria FK_whatsapp_sesion_auditoria_clinica; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_sesion_auditoria
+    ADD CONSTRAINT "FK_whatsapp_sesion_auditoria_clinica" FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE SET NULL;
+
+
+--
+-- Name: whatsapp_sesion_auditoria FK_whatsapp_sesion_auditoria_contacto; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_sesion_auditoria
+    ADD CONSTRAINT "FK_whatsapp_sesion_auditoria_contacto" FOREIGN KEY (contacto_id) REFERENCES public.whatsapp_contacto(id) ON DELETE SET NULL;
+
+
+--
+-- Name: clinica clinica_usuario_bot_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clinica
+    ADD CONSTRAINT clinica_usuario_bot_id_fkey FOREIGN KEY (usuario_bot_id) REFERENCES public.usuario(id) ON DELETE RESTRICT;
 
 
 --
@@ -1009,6 +1155,22 @@ ALTER TABLE ONLY public.pago
 
 ALTER TABLE ONLY public.usuario
     ADD CONSTRAINT usuario_clinica_id_fkey FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: whatsapp_contacto whatsapp_contacto_clinica_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_contacto
+    ADD CONSTRAINT whatsapp_contacto_clinica_id_fkey FOREIGN KEY (clinica_id) REFERENCES public.clinica(id) ON DELETE CASCADE;
+
+
+--
+-- Name: whatsapp_contacto whatsapp_contacto_doctor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_contacto
+    ADD CONSTRAINT whatsapp_contacto_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctor(id) ON DELETE RESTRICT;
 
 
 --
