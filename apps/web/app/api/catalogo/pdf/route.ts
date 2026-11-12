@@ -19,7 +19,10 @@ export async function GET() {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="catalogo-orthopro-lab.pdf"',
-        "Cache-Control": "no-store",
+        // The CDN keeps the PDF for an hour, so the API is asked at most once per
+        // hour instead of on every download (optimizacion B7). After editing the
+        // catalog the PDF can lag up to one hour at the edge.
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
       },
     });
   } catch {
