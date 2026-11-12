@@ -29,3 +29,15 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(contexto('POST', '/mi-clinica/doctores'))).resolves.toBe(true);
   });
 });
+
+describe('JwtAuthGuard · ruta de PDF de cuentas de cobro', () => {
+  it('permite el token whatsapp-bot en GET /mi-clinica/cuentas-cobro/:id/pdf y sigue denegando escrituras', async () => {
+    const guard = new JwtAuthGuard(new Reflector());
+    await expect(
+      guard.canActivate(contexto('GET', '/mi-clinica/cuentas-cobro/3/pdf', 'whatsapp-bot')),
+    ).resolves.toBe(true);
+    await expect(
+      guard.canActivate(contexto('POST', '/mi-clinica/cuentas-cobro/3/pdf', 'whatsapp-bot')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
