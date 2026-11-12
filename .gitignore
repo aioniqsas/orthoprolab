@@ -52,3 +52,8 @@ playwright-report/
 
 # Logs locales del portal (los escribe apps/admin/lib/logger.ts)
 logs/
+
+# Baileys session credentials must stay outside the repository
+apps/whatsapp/auth_info/
+auth_info/
+**/auth_info/
