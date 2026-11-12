@@ -19,7 +19,7 @@ export function extractAuthCookie(req: Request): string | null {
 /** Validates the claims shape; null means the token is not acceptable. */
 export function parseJwtPayload(payload: unknown): AuthUser | null {
   if (typeof payload !== 'object' || payload === null) return null;
-  const { sub, rol, sid } = payload as Record<string, unknown>;
+  const { sub, rol, sid, scope } = payload as Record<string, unknown>;
   if (
     typeof sub !== 'string' ||
     !UUID.test(sub) ||
@@ -30,7 +30,8 @@ export function parseJwtPayload(payload: unknown): AuthUser | null {
   ) {
     return null;
   }
-  return { id: sub, rol, sid };
+  if (scope !== undefined && scope !== 'whatsapp-bot') return null;
+  return { id: sub, rol, sid, ...(scope === 'whatsapp-bot' ? { scope } : {}) };
 }
 
 @Injectable()

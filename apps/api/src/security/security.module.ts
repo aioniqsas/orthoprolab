@@ -32,7 +32,7 @@ import {
     },
     RedisThrottlerStorage,
   ],
-  exports: [RedisThrottlerStorage],
+  exports: [RedisThrottlerStorage, THROTTLER_REDIS],
 })
 class ThrottlerStorageModule {}
 

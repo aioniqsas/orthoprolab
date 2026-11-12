@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module.js';
+import { SecurityModule } from '../security/security.module.js';
 import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
@@ -8,6 +9,7 @@ import { WhatsappContacto } from './whatsapp-contacto.entity.js';
 import { WhatsappIdentidadService } from './whatsapp-identidad.service.js';
 import { WhatsappSesionController } from './whatsapp-sesion.controller.js';
 import { WhatsappSesionService } from './whatsapp-sesion.service.js';
+import { WhatsappSesionAuditoria } from './whatsapp-sesion-auditoria.entity.js';
 
 /**
  * Identidad del bot de WhatsApp: T2 el servicio de contactos, T3 el endpoint
@@ -19,7 +21,8 @@ import { WhatsappSesionService } from './whatsapp-sesion.service.js';
 @Module({
   imports: [
     AuthModule,
-    TypeOrmModule.forFeature([WhatsappContacto, Clinica, Doctor, Usuario]),
+    SecurityModule,
+    TypeOrmModule.forFeature([WhatsappContacto, Clinica, Doctor, Usuario, WhatsappSesionAuditoria]),
   ],
   controllers: [WhatsappSesionController],
   providers: [WhatsappIdentidadService, WhatsappSesionService],

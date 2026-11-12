@@ -1,3 +1,4 @@
+import { createHmac, randomUUID } from 'node:crypto';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import type { ConfigService } from '@nestjs/config';
@@ -12,6 +13,7 @@ import { WhatsappSesionService } from './whatsapp-sesion.service.js';
 
 const JWT_SECRET = Buffer.alloc(48, 7).toString('base64');
 const SERVICE_TOKEN = 'shared-service-token-for-the-bot';
+const HMAC_SECRET = 'test-hmac-secret';
 const TELEFONO = '+573001234567';
 const CLINICA_ID = '42';
 const DOCTOR_ID = '9';
@@ -29,9 +31,22 @@ async function rechazo(ejecutar: () => Promise<unknown>): Promise<HttpException>
   throw new Error('esperaba una excepción HTTP, pero la llamada terminó bien');
 }
 
+function headers(
+  telefono = TELEFONO,
+  nonce = randomUUID().replaceAll('-', ''),
+  timestamp = String(Math.floor(Date.now() / 1000)),
+  secret = HMAC_SECRET,
+) {
+  const signature = createHmac('sha256', secret)
+    .update(`${telefono}|${timestamp}|${nonce}`)
+    .digest('hex');
+  return { timestamp, nonce, signature };
+}
+
 function montar() {
   const valores: Record<string, string | number | undefined> = {
     WHATSAPP_SERVICE_TOKEN: SERVICE_TOKEN,
+    WHATSAPP_HMAC_SECRET: HMAC_SECRET,
     // validateEnv convierte este entorno a número, como en producción.
     ACCESS_TOKEN_TTL_SECONDS: 900,
   };
@@ -49,6 +64,13 @@ function montar() {
   const identidad = { resolverContacto: vi.fn() };
   const clinicas = { findOneBy: vi.fn() };
   const usuarios = { findOne: vi.fn() };
+  const redis = {
+    set: vi.fn().mockResolvedValue('OK'),
+    incr: vi.fn().mockResolvedValue(1),
+    decr: vi.fn().mockResolvedValue(0),
+    expire: vi.fn().mockResolvedValue(1),
+  };
+  const auditoria = { save: vi.fn().mockResolvedValue(undefined) };
 
   const service = new WhatsappSesionService(
     config,
@@ -56,14 +78,27 @@ function montar() {
     identidad as unknown as WhatsappIdentidadService,
     clinicas as never,
     usuarios as never,
+    auditoria as never,
+    redis as never,
   );
+  const originalController = new WhatsappSesionController(service);
+  const controller = {
+    crearSesion: (dto: { telefono: string }, token: string | undefined) => {
+      const h = headers(dto.telefono);
+      return originalController.crearSesion(dto, token, h.timestamp, h.nonce, h.signature);
+    },
+  };
+
   return {
-    controller: new WhatsappSesionController(service),
+    controller,
+    originalController,
     jwt,
     valores,
     identidad,
     clinicas,
     usuarios,
+    redis,
+    auditoria,
   };
 }
 
@@ -245,6 +280,91 @@ describe('POST /internal/whatsapp/sesion', () => {
     expect(new Set(mensajes).size).toBe(1);
   });
 
+  it('responde 503 si falta cualquiera de los dos secretos de configuración', async () => {
+    for (const clave of ['WHATSAPP_SERVICE_TOKEN', 'WHATSAPP_HMAC_SECRET']) {
+      const m = montar();
+      delete m.valores[clave];
+      const h = headers();
+      const error = await rechazo(() => m.originalController.crearSesion(
+        { telefono: TELEFONO }, SERVICE_TOKEN, h.timestamp, h.nonce, h.signature,
+      ));
+      expect(error.getStatus()).toBe(503);
+    }
+  });
+
+  it('responde 401 con el mismo mensaje ante todos los HMAC inválidos', async () => {
+    const casos = [
+      { ...headers(), signature: '0'.repeat(64) },
+      headers(TELEFONO, undefined, String(Math.floor(Date.now() / 1000) - 121)),
+      headers(TELEFONO, undefined, String(Math.floor(Date.now() / 1000) + 121)),
+      headers(TELEFONO, undefined, undefined, SERVICE_TOKEN),
+    ];
+    const mensajes: string[] = [];
+    for (const h of casos) {
+      const m = montar();
+      const error = await rechazo(() => m.originalController.crearSesion(
+        { telefono: TELEFONO }, SERVICE_TOKEN, h.timestamp, h.nonce, h.signature,
+      ));
+      expect(error.getStatus()).toBe(401);
+      mensajes.push(error.message);
+    }
+    const m = montar();
+    const h = headers(TELEFONO, 'nonce-reutilizable-1234');
+    m.redis.set.mockResolvedValueOnce('OK').mockResolvedValueOnce(null);
+    await m.originalController.crearSesion({ telefono: TELEFONO }, SERVICE_TOKEN, h.timestamp, h.nonce, h.signature).catch(() => undefined);
+    const repetido = await rechazo(() => m.originalController.crearSesion(
+      { telefono: TELEFONO }, SERVICE_TOKEN, h.timestamp, h.nonce, h.signature,
+    ));
+    expect(repetido.getStatus()).toBe(401);
+    mensajes.push(repetido.message);
+    expect(new Set(mensajes).size).toBe(1);
+    expect(mensajes[0]).toBe('Token de servicio inválido.');
+  });
+
+  it('limita la séptima sesión de una clínica y audita la limitación', async () => {
+    const m = montar();
+    cadenaValida(m);
+    let llamadas = 0;
+    m.redis.incr.mockImplementation(async () => Math.ceil(++llamadas / 2));
+    for (let i = 0; i < 6; i++) {
+      const h = headers(TELEFONO, `nonce-${String(i).padStart(16, '0')}`);
+      await m.originalController.crearSesion({ telefono: TELEFONO }, SERVICE_TOKEN, h.timestamp, h.nonce, h.signature);
+    }
+    const error = await rechazo(() => m.originalController.crearSesion(
+      { telefono: TELEFONO }, SERVICE_TOKEN, ...Object.values(headers()) as [string, string, string],
+    ));
+    expect(error.getStatus()).toBe(429);
+    expect(m.auditoria.save).toHaveBeenCalledWith(expect.objectContaining({ resultado: 'limitada' }));
+  });
+
+  it('no consume cuota cuando el contacto no está verificado y permite el intento siguiente', async () => {
+    const m = montar();
+    m.identidad.resolverContacto.mockResolvedValueOnce({ ok: false, motivo: 'no_verificado' });
+    const rechazado = await rechazo(() => m.originalController.crearSesion(
+      { telefono: TELEFONO }, SERVICE_TOKEN, ...Object.values(headers()) as [string, string, string],
+    ));
+    expect(rechazado.getStatus()).toBe(403);
+    expect(m.redis.incr).not.toHaveBeenCalled();
+    cadenaValida(m);
+    await expect(m.originalController.crearSesion(
+      { telefono: TELEFONO }, SERVICE_TOKEN, ...Object.values(headers()) as [string, string, string],
+    )).resolves.toMatchObject({ clinicaId: CLINICA_ID });
+  });
+
+  it('audita cada resultado de elegibilidad rechazado', async () => {
+    const casos = [
+      { resultado: 'rechazada_contacto_no_verificado', configurar: (m: ReturnType<typeof montar>) => m.identidad.resolverContacto.mockResolvedValue({ ok: false, motivo: 'no_verificado' }) },
+      { resultado: 'rechazada_clinica_inactiva', configurar: (m: ReturnType<typeof montar>) => { m.identidad.resolverContacto.mockResolvedValue({ ok: true, contacto: { id: 'ct-1', clinicaId: CLINICA_ID, doctorId: null } }); m.clinicas.findOneBy.mockResolvedValue({ id: CLINICA_ID, activo: false }); } },
+      { resultado: 'rechazada_cuenta_no_designada', configurar: (m: ReturnType<typeof montar>) => { m.identidad.resolverContacto.mockResolvedValue({ ok: true, contacto: { id: 'ct-1', clinicaId: CLINICA_ID, doctorId: null } }); m.clinicas.findOneBy.mockResolvedValue({ id: CLINICA_ID, activo: true, usuarioBotId: null }); } },
+      { resultado: 'rechazada_cuenta_inutilizable', configurar: (m: ReturnType<typeof montar>) => { m.identidad.resolverContacto.mockResolvedValue({ ok: true, contacto: { id: 'ct-1', clinicaId: CLINICA_ID, doctorId: null } }); m.clinicas.findOneBy.mockResolvedValue({ id: CLINICA_ID, activo: true, usuarioBotId: USUARIO_ID }); m.usuarios.findOne.mockResolvedValue({ id: USUARIO_ID, clinicaId: '99', activo: true, rol: { nombre: 'clinica' } }); } },
+    ];
+    for (const caso of casos) {
+      const m = montar(); caso.configurar(m);
+      await rechazo(() => m.originalController.crearSesion({ telefono: TELEFONO }, SERVICE_TOKEN, ...Object.values(headers()) as [string, string, string]));
+      expect(m.auditoria.save).toHaveBeenCalledWith(expect.objectContaining({ resultado: caso.resultado }));
+    }
+  });
+
   it('200: devuelve un token corto que el guard de la API acepta para esa cuenta', async () => {
     const m = montar();
     cadenaValida(m);
@@ -271,20 +391,23 @@ describe('POST /internal/whatsapp/sesion', () => {
       sub: string;
       rol: string;
       sid: string;
+      scope?: string;
       iat: number;
       exp: number;
     };
     expect(payload.sub).toBe(USUARIO_ID);
     expect(payload.rol).toBe('clinica');
+    expect(payload.scope).toBe('whatsapp-bot');
     expect(payload.sid).toMatch(UUID_RE);
     expect(payload.exp - payload.iat).toBe(900);
     expect(parseJwtPayload(payload)).toEqual({
       id: USUARIO_ID,
       rol: 'clinica',
       sid: payload.sid,
+      scope: 'whatsapp-bot',
     });
     expect(
       new JwtStrategy({ get: () => JWT_SECRET } as never).validate(payload),
-    ).toEqual({ id: USUARIO_ID, rol: 'clinica', sid: payload.sid });
+    ).toEqual({ id: USUARIO_ID, rol: 'clinica', sid: payload.sid, scope: 'whatsapp-bot' });
   });
 });
