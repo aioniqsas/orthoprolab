@@ -354,8 +354,10 @@ export class ApiClient {
     return crudos.map((fila) => ('paciente' in fila && fila.paciente ? fila.paciente : (fila as PacienteApi)))
   }
 
-  async crearPaciente(telefono: string, cedula: string, nombre: string): Promise<PacienteApi> {
-    return (await this.postJson(telefono, '/mi-clinica/pacientes', { cedula, nombre })) as PacienteApi
+  async crearPaciente(telefono: string, cedula: string, nombre: string, doctorId: string): Promise<PacienteApi> {
+    // doctorId obligatorio: la API vincula (o restaura el vínculo) con un doctor
+    // de la propia clínica, y sin él devolvería el paciente sin relación.
+    return (await this.postJson(telefono, '/mi-clinica/pacientes', { cedula, nombre, doctorId })) as PacienteApi
   }
 
   async getServicios(telefono: string): Promise<ServicioApi[]> {
