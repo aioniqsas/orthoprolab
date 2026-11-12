@@ -39,7 +39,10 @@ export async function verificarFirma(
   ) {
     throw new UnauthorizedException(BAD);
   }
-  const telefono = typeof solicitud.telefono === 'string' ? solicitud.telefono : '';
+  // A non-string phone must not fall back to '' (a signature over
+  // `|timestamp|nonce` would then be accepted for `telefono: 123`).
+  if (typeof solicitud.telefono !== 'string') throw new UnauthorizedException(BAD);
+  const telefono = solicitud.telefono;
   const expected = createHmac('sha256', hmacSecret)
     .update(`${telefono}|${solicitud.timestamp}|${solicitud.nonce}`)
     .digest('hex');

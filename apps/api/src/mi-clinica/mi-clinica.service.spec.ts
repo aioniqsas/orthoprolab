@@ -164,14 +164,14 @@ describe('MiClinicaService.createPaciente', () => {
   }
 
   it('con doctorId de la clínica, lo valida y lo envía al servicio de pacientes', async () => {
-    const { service, pacientesService } = montarPaciente({ id: 'd1', clinicaId: '2' });
+    const { service, pacientesService } = montarPaciente({ id: '9', clinicaId: '2' });
 
-    await service.createPaciente('u', '1020304050', 'Nombre', 'd1');
+    await service.createPaciente('u', '1020304050', 'Nombre', '9');
 
     expect(pacientesService.findOrCreateForClinica).toHaveBeenCalledWith(
       '1020304050',
       'Nombre',
-      'd1',
+      '9',
     );
   });
 
@@ -179,7 +179,7 @@ describe('MiClinicaService.createPaciente', () => {
     const { service, pacientesService } = montarPaciente(null);
 
     await expect(
-      service.createPaciente('u', '1020304050', 'Nombre', 'otro'),
+      service.createPaciente('u', '1020304050', 'Nombre', '10'),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(pacientesService.findOrCreateForClinica).not.toHaveBeenCalled();
   });
@@ -272,5 +272,58 @@ describe('MiClinicaService.cuentaPdf', () => {
       NotFoundException,
     );
     expect(cuentasCobro.obtenerPdfBytes).not.toHaveBeenCalled();
+  });
+});
+
+describe('MiClinicaService: ids no numéricos (SQL inyectado o byte nulo)', () => {
+  // Antes el id llegaba a PostgreSQL como cast de bigint fallido: 500 con
+  // mensaje genérico. Ahora se responde 400 antes de tocar la base.
+  const reposFalsos = () => ({
+    findOneBy: vi.fn(async () => {
+      throw new Error('no debe tocar la base');
+    }),
+    createQueryBuilder: vi.fn(() => {
+      throw new Error('no debe tocar la base');
+    }),
+  });
+
+  function montarId() {
+    return new MiClinicaService(
+      reposFalsos() as never, reposFalsos() as never, reposFalsos() as never,
+      reposFalsos() as never, reposFalsos() as never, reposFalsos() as never,
+      reposFalsos() as never, {} as never, {} as never, {} as never,
+      {} as never, {} as never,
+    );
+  }
+
+  it.each([
+    ['getOrden', '1 OR 1=1'],
+    ['getOrden', '1; DROP TABLE orden'],
+    ['getCuentaCobro', '1 UNION SELECT nombre FROM usuario'],
+    ['getDoctor', '1\x00'],
+  ])('%s rechaza el id no numérico con 400', async (metodo, id) => {
+    const service = montarId();
+    await expect(
+      (service as never as Record<string, (u: string, i: string) => Promise<unknown>>)[metodo]('u', id),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('los ids numéricos siguen llegando a la base (feliz camino intacto)', async () => {
+    const ordenes = { createQueryBuilder: vi.fn().mockReturnValue({
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getOne: vi.fn(async () => null),
+    }) };
+    const service = new MiClinicaService(
+      { findOneBy: vi.fn(async () => ({ clinicaId: '2' })) } as never,
+      reposFalsos() as never, ordenes as never,
+      reposFalsos() as never, reposFalsos() as never, reposFalsos() as never,
+      { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
+      {} as never, {} as never, {} as never,
+      {} as never, {} as never,
+    );
+    await expect(service.getOrden('u', '9')).rejects.toBeInstanceOf(NotFoundException);
+    expect(ordenes.createQueryBuilder).toHaveBeenCalled();
   });
 });
