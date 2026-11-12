@@ -7,7 +7,9 @@ import { chmod, mkdir, readdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { buildMenu, replyToInput } from './menu'
+import { crearCliente, NO_HABILITADO, type ApiClient } from './api'
+import { ReadFlows, type Respuesta } from './flows'
+import { buildMenu } from './menu'
 import { ConversationStore } from './state'
 import { resolveIdentity } from './identity'
 import {
@@ -23,6 +25,11 @@ import {
 // WHATSAPP_AUTH_DIR configures external Baileys credentials; never put it in this repo.
 const authDir = process.env.WHATSAPP_AUTH_DIR ?? join(homedir(), '.orthopro-lab', 'whatsapp', 'auth_info')
 const conversations = new ConversationStore()
+// Env vars leídas en la construcción, nunca al importar: si falta alguna el
+// bot responde "no está configurado" en vez de crashear (API_BASE_URL,
+// WHATSAPP_SERVICE_TOKEN, WHATSAPP_HMAC_SECRET).
+const api: ApiClient = crearCliente()
+const flows = new ReadFlows(conversations, api)
 
 /** Create the auth dir with owner-only permissions and chmod every credential file to 0600. */
 async function secureAuthDir(dir: string): Promise<void> {
@@ -82,13 +89,32 @@ async function start(attempt = 1): Promise<void> {
       const type = messageType(message)
       const state = conversations.get(senderId)
       console.log(JSON.stringify({ senderTagHash: senderTagHash(senderId), type, step: state?.step ?? 'menu' }))
+      const faltante = api.mensajeConfigFaltante()
+      if (faltante) {
+        await socket.sendMessage(senderId, { text: faltante })
+        continue
+      }
+      const identidad = await resolveIdentity(senderId, api)
+      if (!identidad.ok) {
+        // Misma respuesta corta para no registrado y bloqueado (S1).
+        await socket.sendMessage(senderId, { text: identidad.reply })
+        continue
+      }
       if (type !== 'text') {
         await socket.sendMessage(senderId, { text: buildMenu() })
         continue
       }
-      // Identity remains an explicit seam until T5 connects the API allowlist.
-      await resolveIdentity(senderId)
-      await socket.sendMessage(senderId, { text: replyToInput(messageText(message)) })
+      const respuesta: Respuesta = await flows.handle(identidad.telefono, messageText(message))
+      if (respuesta.kind === 'document') {
+        await socket.sendMessage(senderId, {
+          document: respuesta.buffer,
+          mimetype: 'application/pdf',
+          fileName: respuesta.filename,
+          caption: respuesta.text,
+        })
+      } else {
+        await socket.sendMessage(senderId, { text: respuesta.text })
+      }
     }
   })
 }
