@@ -10,6 +10,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@repo/api-client": "*",
     "@whiskeysockets/baileys": "7.0.0-rc.6"
   },
   "devDependencies": {
