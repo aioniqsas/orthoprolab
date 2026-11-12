@@ -4,6 +4,7 @@ import { PREGUNTA_ACLARAR, SALUDO } from './menu.js'
 import {
   NOMBRE_BOT_DEFECTO,
   NEGATIVA_ESCRITURA,
+  NEGATIVA_INFRAESTRUCTURA,
   NEGATIVA_FIJA,
   NEGATIVA_IDENTIDAD,
   NEGATIVA_NO_ENCONTRADO,
@@ -13,7 +14,7 @@ import {
   negativaIdentidad,
   type ClaseNegativa,
 } from './prompt.js'
-export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION, construirPromptSistema } from './prompt.js'
+export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_INFRAESTRUCTURA, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION, construirPromptSistema } from './prompt.js'
 
 /**
  * Cliente Groq con tool calling (IA3, S4). Sin SDK: `fetch` es global. El
@@ -83,6 +84,50 @@ const ES_INTENCION = new Set(['ver_pedido', 'nuevo_pedido', 'pedir_llamada', 'en
 export type Ruta = {
   tipo: 'ver_pedido' | 'enviar_control' | 'enviar_cuenta' | 'nuevo_pedido' | 'pedir_llamada'
   numero?: string
+}
+
+/**
+ * Prechequeo de intención (sabotaje en vivo: "hazme un pedido" no disparaba
+ * la herramienta). Corre ANTES del modelo, tras la política de negativas:
+ * reconoce las formas comunes de pedir cada acción en español, tolerante de
+ * tildes y mayúsculas, y devuelve la misma ruta que el modelo habría
+ * elegido; el flujo determinista la ejecuta igual que hoy. Todo lo que no
+ * reconoce sigue al modelo. Con cualquier dígito presente devuelve null:
+ * "¿cómo va la orden 1234?" y "mándame la cuenta 105" conservan su número
+ * porque van por las herramientas/flujo, no por la ruta sin dato.
+ */
+function normalizar(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function prechequeoRuta(texto: string): Ruta | null {
+  const t = normalizar(texto)
+  if (t === '' || /\d/.test(t)) return null
+  if (/\bque\s+me\s+llame[nr]?\b/.test(t) || /\b(llamenme|llamame)\b/.test(t)) return { tipo: 'pedir_llamada' }
+  if (
+    /\bcomo\s+va\b[^.]{0,30}\b(orden|pedido|trabajo)\b/.test(t) ||
+    /\b(estado|como\s+vamos?)\b[^.]{0,20}\b(orden|pedido)\b/.test(t) ||
+    /\b(ver|consultar)\s+(mi|el|la)?\s*(orden|pedido)\b/.test(t)
+  ) return { tipo: 'ver_pedido' }
+  if (
+    /\bcuenta\b/.test(t) &&
+    /\b(manda|mandame|mandar|envia|enviame|enviar|pasame|dame|quiero|quisiera|necesito)\b/.test(t)
+  ) return { tipo: 'enviar_cuenta' }
+  if (/\b(papel\s+del\s+trabajo|control\s+de\s+trabajos)\b/.test(t)) return { tipo: 'enviar_control' }
+  if (
+    /\b(hazme|haceme)\s+(un|una)\s+pedido\b/.test(t) ||
+    /\b(hacer|tomar|hagamos)\s+(un\s+)?(nuevo\s+)?pedido\b/.test(t) ||
+    /\bvamos\s+a\s+hacer\s+(un\s+)?(nuevo\s+)?pedido\b/.test(t) ||
+    /\b(nuevo|nueva)\s+(pedido|orden)\b/.test(t) ||
+    /\b(quiero|quisiera|necesito)\s+(pedir|hacer|tomar)\b/.test(t) ||
+    /\b(quiero|quisiera|necesito)\s+(una|un)\s+\w+/.test(t)
+  ) return { tipo: 'nuevo_pedido' }
+  return null
 }
 
 function rutaDe(llamada: LlamadaHerramienta): Ruta {
@@ -257,6 +302,7 @@ function textoNegativa(clase: ClaseNegativa, nombre: string): string {
   return clase === 'escritura' ? NEGATIVA_ESCRITURA
     : clase === 'suplantacion' ? NEGATIVA_SUPLANTACION
     : clase === 'identidad' ? negativaIdentidad(nombre)
+    : clase === 'infraestructura' ? NEGATIVA_INFRAESTRUCTURA
     : NEGATIVA_FIJA
 }
 
@@ -364,6 +410,16 @@ export class ClienteGroq {
       store.set(telefono, previo, ahora)
       this.auditar({ intencion: 'conversacion', herramienta: null, tokensEntrada: 0, tokensSalida: 0, resultado: 'negado' })
       return { texto: textoNegativa(clase, this.config.nombre) }
+    }
+    // Prechequeo de intención: ruta directa al flujo determinista sin una
+    // sola llamada al modelo (sabotaje en vivo: el modelo no elegía la
+    // herramienta para "hazme un pedido"). La política de negativas va
+    // primero a propósito: una inyección nunca se aprovecha de la ruta.
+    const rutaPrevia = prechequeoRuta(usuarioRedactado)
+    if (rutaPrevia) {
+      store.set(telefono, previo, ahora)
+      this.auditar({ intencion: rutaPrevia.tipo, herramienta: rutaPrevia.tipo, tokensEntrada: 0, tokensSalida: 0, resultado: 'herramienta_ok' })
+      return { ruta: rutaPrevia }
     }
     const historial = previo.historial.slice(-MAX_TURNOS_HISTORIAL * 2)
     const mensajes: Mensaje[] = [
