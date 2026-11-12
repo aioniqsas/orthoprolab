@@ -13,6 +13,7 @@ import { buildMenu } from './menu'
 import { MENSAJE_LIMITE, RateLimiter } from './rate-limit'
 import { ConversationStore } from './state'
 import { OrderFlows } from './write-flows'
+import { canjearVinculacion, parseVincular, VINCULAR_FALLO, VINCULAR_OK } from './vinculacion'
 import { resolveIdentity } from './identity'
 import {
   assertAuthDirOutsideRepo,
@@ -102,6 +103,14 @@ async function start(attempt = 1): Promise<void> {
       const faltante = api.mensajeConfigFaltante()
       if (faltante) {
         await socket.sendMessage(senderId, { text: faltante })
+        continue
+      }
+      // VINCULAR <código> (T8): antes del filtro de identidad, porque justamente
+      // un número no vinculado es el que puede canjear el código.
+      const codigoVincular = messageText(message) === '' ? null : parseVincular(messageText(message))
+      if (codigoVincular) {
+        const vinculado = await canjearVinculacion(api, senderId, codigoVincular)
+        await socket.sendMessage(senderId, { text: vinculado ? VINCULAR_OK : VINCULAR_FALLO })
         continue
       }
       const identidad = await resolveIdentity(senderId, api)

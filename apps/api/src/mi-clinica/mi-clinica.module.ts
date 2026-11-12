@@ -10,6 +10,7 @@ import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import { MiClinicaController } from './mi-clinica.controller.js';
 import { MiClinicaService } from './mi-clinica.service.js';
+import { WhatsappModule } from '../whatsapp/whatsapp.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { MiClinicaService } from './mi-clinica.service.js';
     CuentasCobroModule,
     PedidosModule,
     PacientesModule,
+    WhatsappModule,
   ],
   controllers: [MiClinicaController],
   providers: [MiClinicaService],

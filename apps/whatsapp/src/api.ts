@@ -10,6 +10,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 export const SESSION_PATH = '/internal/whatsapp/sesion'
 export const CALL_PATH = '/internal/whatsapp/llamada'
 export const AUDIT_PATH = '/internal/whatsapp/auditoria'
+export const VINCULAR_PATH = '/internal/whatsapp/vincular'
 
 export const NO_HABILITADO =
   'Este número no está habilitado para usar el bot. Escríbele al laboratorio para que te vincule.'
@@ -235,6 +236,26 @@ export class ApiClient {
     } catch {
       // Silencio: la auditoría nunca bloquea la respuesta al contacto.
     }
+  }
+
+  /**
+   * Canje del OTP de vinculación (T8): POST /internal/whatsapp/vincular con las
+   * mismas cuatro cabeceras del resto de endpoints internos (S10). Resuelve
+   * void si la API confirmó; lanza ApiError ante cualquier fallo (el bot
+   * responde el mismo texto genérico en todos los casos).
+   */
+  async vincular(telefonoRaw: string, codigo: string): Promise<void> {
+    if (!this.serviceToken || !this.hmacSecret) throw new ApiError(503, CONFIG_FALTANTE)
+    const numero = telefonoCanonical(telefonoRaw)
+    const cabeceras = cabecerasFirma(numero, this.serviceToken, this.hmacSecret, this.ahora() / 1000)
+    const res = await this.fetchFn(`${this.baseUrl}${VINCULAR_PATH}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...cabeceras },
+      body: JSON.stringify({ telefono: numero, codigo }),
+    })
+    if (!res.ok) throw new ApiError(res.status, 'vinculación rechazada')
+    const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean } | null
+    if (!cuerpo?.ok) throw new ApiError(res.status, 'código no canjeable')
   }
 
   async sesion(telefonoRaw: string): Promise<SesionBot> {

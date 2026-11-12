@@ -10,6 +10,8 @@ export type WhatsappSesionResultado =
   | 'orden_creada'
   | 'llamada'
   | 'rechazada'
+  | 'codigo_emitido'
+  | 'vinculada'
   | `rechazada_${string}`;
 
 @Entity('whatsapp_sesion_auditoria')

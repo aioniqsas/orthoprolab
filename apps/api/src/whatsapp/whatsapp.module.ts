@@ -13,6 +13,7 @@ import { WhatsappLlamadaService } from './whatsapp-llamada.service.js';
 import { WhatsappSesionController } from './whatsapp-sesion.controller.js';
 import { WhatsappSesionService } from './whatsapp-sesion.service.js';
 import { WhatsappSesionAuditoria } from './whatsapp-sesion-auditoria.entity.js';
+import { WhatsappVinculacionService } from './whatsapp-vinculacion.service.js';
 
 /**
  * Identidad del bot de WhatsApp: T2 el servicio de contactos, T3 el endpoint
@@ -28,7 +29,7 @@ import { WhatsappSesionAuditoria } from './whatsapp-sesion-auditoria.entity.js';
     TypeOrmModule.forFeature([WhatsappContacto, Clinica, Doctor, Usuario, WhatsappSesionAuditoria, WhatsappLlamada]),
   ],
   controllers: [WhatsappSesionController, WhatsappLlamadaController],
-  providers: [WhatsappIdentidadService, WhatsappSesionService, WhatsappLlamadaService],
-  exports: [WhatsappIdentidadService],
+  providers: [WhatsappIdentidadService, WhatsappSesionService, WhatsappLlamadaService, WhatsappVinculacionService],
+  exports: [WhatsappIdentidadService, WhatsappVinculacionService],
 })
 export class WhatsappModule {}
