@@ -74,7 +74,7 @@ export interface SesionBot {
 
 export interface OrdenApi {
   id: string
-  estado?: { nombre?: string } | null
+  estado?: { codigo?: string | null; nombre?: string } | null
   fechaEntrega: string | null
   asignacion?: {
     doctor?: { id?: string; nombres?: string; apellidos?: string } | null

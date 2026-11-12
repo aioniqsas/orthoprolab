@@ -191,7 +191,7 @@ export class OrderFlows {
       case 'orden-doctor':
         try {
           const doctores = await this.api.getDoctores(telefono)
-          return `Paso 1 de 7. Selecciona el doctor (escribe el número):\n\n${numerar(
+          return `${pasoPrefijo(campos, 'doctor')}Selecciona el doctor (escribe el número):\n\n${numerar(
             doctores.map((d) => ({ nombre: [d.nombres, d.apellidos].filter(Boolean).join(' ') })),
           )}\n\nO escribe 0 para volver al menú.`
         } catch {
@@ -241,8 +241,14 @@ export class OrderFlows {
    */
   private async pedirPrefill(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
+      // Una orden cancelada no es "la última orden" de referencia (ronda
+      // adversarial T13): se salta. El código es estable; el nombre va por
+      // si la API vieja no manda el codigo.
       const ultima = (await this.api.getOrdenes(telefono)).find(
-        (o) => o.asignacion?.doctor?.id === campos.doctorId,
+        (o) =>
+          o.estado?.codigo !== 'cancelada' &&
+          o.estado?.nombre !== 'Cancelada' &&
+          o.asignacion?.doctor?.id === campos.doctorId,
       )
       const d = ultima?.detalles?.[0]
       if (!d?.servicio || !d.colorDiente || !Number.isInteger(d.cantidad) || d.cantidad < 1) {
