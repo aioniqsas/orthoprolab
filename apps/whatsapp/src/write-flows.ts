@@ -71,29 +71,46 @@ function indiceValido(entrada: string, total: number): number | null {
 }
 
 /**
- * "Paso X de Y" (S11/T12): X es el índice de la pregunta en la conversación y
- * Y el total real de preguntas que el usuario contestará: el paso del doctor
- * desaparece con un contacto 1:1, así que Y baja de 7 a 6.
+ * "Paso X de Y" (S11/T12, S12/T13): X es el índice de la pregunta en la
+ * conversación y Y el total real de preguntas que el usuario contestará.
+ * El paso del doctor desaparece con un contacto 1:1; si el usuario aceptó la
+ * precarga del trabajo anterior, servicio/cantidad/color no se preguntan.
+ * Los dos cálculos se hacen al momento de responder, no al inicio.
  */
-function pasoPrefijo(campos: Campos, indice: number): string {
+function pasosDelFlujo(campos: Campos): string[] {
   const unoAUno = campos.doctor1a1 === '1'
-  return `Paso ${unoAUno ? indice - 1 : indice} de ${unoAUno ? 6 : 7}. `
+  const repetido = campos.prefillSi === '1'
+  return ['doctor', 'paciente', 'servicio', 'cantidad', 'dientes', 'color', 'observaciones'].filter(
+    (s) =>
+      !(unoAUno && s === 'doctor') &&
+      !(repetido && (s === 'servicio' || s === 'cantidad' || s === 'color')),
+  )
+}
+
+function pasoPrefijo(campos: Campos, step: string): string {
+  const pasos = pasosDelFlujo(campos)
+  return `Paso ${pasos.indexOf(step) + 1} de ${pasos.length}. `
 }
 
 function preguntaCantidad(campos: Campos): string {
-  return `${pasoPrefijo(campos, 4)}¿Cuántas unidades? Escribe un número entero mayor que 0 (o 0 para volver al menú).`
+  return `${pasoPrefijo(campos, 'cantidad')}¿Cuántas unidades? Escribe un número entero mayor que 0 (o 0 para volver al menú).`
 }
 
 function preguntaDientes(campos: Campos): string {
-  return `${pasoPrefijo(campos, 5)}Escribe los dientes (números FDI) separados por espacio o coma, por ejemplo: 26 27\n\nO escribe 0 para volver al menú.`
+  return `${pasoPrefijo(campos, 'dientes')}Escribe los dientes (números FDI) separados por espacio o coma, por ejemplo: 26 27\n\nO escribe 0 para volver al menú.`
 }
 
 function preguntaColor(campos: Campos): string {
-  return `${pasoPrefijo(campos, 6)}¿Color? Escribe el color del trabajo (1–20 caracteres), o 0 para volver al menú.`
+  return `${pasoPrefijo(campos, 'color')}¿Color? Escribe el color del trabajo (1–20 caracteres), o 0 para volver al menú.`
 }
 
 function preguntaObservaciones(campos: Campos): string {
-  return `${pasoPrefijo(campos, 7)}¿Observaciones? Escríbelas, o escribe no u omitir para dejarlas vacías (0 para volver al menú).`
+  return `${pasoPrefijo(campos, 'observaciones')}¿Observaciones? Escríbelas, o escribe no u omitir para dejarlas vacías (0 para volver al menú).`
+}
+
+/** Pregunta de precarga (S12): el trabajo y el color de la última orden del doctor. */
+function preguntaPrefill(campos: Campos): string {
+  return `¿Mismo trabajo y color que tu última orden (${campos.prefillServicio}, ${campos.prefillColor})? 1 sí / 2 no`
 }
 
 export class OrderFlows {
@@ -119,6 +136,7 @@ export class OrderFlows {
 
     if (step === '') return this.inicio(telefono, campos, doctorContacto)
     if (step === 'orden-doctor') return this.pasoDoctor(telefono, campos, entrada)
+    if (step === 'orden-prefill') return this.pasoPrefill(telefono, campos, entrada)
     if (step === 'orden-paciente') return this.pasoPaciente(telefono, campos, entrada)
     if (step === 'orden-servicio') return this.pasoServicio(telefono, campos, entrada)
     if (step === 'orden-cantidad') return this.pasoCantidad(telefono, campos, entrada)
@@ -139,7 +157,7 @@ export class OrderFlows {
       } catch {
         // El nombre solo embellece el resumen; el id basta para el POST.
       }
-      return this.pedirPaciente(telefono, { ...campos, doctorId: doctorContacto, doctorNombre: nombre, doctor1a1: '1' })
+      return this.pedirPrefill(telefono, { ...campos, doctorId: doctorContacto, doctorNombre: nombre, doctor1a1: '1' })
     }
     try {
       const doctores = await this.api.getDoctores(telefono)
@@ -179,6 +197,8 @@ export class OrderFlows {
         } catch {
           return 'No pude consultar los doctores ahora mismo. Vuelve a intentarlo en un rato.'
         }
+      case 'orden-prefill':
+        return preguntaPrefill(campos)
       case 'orden-paciente':
         return this.pedirPacienteOtraVez(telefono, campos, 'Elige el paciente de la lista, o crea uno nuevo con: nuevo <cédula> <nombre>').then((r) => r.text)
       case 'orden-servicio':
@@ -207,11 +227,56 @@ export class OrderFlows {
       }
       const d = doctores[i]!
       const nombre = [d.nombres, d.apellidos].filter(Boolean).join(' ')
-      return this.pedirPaciente(telefono, { ...campos, doctorId: d.id, doctorNombre: nombre })
+      return this.pedirPrefill(telefono, { ...campos, doctorId: d.id, doctorNombre: nombre })
     } catch {
       this.store.clear(telefono)
       return { kind: 'text', text: 'No pude consultar los doctores ahora mismo. Vuelve a intentarlo en un rato.' }
     }
+  }
+
+  /**
+   * Precarga (S12/T13): la última orden del doctor sugiere servicio, cantidad
+   * y color. Es solo una optimización: si falla la lista o no hay orden
+   * previa, se sigue al paciente en silencio.
+   */
+  private async pedirPrefill(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string; intencion?: string }> {
+    try {
+      const ultima = (await this.api.getOrdenes(telefono)).find(
+        (o) => o.asignacion?.doctor?.id === campos.doctorId,
+      )
+      const d = ultima?.detalles?.[0]
+      if (!d?.servicio || !d.colorDiente || !Number.isInteger(d.cantidad) || d.cantidad < 1) {
+        return this.pedirPaciente(telefono, campos)
+      }
+      const siguientes = {
+        ...campos,
+        prefillServicio: d.servicio,
+        prefillCantidad: String(d.cantidad),
+        prefillColor: d.colorDiente,
+      }
+      this.store.set(telefono, 'orden-prefill', siguientes)
+      return { kind: 'text', text: preguntaPrefill(siguientes) }
+    } catch {
+      return this.pedirPaciente(telefono, campos)
+    }
+  }
+
+  /** Respuesta a la precarga: 1 copia los tres valores; 2 los pregunta; otra cosa re-pregunta. */
+  private async pasoPrefill(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
+    if (CONFIRMAR_SI.test(entrada)) {
+      const siguientes = {
+        ...campos,
+        prefillSi: '1',
+        servicioNombre: campos.prefillServicio!,
+        cantidad: campos.prefillCantidad!,
+        color: campos.prefillColor!,
+      }
+      return this.pedirPaciente(telefono, siguientes)
+    }
+    if (!CONFIRMAR_NO.test(entrada) && !/^2$/i.test(entrada)) {
+      return { kind: 'text', text: `No entendí. ${preguntaPrefill(campos)}` }
+    }
+    return this.pedirServicio(telefono, campos)
   }
 
   private async pedirPaciente(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string; intencion?: string }> {
@@ -221,7 +286,7 @@ export class OrderFlows {
       const lista = pacientes.length > 0 ? `${numerar(pacientes.map((p) => ({ nombre: p.nombre })))}\n\n` : ''
       return {
         kind: 'text',
-        text: `${pasoPrefijo(campos, 2)}Paciente de ${campos.doctorNombre ?? 'tu doctor'}:\n\n${lista}Escribe el número para elegir, o crea uno nuevo con: nuevo <cédula> <nombre>\n\nO escribe 0 para volver al menú.`,
+        text: `${pasoPrefijo(campos, 'paciente')}Paciente de ${campos.doctorNombre ?? 'tu doctor'}:\n\n${lista}Escribe el número para elegir, o crea uno nuevo con: nuevo <cédula> <nombre>\n\nO escribe 0 para volver al menú.`,
       }
     } catch {
       this.store.clear(telefono)
@@ -234,7 +299,7 @@ export class OrderFlows {
     if (nuevo) {
       try {
         const paciente = await this.api.crearPaciente(telefono, nuevo[1]!, nuevo[2]!.trim(), campos.doctorId!)
-        return this.pedirServicio(telefono, {
+        return this.continuarTrasPaciente(telefono, {
           ...campos,
           pacienteId: paciente.id,
           pacienteNombre: paciente.nombre,
@@ -252,7 +317,7 @@ export class OrderFlows {
         return this.pedirPacienteOtraVez(telefono, campos, 'No entendí. Escribe el número del paciente, "nuevo <cédula> <nombre>" para crear uno, o 0 para volver al menú.')
       }
       const p = pacientes[i]!
-      return this.pedirServicio(telefono, { ...campos, pacienteId: p.id, pacienteNombre: p.nombre })
+      return this.continuarTrasPaciente(telefono, { ...campos, pacienteId: p.id, pacienteNombre: p.nombre })
     } catch {
       this.store.clear(telefono)
       return { kind: 'text', text: 'No pude consultar los pacientes ahora mismo. Vuelve a intentarlo en un rato.' }
@@ -272,6 +337,15 @@ export class OrderFlows {
     }
   }
 
+  /** Tras el paciente: con la precarga aceptada, servicio/cantidad/color ya están y se va a dientes. */
+  private async continuarTrasPaciente(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string; intencion?: string }> {
+    if (campos.prefillSi === '1') {
+      this.store.set(telefono, 'orden-dientes', campos)
+      return { kind: 'text', text: preguntaDientes(campos) }
+    }
+    return this.pedirServicio(telefono, campos)
+  }
+
   private async pedirServicio(telefono: string, campos: Campos): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     try {
       const servicios = await this.api.getServicios(telefono)
@@ -282,7 +356,7 @@ export class OrderFlows {
       this.store.set(telefono, 'orden-servicio', campos)
       return {
         kind: 'text',
-        text: `${pasoPrefijo(campos, 3)}Selecciona el servicio (escribe el número):\n\n${numerar(
+        text: `${pasoPrefijo(campos, 'servicio')}Selecciona el servicio (escribe el número):\n\n${numerar(
           servicios.map((s) => ({ nombre: s.nombre })),
         )}\n\nO escribe 0 para volver al menú.`,
       }
@@ -336,6 +410,11 @@ export class OrderFlows {
       vistos.add(numero)
     }
     const siguientes = { ...campos, dientes: [...vistos].join(',') }
+    if (campos.prefillSi === '1') {
+      // Con la precarga aceptada el color ya no se pregunta: directo a observaciones.
+      this.store.set(telefono, 'orden-observaciones', siguientes)
+      return { kind: 'text', text: preguntaObservaciones(siguientes) }
+    }
     this.store.set(telefono, 'orden-color', siguientes)
     return { kind: 'text', text: preguntaColor(siguientes) }
   }

@@ -18,10 +18,16 @@ interface ApiFalso extends ApiClient {
   crearOrdenError?: Error
 }
 
-function apiFalso(opciones: { crearOrdenError?: Error } = {}): ApiFalso {
+function apiFalso(
+  opciones: { crearOrdenError?: Error; ordenes?: unknown[]; getOrdenesError?: Error } = {},
+): ApiFalso {
   const api: ApiFalso = {
     crearOrdenLlamadas: [],
     crearOrdenError: opciones.crearOrdenError,
+    getOrdenes: async () => {
+      if (opciones.getOrdenesError) throw opciones.getOrdenesError
+      return opciones.ordenes ?? []
+    },
     getDoctores: async () => DOCTORES,
     getPacientes: async () => PACIENTES.map((f) => f.paciente),
     crearPaciente: async (_t: string, cedula: string, nombre: string, doctorId?: string) => {
@@ -291,6 +297,93 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     const flows = new ReadFlows(new ConversationStore(), apiFalso())
     const r = await flows.handle(TEL, '4')
     expect(r.text).toContain('todavía no está disponible')
+  })
+})
+
+describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
+  const ULTIMA = {
+    id: '99',
+    estado: { nombre: 'Terminada' },
+    fechaEntrega: null,
+    asignacion: { doctor: { id: 'doc-1', nombres: 'Ana', apellidos: 'Gómez' }, paciente: { nombre: 'Luis Pérez' } },
+    detalles: [{ servicio: 'Corona zirconio', cantidad: 3, dientes: [16], colorDiente: 'A2' }],
+  }
+
+  it('ofrece la precarga con la pregunta exacta y los valores citados', async () => {
+    const api = apiFalso({ ordenes: [ULTIMA] })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1'])
+    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? 1 sí / 2 no')
+  })
+
+  it('1 copia servicio, cantidad y color y salta directo al paciente', async () => {
+    const api = apiFalso({ ordenes: [ULTIMA] })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1', '1', '1', '26 27', 'no'])
+    // El resumen muestra los valores precargados tal cual se envían.
+    expect(r.text).toContain('Servicio: Corona zirconio')
+    expect(r.text).toContain('Cantidad: 3')
+    expect(r.text).toContain('Color: A2')
+    const r2 = await esc.handle(TEL, 'CONFIRMAR')
+    expect(r2.text).toContain('Orden 1234')
+    const payload = api.crearOrdenLlamadas[0]!.payload as {
+      detalles: Array<{ servicio: string; cantidad: number; colorDiente: string; dientes: number[] }>
+    }
+    expect(payload.detalles[0]).toEqual({ servicio: 'Corona zirconio', cantidad: 3, dientes: [26, 27], colorDiente: 'A2' })
+  })
+
+  it('2 pregunta servicio, cantidad y color como siempre', async () => {
+    const api = apiFalso({ ordenes: [ULTIMA] })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1', '2'])
+    expect(r.text).toContain('Selecciona el servicio')
+    const r2 = await enviar(esc, ['1', '2', '26', 'A1', 'no', 'CONFIRMAR'])
+    const payload = api.crearOrdenLlamadas[0]!.payload as {
+      detalles: Array<{ servicio: string; cantidad: number; dientes: number[]; colorDiente: string }>
+    }
+    expect(payload.detalles[0]).toEqual({ servicio: 'Corona zirconio', cantidad: 2, dientes: [26], colorDiente: 'A1' })
+  })
+
+  it('respuesta desconocida en la precarga: "No entendí" y la pregunta otra vez', async () => {
+    const api = apiFalso({ ordenes: [ULTIMA] })
+    const esc = escritor(api)
+    await enviar(esc, ['4', '1'])
+    const r = await esc.handle(TEL, 'dale')
+    expect(r.text).toContain('No entendí')
+    expect(r.text).toContain('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)?')
+  })
+
+  it('sin orden previa del doctor la pregunta no aparece', async () => {
+    const api = apiFalso({ ordenes: [{ ...ULTIMA, asignacion: { ...ULTIMA.asignacion, doctor: { id: 'doc-otro' } } }] })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1'])
+    expect(r.text).not.toContain('última orden')
+    expect(r.text).toContain('Paciente')
+  })
+
+  it('sin detalles la pregunta no aparece', async () => {
+    const api = apiFalso({ ordenes: [{ ...ULTIMA, detalles: [] }] })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1'])
+    expect(r.text).not.toContain('última orden')
+  })
+
+  it('fallo de GET /mi-clinica/ordenes: el flujo sigue normal en silencio', async () => {
+    const api = apiFalso({ ordenes: [ULTIMA], getOrdenesError: new ApiError(503, 'caído') })
+    const esc = escritor(api)
+    const r = await enviar(esc, ['4', '1'])
+    expect(r.text).toContain('Paciente de Ana Gómez')
+    const r2 = await enviar(esc, ['1', '1', '2', '26 27', 'A1', 'no', 'CONFIRMAR'])
+    expect(r2.text).toContain('Orden 1234')
+  })
+
+  it('contacto 1:1: la precarga se ofrece igual', async () => {
+    const api = apiFalso({ ordenes: [ULTIMA] })
+    const esc = escritor(api)
+    const r = await esc.handle(TEL, '4', 'doc-1')
+    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? 1 sí / 2 no')
+    const r2 = await esc.handle(TEL, '1')
+    expect(r2.text).toContain('Paciente de Ana Gómez')
   })
 })
 
