@@ -21,6 +21,42 @@ describe('normalizeTelefono', () => {
     }
   });
 
+  it('accepts the raw WhatsApp JIDs the bot hands over', () => {
+    // T4 delivers Baileys identifiers, not formatted phones: without this
+    // the bot would answer telefono_invalido to every user.
+    expect(normalizeTelefono('573001234567@s.whatsapp.net')).toBe(
+      '+573001234567',
+    );
+    expect(normalizeTelefono('573001234567:12@s.whatsapp.net')).toBe(
+      '+573001234567',
+    );
+    expect(normalizeTelefono('3001234567@c.us')).toBe('+573001234567');
+    expect(normalizeTelefono('573001234567@g.us')).toBe('+573001234567');
+    expect(normalizeTelefono('573001234567@broadcast')).toBe(
+      '+573001234567',
+    );
+  });
+
+  it('still rejects garbage wrapped in JID-looking text', () => {
+    expect(() => normalizeTelefono('abc@s.whatsapp.net')).toThrow(
+      'Invalid phone number',
+    );
+    expect(() => normalizeTelefono('@s.whatsapp.net')).toThrow(
+      'Invalid phone number: empty value',
+    );
+    // A newline inside the suffix is not a valid JID.
+    expect(() => normalizeTelefono('573001234567@s.whatsapp.net\n')).toThrow(
+      'Invalid phone number',
+    );
+    // @lid is a WhatsApp internal id, not phone digits: reject explicitly.
+    expect(() => normalizeTelefono('573001234567@lid')).toThrow(
+      'Invalid phone number',
+    );
+    expect(() => normalizeTelefono('312345678901234@lid')).toThrow(
+      'Invalid phone number',
+    );
+  });
+
   it('rejects values that cannot yield exactly 10 national digits', () => {
     expect(() => normalizeTelefono('')).toThrow(
       'Invalid phone number: empty value',

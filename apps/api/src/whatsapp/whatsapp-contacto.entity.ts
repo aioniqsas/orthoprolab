@@ -11,10 +11,9 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { encryptedColumn } from '../crypto/encrypted-column.js';
-import { getCrypto } from '../crypto/crypto.registry.js';
 import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
-import { normalizeTelefono } from './normalize-telefono.js';
+import { hashTelefono, normalizeTelefono } from './normalize-telefono.js';
 
 /** Unknown numbers are never processed: only allowlisted contacts reach the bot. */
 export type WhatsappContactoEstado = 'pendiente' | 'verificado' | 'bloqueado';
@@ -77,9 +76,7 @@ export class WhatsappContacto {
   syncTelefonoHash(): void {
     // Partial updates may not carry the phone: keep the stored hash then.
     if (this.telefonoCifrado !== undefined && this.telefonoCifrado !== null) {
-      this.telefonoHash = getCrypto().blindIndex(
-        normalizeTelefono(this.telefonoCifrado),
-      );
+      this.telefonoHash = hashTelefono(normalizeTelefono(this.telefonoCifrado));
     }
   }
 }
