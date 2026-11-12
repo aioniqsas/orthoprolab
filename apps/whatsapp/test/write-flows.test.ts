@@ -24,7 +24,9 @@ function apiFalso(opciones: { crearOrdenError?: Error } = {}): ApiFalso {
     crearOrdenError: opciones.crearOrdenError,
     getDoctores: async () => DOCTORES,
     getPacientes: async () => PACIENTES.map((f) => f.paciente),
-    crearPaciente: async (_t: string, cedula: string, nombre: string) => {
+    crearPaciente: async (_t: string, cedula: string, nombre: string, doctorId?: string) => {
+      // Sin doctorId la API devuelve el paciente sin vínculo: el flujo debe fallar aquí, no en silencio.
+      if (!doctorId) throw new Error('crearPaciente sin doctorId')
       if (cedula === '1030') throw new ApiError(409, 'ya existe')
       return { id: '9', nombre }
     },

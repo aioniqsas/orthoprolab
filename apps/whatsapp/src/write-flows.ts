@@ -163,7 +163,7 @@ export class OrderFlows {
     const nuevo = /^nuevo\s+(\S+)\s+(.+)$/i.exec(entrada)
     if (nuevo) {
       try {
-        const paciente = await this.api.crearPaciente(telefono, nuevo[1]!, nuevo[2]!.trim())
+        const paciente = await this.api.crearPaciente(telefono, nuevo[1]!, nuevo[2]!.trim(), campos.doctorId!)
         return this.pedirServicio(telefono, {
           ...campos,
           pacienteId: paciente.id,
