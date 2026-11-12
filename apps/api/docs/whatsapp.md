@@ -75,7 +75,7 @@ SET LOCAL app.clinica_id = :clinica_id;
 SELECT valor FROM public.configuracion_bot WHERE clave = 'nombre';
 ```
 
-Si la fila falta o no se puede leer, el nombre es `Aioniq` (constante de respaldo documentada). El administrador consulta el valor actual con `GET /admin/configuracion/bot`. No se usa `FORCE ROW LEVEL SECURITY`: el usuario de la API es dueño de las tablas y sigue intacto.
+El bot lo lee dentro de la transacción con el GUC de clínica y lo cachea unos minutos en memoria (un renombre no exige reinicio, un mensaje no cuesta consulta). Si la fila falta o no se puede leer, el nombre es `Aioniq` (constante de respaldo documentada). El administrador consulta el valor actual con `GET /admin/configuracion/bot`. No se usa `FORCE ROW LEVEL SECURITY`: el usuario de la API es dueño de las tablas y sigue intacto.
 
 ```sh
 bun run db:bot-role            # crear/converger el rol

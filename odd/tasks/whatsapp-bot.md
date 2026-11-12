@@ -40,6 +40,17 @@ Cuatro capas independientes, de modo que filtrar una no abra la puerta:
 3. **Límite por clínica.** Máximo de sesiones emitidas por clínica por minuto y por contacto por ventana; se responde 429 y se registra el intento.
 4. **Elegibilidad y auditoría.** Solo contactos `verificado`, nunca `bloqueado`, con clínica activa y cuenta designada; cada emisión se registra (clínica, contacto, resultado) sin datos personales, para detectar barridos.
 
+**S11 — Flujo para alguien con poca soltura digital.**
+Decisiones del usuario, textuales: "El 0 debe significar siempre lo mismo. Dejaría 0 como 'volver al menú' en todas partes, pasaría 'que me llamen' a la opción 5, y haría que escribir 'ayuda' pregunte antes: '¿Quieres que el laboratorio te llame? 1 sí / 0 no'." / "La confirmación debería ser 1 = crear, 0 = cancelar, y además aceptar 'sí', 'si' y 'confirmar' sin importar mayúsculas. Lo que protege es ver el resumen, no la palabra exacta. Y si no entiende la respuesta, debe decirlo ('No entendí. Escribe 1 para crear o 0 para cancelar') en vez de repetir el resumen en silencio." / "Con audios, imágenes o stickers, responder 'No puedo escuchar audios, escríbeme por favor' y repetir la pregunta del paso en curso, no el menú." / "'Paso 3 de 6', aceptar números dentro de texto ('orden 1234', '#1234') y el menú en lenguaje llano".
+Sin cambios: allowlist, `clinica_id` desde el contacto, resumen antes de escribir e idempotencia.
+
+**S12 — Repetir trabajo y color, no la orden entera.**
+Texto del usuario: "El análisis asume que 'la mayoría de las órdenes repiten al mismo paciente con los mismos dientes', pero no hay datos que lo respalden [...] Lo que sí suele repetirse es el tipo de trabajo y el color del mismo doctor. Propondría '¿Mismo trabajo y color que tu última orden (corona zirconio, A2)? 1 sí / 2 no': se ahorran 3 pasos, y paciente y dientes se siguen preguntando siempre."
+
+**S13 — Sin menú numerado: el modelo enruta la conversación.**
+Texto del usuario: "ya no necesitamos tener un menú de opciones, sino simplemente darle un listado no ordenado y decirle: Mira, estas son mis funcionalidades. Y ya dependiendo de lo que responda el usuario, bien sea la opción A, la opción 1, o quiero hacer esto, quiero hacer aquello, que el modelo enrute" / "estamos haciendo que parezca un bot. La idea es que parezca una persona detrás".
+Reglas: el saludo lista las capacidades en una frase natural, sin números ni incisos. Cualquier entrada del usuario —«1», «la A», «quiero ver mi pedido», «mándame la cuenta»— la enruta el modelo a una de las cinco acciones. Los flujos deterministas siguen siendo los ejecutores: el modelo elige la puerta, no escribe ni confirma. La escalera de escape pasa a palabras naturales (`menú`, `volver`, `inicio`, y `0` como alias) y vuelve al saludo. Sin modelo disponible, el bot responde con el menú numerado como red de seguridad: nunca queda mudo.
+
 ## Tasks
 
 | ID | Tarea | Specs | Ruta |
@@ -57,6 +68,11 @@ Cuatro capas independientes, de modo que filtrar una no abra la puerta:
 | T10 | Blindaje del endpoint interno: token de alcance `whatsapp-bot` con allowlist de rutas, HMAC por solicitud con nonce de un solo uso, límite por clínica y auditoría de emisiones | S10 | worker |
 
 | T11 | Ruta de PDF de cuenta de cobro para clínicas (`GET /mi-clinica/cuentas-cobro/:id/pdf`, generar o servir), para que el bot no descargue desde una URL de Cloudinary ni dependa de un enlace público | S4 | worker |
+
+| T12 | Bloque de usabilidad: `0` = volver al menú en todo el flujo, "que me llamen" pasa a `5`, `ayuda` confirma antes de llamar, confirmación tolerante (`1`/`sí`/`si`/`confirmar`), "No entendí…" explícito, respuesta a audios/imágenes/stickers repitiendo la pregunta del paso, "Paso X de Y", dígitos dentro del texto y menú en lenguaje llano | S11 | worker |
+| T13 | Precarga de trabajo y color desde la última orden del doctor: "¿Mismo trabajo y color que tu última orden (`corona zirconio`, `A2`)? 1 sí / 2 no"; paciente y dientes se preguntan siempre | S12 | worker |
+
+| IA7 | Quitar el menú numerado como entrada: saludo conversacional con las capacidades, enrutado por el modelo para las cinco acciones, escape con palabras naturales y menú numerado solo como respaldo cuando no hay modelo | S13 | worker |
 
 **Requisitos derivados de la ronda adversarial de T1 (obligatorios en T2):**
 
