@@ -4,6 +4,7 @@ import {
   BeforeUpdate,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   Index,
   PrimaryGeneratedColumn,
@@ -18,7 +19,7 @@ import { enmascararCedula } from './cedula-visible.js';
 // the blind index because the encrypted cedula is non-deterministic.
 @Index('uq_paciente_cedula_hash', ['cedulaHash'], {
   unique: true,
-  where: '"cedula_hash" IS NOT NULL',
+  where: 'cedula_hash IS NOT NULL AND eliminado_en IS NULL',
 })
 @Entity('paciente')
 export class Paciente {
@@ -47,6 +48,10 @@ export class Paciente {
 
   @UpdateDateColumn({ name: 'fecha_actualizacion', type: 'timestamptz' })
   fechaActualizacion: Date;
+
+  // Null while the patient is active; set once on soft delete (SD1).
+  @DeleteDateColumn({ name: 'eliminado_en', type: 'timestamptz', nullable: true })
+  eliminadoEn: Date | null;
 
   @BeforeInsert()
   @BeforeUpdate()
