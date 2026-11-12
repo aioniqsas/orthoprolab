@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, In, Repository } from 'typeorm';
 import { CuentaCobro } from '../cuentas-cobro/cuenta-cobro.entity.js';
+import { CuentasCobroService } from '../cuentas-cobro/cuentas-cobro.service.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { PacientesService } from '../pacientes/pacientes.service.js';
 import { Orden } from '../pedidos/orden.entity.js';
@@ -57,6 +58,7 @@ export class MiClinicaService {
     private readonly pdfControlTrabajos: PdfControlTrabajosService,
     private readonly mailerControlTrabajos: MailerControlTrabajosService,
     private readonly pacientesService: PacientesService,
+    private readonly cuentasCobro: CuentasCobroService,
   ) {}
 
   async resolveClinicaId(usuarioId: string): Promise<string> {
@@ -219,6 +221,17 @@ export class MiClinicaService {
     }
     cuenta.pagos.sort((a, b) => Number(b.id) - Number(a.id));
     return cuenta;
+  }
+
+  /** PDF de una cuenta de cobro propia: los bytes siempre pasan por la API,
+   * sin exponer la URL de Cloudinary. La pertenencia la valida getCuentaCobro. */
+  async cuentaPdf(
+    usuarioId: string,
+    cuentaId: string,
+  ): Promise<{ pdf: Buffer; numero: string }> {
+    const cuenta = await this.getCuentaCobro(usuarioId, cuentaId);
+    const pdf = await this.cuentasCobro.obtenerPdfBytes(cuenta.id);
+    return { pdf, numero: cuenta.numero };
   }
 
   async listPacientesDelDoctor(

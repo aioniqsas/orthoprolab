@@ -9,7 +9,7 @@ const BOT_ROUTES = [
   ['GET', /^\/mi-clinica\/ordenes\/[^/]+\/control-trabajos$/], ['GET', /^\/mi-clinica\/doctores$/],
   ['GET', /^\/mi-clinica\/doctores\/[^/]+\/pacientes$/], ['GET', /^\/mi-clinica\/pacientes$/],
   ['POST', /^\/mi-clinica\/pacientes$/], ['GET', /^\/mi-clinica\/servicios$/],
-  ['GET', /^\/mi-clinica\/cuentas-cobro$/], ['GET', /^\/mi-clinica\/cuentas-cobro\/[^/]+$/],
+  ['GET', /^\/mi-clinica\/cuentas-cobro$/], ['GET', /^\/mi-clinica\/cuentas-cobro\/[^/]+$/], ['GET', /^\/mi-clinica\/cuentas-cobro\/[^/]+\/pdf$/],
   ['POST', /^\/mi-clinica\/ordenes$/],
 ] as const;
 

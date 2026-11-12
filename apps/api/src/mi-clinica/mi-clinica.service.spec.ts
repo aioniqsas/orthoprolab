@@ -21,6 +21,7 @@ function montar(estadoCodigo: string) {
     { generate: generar } as never,
     {} as never,
     {} as never,
+    {} as never,
   );
 
   const getOrden = vi.spyOn(service, 'getOrden').mockResolvedValue({
@@ -38,6 +39,7 @@ describe('MiClinicaService.resolveClinicaId', () => {
       {} as never, {} as never, {} as never, {} as never, {} as never,
       { findOneBy: vi.fn(async () => clinica) } as never,
       {} as never, {} as never, {} as never, {} as never,
+      {} as never,
     );
 
   it('devuelve el id cuando la clínica está activa', async () => {
@@ -103,6 +105,7 @@ describe('MiClinicaService.createPaciente', () => {
       { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
       {} as never, {} as never, {} as never,
       pacientesService as never,
+      {} as never,
     );
     return { service, pacientesService };
   }
@@ -138,5 +141,63 @@ describe('MiClinicaService.createPaciente', () => {
       'Nombre',
       null,
     );
+  });
+});
+
+describe('MiClinicaService.cuentaPdf', () => {
+  function montarCuenta(cuenta: unknown) {
+    const cuentasCobro = {
+      obtenerPdfBytes: vi.fn(async () => Buffer.from('%PDF-1.7 cuenta')),
+    };
+    const service = new MiClinicaService(
+      { findOneBy: vi.fn(async () => ({ clinicaId: '2' })) } as never,
+      {} as never, {} as never,
+      { findOne: vi.fn(async () => cuenta) } as never,
+      {} as never, {} as never,
+      { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
+      {} as never, {} as never, {} as never, {} as never,
+      cuentasCobro as never,
+    );
+    return { service, cuentasCobro };
+  }
+
+  it('entrega los bytes y el numero de una cuenta propia', async () => {
+    const { service, cuentasCobro } = montarCuenta({
+      id: '3',
+      clinicaId: '2',
+      estado: 'emitida',
+      numero: 'CC-2025-9',
+      pagos: [],
+    });
+
+    const { pdf, numero } = await service.cuentaPdf('u', '3');
+
+    expect(pdf.toString()).toBe('%PDF-1.7 cuenta');
+    expect(numero).toBe('CC-2025-9');
+    expect(cuentasCobro.obtenerPdfBytes).toHaveBeenCalledWith('3');
+  });
+
+  it('rechaza con 404 una cuenta de otra clinica, sin revelar que existe', async () => {
+    const { service, cuentasCobro } = montarCuenta(null);
+
+    await expect(service.cuentaPdf('u', '3')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(cuentasCobro.obtenerPdfBytes).not.toHaveBeenCalled();
+  });
+
+  it('rechaza con 404 un borrador, igual que getCuentaCobro', async () => {
+    const { service, cuentasCobro } = montarCuenta({
+      id: '3',
+      clinicaId: '2',
+      estado: 'borrador',
+      numero: 'CC-2025-1',
+      pagos: [],
+    });
+
+    await expect(service.cuentaPdf('u', '3')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(cuentasCobro.obtenerPdfBytes).not.toHaveBeenCalled();
   });
 });
