@@ -26,6 +26,34 @@ contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
 Si falta `WHATSAPP_SERVICE_TOKEN` o `WHATSAPP_HMAC_SECRET`, el bot responde a
 cada mensaje que no está configurado y no crashea.
 
+## Inteligencia con Groq (IA3)
+
+El texto libre (fuera de los comandos del menú) puede pasar por un modelo con
+tool calling. La identidad, la sesión y las escrituras siguen siendo
+deterministas; el modelo solo elige entre las herramientas de lectura del
+catálogo cerrado (`src/herramientas.ts`).
+
+- `GROQ_API_KEY`: llave de Groq. Si falta, el bot vuelve al menú
+  determinista sin anunciar nada.
+- `WHATSAPP_LLM_MODEL`: modelo de Groq; por defecto
+  `llama-3.3-70b-versatile`.
+- `WHATSAPP_LLM_ENABLED`: por defecto `true`; con `false` el bot vuelve al
+  menú sin desplegar.
+
+El cliente (`src/llm.ts`) usa `fetch` contra
+`https://api.groq.com/openai/v1/chat/completions`, con timeout configurable
+(12 s) y máximo un reintento ante error de red. Ante timeout, HTTP != 200 o
+respuesta malformada, el mensaje lo atiende el menú determinista igual que
+con la IA apagada: el bot nunca queda fuera de servicio por Groq.
+
+Cada llamada del modelo se valida contra el catálogo antes de ejecutarse
+(herramienta existente, argumentos exactos y tipados, sin `clinica_id`: la
+clínica sale siempre del contacto verificado). El bucle es de máximo 2
+rondas por mensaje, el consumo de tokens se acumula por conversación con un
+tope cortés, el historial enviado al modelo se recorta y los teléfonos,
+tokens y DSN se redactan antes de salir del bot. Por mensaje al modelo se
+audita intención, herramienta, tokens y desenlace, jamás el cuerpo.
+
 ## Vinculación por código (T8)
 
 Un contacto escribe `VINCULAR <código>` (6 dígitos, mayúsculas o minúsculas) y
