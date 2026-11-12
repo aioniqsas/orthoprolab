@@ -1,6 +1,7 @@
 import type { ApiClient, OrdenApi } from './api.js'
 import { ApiError, UrlRechazadaError } from './api.js'
-import { buildMenu, replyToInput } from './menu.js'
+import { buildMenu } from './menu.js'
+import { MENSAJE_LIMITE_LLAMADA, RateLimiter } from './rate-limit.js'
 import type { ConversationStore } from './state.js'
 import type { OrderFlows } from './write-flows.js'
 
@@ -12,8 +13,23 @@ import type { OrderFlows } from './write-flows.js'
  */
 
 export type Respuesta =
-  | { kind: 'text'; text: string }
-  | { kind: 'document'; text: string; filename: string; buffer: Buffer }
+  | { kind: 'text'; text: string; intencion?: string; paso?: string }
+  | { kind: 'document'; text: string; filename: string; buffer: Buffer; intencion?: string; paso?: string }
+
+/** Copia honesta de la opción 0 (T7): nunca promete una llamada que no se registró. */
+export const LLAMADA_OK = 'Listo. Registramos tu solicitud: el laboratorio te llamaremos a este número.'
+export const LLAMADA_FALLO =
+  'No pude registrar tu solicitud de llamada ahora mismo. Contacta al laboratorio directamente por el portal o por teléfono.'
+
+/** Intención de auditoría (S8) derivada del paso previo, sin el texto del mensaje. */
+export function intencionDe(step: string, texto: string): string {
+  if (step === 'menu' && texto.trim() === '0') return 'llamada'
+  if (step === 'pedido-numero') return 'estado'
+  if (step === 'control-numero') return 'control'
+  if (step === 'cuenta-numero') return 'cuenta'
+  if (step.startsWith('orden-')) return 'orden_creada'
+  return 'menu'
+}
 
 export const PEDIDO_NO_ENCONTRADO =
   'No encontré esa orden en tu clínica. Verifica el número y vuelve a intentarlo, o escribe 0 para volver al menú.'
@@ -70,10 +86,25 @@ export class ReadFlows {
     private readonly store: ConversationStore,
     private readonly api: ApiClient,
     private readonly escritor?: OrderFlows,
+    private readonly limites: RateLimiter = new RateLimiter(),
   ) {}
 
   /** Un turno de conversación para un contacto ya identificado. */
   async handle(telefono: string, texto: string, doctorContacto?: string): Promise<Respuesta> {
+    const estado = this.store.get(telefono)
+    const paso = estado?.step ?? 'menu'
+    const respuesta = await this.handleInterno(telefono, texto, doctorContacto)
+    // Auditoría de intención (S8): etiqueta derivada del paso, sin el cuerpo
+    // del mensaje ni nombres. Falla en silencio; nunca retrasa la respuesta.
+    if (respuesta.intencion === undefined) {
+      respuesta.intencion = intencionDe(paso, texto)
+      respuesta.paso = paso
+    }
+    void this.api.registrarIntencion?.(telefono, respuesta.intencion!, paso).catch(() => {})
+    return respuesta
+  }
+
+  private async handleInterno(telefono: string, texto: string, doctorContacto?: string): Promise<Respuesta> {
     const estado = this.store.get(telefono)
     const step = estado?.step ?? 'menu'
     const entrada = texto.trim()
@@ -131,8 +162,22 @@ export class ReadFlows {
         ? await this.escritor.handle(telefono, texto, doctorContacto)
         : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
     }
-    // "0" y texto desconocido en el menú: comportamiento existente.
-    return { kind: 'text', text: replyToInput(entrada) }
+    // "0": registra la solicitud de llamada con el tope diario (T7).
+    if (entrada === '0') return this.llamada(telefono)
+    // Texto desconocido en el menú: el menú de nuevo.
+    return { kind: 'text', text: buildMenu() }
+  }
+
+  private async llamada(telefono: string): Promise<Respuesta> {
+    if (!this.limites.llamada(telefono, Date.now())) {
+      return { kind: 'text', text: MENSAJE_LIMITE_LLAMADA, intencion: 'llamada', paso: 'menu' }
+    }
+    try {
+      await this.api.solicitarLlamada(telefono)
+      return { kind: 'text', text: LLAMADA_OK, intencion: 'llamada', paso: 'menu' }
+    } catch {
+      return { kind: 'text', text: LLAMADA_FALLO, intencion: 'llamada', paso: 'menu' }
+    }
   }
 
   private async pedido(telefono: string, ordenId: string): Promise<Respuesta> {

@@ -8,6 +8,8 @@ import { createHmac, randomUUID } from 'node:crypto'
  */
 
 export const SESSION_PATH = '/internal/whatsapp/sesion'
+export const CALL_PATH = '/internal/whatsapp/llamada'
+export const AUDIT_PATH = '/internal/whatsapp/auditoria'
 
 export const NO_HABILITADO =
   'Este número no está habilitado para usar el bot. Escríbele al laboratorio para que te vincule.'
@@ -194,6 +196,45 @@ export class ApiClient {
   /** Mensaje si falta alguna variable obligatoria; undefined si todo está. */
   mensajeConfigFaltante(): string | undefined {
     return !this.serviceToken || !this.hmacSecret ? CONFIG_FALTANTE : undefined
+  }
+
+  /**
+   * Solicitud de llamada (T7): POST /internal/whatsapp/llamada con las mismas
+   * cuatro cabeceras del endpoint de sesión (token + HMAC sobre el teléfono).
+   * No requiere JWT: el endpoint es interno y graba la solicitud. Resuelve void
+   * si la API respondió 200; lanza ApiError con el estado en caso contrario.
+   */
+  async solicitarLlamada(telefono: string): Promise<void> {
+    if (!this.serviceToken || !this.hmacSecret) throw new ApiError(503, CONFIG_FALTANTE)
+    const numero = telefonoCanonical(telefono)
+    const cabeceras = cabecerasFirma(numero, this.serviceToken, this.hmacSecret, this.ahora() / 1000)
+    const res = await this.fetchFn(`${this.baseUrl}${CALL_PATH}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...cabeceras },
+      body: JSON.stringify({ telefono: numero }),
+    })
+    if (!res.ok) throw new ApiError(res.status, 'llamada rechazada')
+  }
+
+  /**
+   * Auditoría de intención (T7/S8): POST /internal/whatsapp/auditoria con la
+   * misma firma. Solo intención y paso, jamás el cuerpo del mensaje ni nombres.
+   * Falla en silencio: la auditoría no puede romper la conversación.
+   */
+  async registrarIntencion(telefono: string, intencion: string, paso: string): Promise<void> {
+    if (!this.serviceToken || !this.hmacSecret) return
+    try {
+      const numero = telefonoCanonical(telefono)
+      const cabeceras = cabecerasFirma(numero, this.serviceToken, this.hmacSecret, this.ahora() / 1000)
+      const res = await this.fetchFn(`${this.baseUrl}${AUDIT_PATH}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...cabeceras },
+        body: JSON.stringify({ telefono: numero, intencion, paso }),
+      })
+      if (!res.ok) console.warn(`[whatsapp] auditoría ignorada (HTTP ${res.status})`)
+    } catch {
+      // Silencio: la auditoría nunca bloquea la respuesta al contacto.
+    }
   }
 
   async sesion(telefonoRaw: string): Promise<SesionBot> {

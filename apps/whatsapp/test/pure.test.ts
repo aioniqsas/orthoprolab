@@ -2,7 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'bun:test'
-import { buildMenu, replyToInput } from '../src/menu'
+import type { ApiClient } from '../src/api'
+import { buildMenu } from '../src/menu'
+import { ReadFlows } from '../src/flows'
 import { ConversationStore } from '../src/state'
 import {
   assertAuthDirOutsideRepo,
@@ -18,8 +20,11 @@ describe('menú', () => {
     expect(buildMenu()).toContain('0. Que el laboratorio te llame')
   })
 
-  it('responde al texto desconocido con el menú', () => {
-    expect(replyToInput('no entiendo')).toBe(buildMenu())
+  it('responde al texto desconocido con el menú', async () => {
+    const api = { solicitarLlamada: async () => {}, registrarIntencion: async () => {} } as unknown as ApiClient
+    const r = await new ReadFlows(new ConversationStore(), api).handle('+573001234567', 'no entiendo')
+    expect(r.kind).toBe('text')
+    expect(r.text).toBe(buildMenu())
   })
 })
 
@@ -109,15 +114,11 @@ describe('guardia del directorio de sesión', () => {
 })
 
 describe('opción 0', () => {
-  it('advierte que la llamada no está disponible y ofrece contacto directo', () => {
-    const text = replyToInput('0')
-    expect(text).not.toBe('El laboratorio te llamará.')
-    expect(text).toContain('todavía no está disponible')
-    expect(text).toContain('laboratorio')
-  })
-
-  it('mantiene la opción 0 en el menú', () => {
+  // La respuesta honesta (registro real o vía directa) se prueba en
+  // test/llamada.test.ts; aquí solo queda el menú.
+  it('mantiene la opción 0 en el menú y ya no dice "próximamente"', () => {
     expect(buildMenu()).toMatch(/0\./)
+    expect(buildMenu()).not.toContain('próximamente')
   })
 })
 

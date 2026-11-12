@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import { crearCliente, NO_HABILITADO, type ApiClient } from './api'
 import { ReadFlows, type Respuesta } from './flows'
 import { buildMenu } from './menu'
+import { MENSAJE_LIMITE, RateLimiter } from './rate-limit'
 import { ConversationStore } from './state'
 import { OrderFlows } from './write-flows'
 import { resolveIdentity } from './identity'
@@ -26,11 +27,15 @@ import {
 // WHATSAPP_AUTH_DIR configures external Baileys credentials; never put it in this repo.
 const authDir = process.env.WHATSAPP_AUTH_DIR ?? join(homedir(), '.orthopro-lab', 'whatsapp', 'auth_info')
 const conversations = new ConversationStore()
+// Límite por número (T7): un puñado de interacciones por minuto. Siempre se
+// aplica después de shouldIgnoreSender, nunca antes: los chats ignorados no
+// reciben respuesta de límite.
 // Env vars leídas en la construcción, nunca al importar: si falta alguna el
 // bot responde "no está configurado" en vez de crashear (API_BASE_URL,
 // WHATSAPP_SERVICE_TOKEN, WHATSAPP_HMAC_SECRET).
 const api: ApiClient = crearCliente()
-const flows = new ReadFlows(conversations, api, new OrderFlows(conversations, api))
+const limites = new RateLimiter()
+const flows = new ReadFlows(conversations, api, new OrderFlows(conversations, api), limites)
 
 /** Create the auth dir with owner-only permissions and chmod every credential file to 0600. */
 async function secureAuthDir(dir: string): Promise<void> {
@@ -87,6 +92,10 @@ async function start(attempt = 1): Promise<void> {
       const senderId = message.key.remoteJid
       // Solo chats 1:1 con el número del bot: nada de grupos ni difusiones.
       if (!senderId || shouldIgnoreSender(senderId, message.key.fromMe === true)) continue
+      if (!limites.interaccion(senderId, Date.now())) {
+        await socket.sendMessage(senderId, { text: MENSAJE_LIMITE })
+        continue
+      }
       const type = messageType(message)
       const state = conversations.get(senderId)
       console.log(JSON.stringify({ senderTagHash: senderTagHash(senderId), type, step: state?.step ?? 'menu' }))
