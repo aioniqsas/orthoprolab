@@ -9,12 +9,18 @@ import { OrdenesLive } from "./ordenes-live";
 
 export const metadata: Metadata = { title: "Órdenes" };
 
-async function OrdenesList() {
-  const ordenes = await listOrdenes();
-  return <OrdenesTable ordenes={ordenes} />;
+async function OrdenesList({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams;
+  // The search runs on the server (patient names are encrypted at rest).
+  const ordenes = await listOrdenes(q);
+  return <OrdenesTable ordenes={ordenes} busquedaInicial={q ?? ""} />;
 }
 
-export default function OrdenesPage() {
+export default function OrdenesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   return (
     <section className="flex flex-col gap-6">
       <OrdenesLive />
@@ -25,7 +31,7 @@ export default function OrdenesPage() {
         </Link>
       </div>
       <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
-        <OrdenesList />
+        <OrdenesList searchParams={searchParams} />
       </Suspense>
     </section>
   );

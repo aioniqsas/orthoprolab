@@ -5,6 +5,7 @@ import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableFilter } from "@repo/ui/components/data-table";
 import { formatearFecha, grupoDeEstado } from "@repo/api-client";
 import type { Orden } from "@/lib/data/types";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 const filters: DataTableFilter<Orden>[] = [
   {
@@ -53,7 +54,14 @@ function formatCop(value: string) {
   });
 }
 
-export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
+export function OrdenesTable({
+  ordenes,
+  busquedaInicial,
+}: {
+  ordenes: Orden[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   return (
     <DataTable
       rows={ordenes}
@@ -67,28 +75,24 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
               #{o.id}
             </Link>
           ),
-          searchValue: (o) => `#${o.id}`,
           sortValue: (o) => o.id,
         },
         {
           id: "doctor",
           header: "Doctor",
           render: doctorNombre,
-          searchValue: (o) => (o.asignacion?.doctor ? doctorNombre(o) : ""),
           sortValue: (o) => o.asignacion?.doctor?.nombres ?? "",
         },
         {
           id: "paciente",
           header: "Paciente",
           render: pacienteNombre,
-          searchValue: (o) => o.asignacion?.paciente?.nombre ?? "",
           sortValue: (o) => o.asignacion?.paciente?.nombre ?? "",
         },
         {
           id: "estado",
           header: "Estado",
           render: (o) => estadoBadge(o.estado.nombre, o.estado.color),
-          searchValue: (o) => o.estado.nombre,
           sortValue: (o) => o.estado.nombre,
         },
         {
@@ -118,6 +122,7 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
         },
       ]}
       search={{ placeholder: "Buscar por número, doctor o paciente", label: "Buscar por número, doctor o paciente" }}
+      serverSearch={busqueda}
       filters={filters}
       initialFilterValues={{ grupo: "activas" }}
       initialSort={{ id: "creada", dir: "asc" }}

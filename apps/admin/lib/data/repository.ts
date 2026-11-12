@@ -1,3 +1,5 @@
+import { fullName } from "./helpers";
+import { coincideTexto } from "@/lib/busqueda";
 /**
  * Data access for the admin portal.
  *
@@ -154,14 +156,16 @@ function mapOrden(raw: RawOrden): Orden {
 // Public API — Orders
 // ---------------------------------------------------------------------------
 
-export async function listOrdenes(): Promise<Orden[]> {
+export async function listOrdenes(q?: string): Promise<Orden[]> {
+  // The search runs on the server; sample data mirrors it locally.
   if (SAMPLE_DATA) {
-    return [...SAMPLE_ORDENES].sort((a, b) =>
-      b.fechaCreacion.localeCompare(a.fechaCreacion),
-    );
+    return [...SAMPLE_ORDENES]
+      .filter((o) => coincideTexto(q, [`#${o.id}`, fullName(o.doctor), o.paciente.nombre]))
+      .sort((a, b) => b.fechaCreacion.localeCompare(a.fechaCreacion));
   }
   try {
-    const res = await fetch(`${API_URL}/ordenes`, {
+    const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+    const res = await fetch(`${API_URL}/ordenes${qs}`, {
       headers: await authHeader(),
       cache: "no-store",
     });

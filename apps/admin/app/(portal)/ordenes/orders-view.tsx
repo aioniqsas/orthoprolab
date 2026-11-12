@@ -42,13 +42,14 @@ function OrdersStats({ stats }: { stats: Record<string, number> }) {
   );
 }
 
-export async function OrdersView() {
+export async function OrdersView({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   if (!(await isAdmin())) return null;
-  const [ordenes, stats, estados] = await Promise.all([listOrdenes(), getOrdenesStats(), getEstadosOrden()]);
+  const { q } = await searchParams;
+  const [ordenes, stats, estados] = await Promise.all([listOrdenes(q), getOrdenesStats(), getEstadosOrden()]);
   return (
     <div className="flex flex-col gap-6">
       <OrdersStats stats={stats} />
-      <OrdersTable ordenes={ordenes} estados={estados} />
+      <OrdersTable ordenes={ordenes} estados={estados} busquedaInicial={q ?? ""} />
     </div>
   );
 }

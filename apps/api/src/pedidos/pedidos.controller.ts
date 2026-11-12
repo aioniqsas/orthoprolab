@@ -40,10 +40,12 @@ export class PedidosController {
   findAll(
     @Query('estadoId') estadoId?: string,
     @Query('urgente') urgente?: string,
+    @Query('q') q?: string,
   ): Promise<Orden[]> {
     return this.pedidos.findAll({
       estadoId: estadoId !== undefined ? Number(estadoId) : undefined,
       urgente: urgente !== undefined ? urgente === 'true' : undefined,
+      q,
     });
   }
 

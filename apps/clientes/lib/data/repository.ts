@@ -49,9 +49,10 @@ export async function getDoctor(id: string): Promise<Doctor | null> {
 
 // ─── Órdenes ────────────────────────────────────────────────────────────────
 
-export async function listOrdenes(): Promise<Orden[]> {
+export async function listOrdenes(q?: string): Promise<Orden[]> {
   try {
-    const res = await fetch(`${API_URL}/mi-clinica/ordenes`, {
+    const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+    const res = await fetch(`${API_URL}/mi-clinica/ordenes${qs}`, {
       headers: await authHeader(),
       cache: "no-store",
     });

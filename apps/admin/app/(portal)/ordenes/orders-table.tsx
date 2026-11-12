@@ -8,6 +8,7 @@ import { esEstadoFinal, formatCop, formatDate, fullName } from "@/lib/data/helpe
 import type { Orden } from "@/lib/data/types";
 import { EstadoBadge, UrgenteBadge } from "../../_components/estado-badge";
 import { EstadoFilaSelect } from "./estado-fila-select";
+import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 
 const filters: DataTableFilter<Orden>[] = [
@@ -32,7 +33,16 @@ const filters: DataTableFilter<Orden>[] = [
   },
 ];
 
-export function OrdersTable({ ordenes, estados }: { ordenes: Orden[]; estados: { id: string; codigo: string; nombre: string }[] }) {
+export function OrdersTable({
+  ordenes,
+  estados,
+  busquedaInicial,
+}: {
+  ordenes: Orden[];
+  estados: { id: string; codigo: string; nombre: string }[];
+  busquedaInicial: string;
+}) {
+  const busqueda = useBusquedaUrl(busquedaInicial);
   const columns: DataTableColumn<Orden>[] = [
   {
     id: "orden",
@@ -49,21 +59,18 @@ export function OrdersTable({ ordenes, estados }: { ordenes: Orden[]; estados: {
         {o.urgente ? <UrgenteBadge /> : null}
       </div>
     ),
-    searchValue: (o) => `#${o.id}`,
   },
   {
     id: "doctor",
     header: "Doctor",
     sortValue: (o) => fullName(o.doctor),
     render: (o) => fullName(o.doctor),
-    searchValue: (o) => fullName(o.doctor),
   },
   {
     id: "paciente",
     header: "Paciente",
     sortValue: (o) => o.paciente.nombre,
     render: (o) => o.paciente.nombre,
-    searchValue: (o) => o.paciente.nombre,
   },
   {
     id: "estado",
@@ -118,6 +125,7 @@ export function OrdersTable({ ordenes, estados }: { ordenes: Orden[]; estados: {
         placeholder: "Buscar por número, doctor o paciente",
         label: "Buscar por número, doctor o paciente",
       }}
+      serverSearch={busqueda}
       filters={filters}
       renderCard={(o) => (
         <li className="rounded-xl border border-border bg-card p-4">

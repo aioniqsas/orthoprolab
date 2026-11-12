@@ -15,6 +15,7 @@ import { PedidosService } from '../pedidos/pedidos.service.js';
 import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { MailerControlTrabajosService } from '../pedidos/mailer-control-trabajos.service.js';
 import { coincideBusqueda } from '../common/busqueda.js';
+import { coincideOrden } from '../pedidos/orden-busqueda.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
 import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
@@ -106,9 +107,9 @@ export class MiClinicaService {
     return this.doctorRepo.save(doctor);
   }
 
-  async listOrdenes(usuarioId: string): Promise<Orden[]> {
+  async listOrdenes(usuarioId: string, q?: string): Promise<Orden[]> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.ordenRepo
+    const ordenes = await this.ordenRepo
       .createQueryBuilder('o')
       .innerJoinAndSelect('o.asignacion', 'asig')
       .innerJoinAndSelect('asig.doctor', 'doctor')
@@ -117,6 +118,8 @@ export class MiClinicaService {
       .where('doctor.clinicaId = :clinicaId', { clinicaId })
       .orderBy('o.fechaCreacion', 'DESC')
       .getMany();
+    // The clinic's table also searched the state name.
+    return ordenes.filter((o) => coincideOrden(o, q, [o.estado?.nombre]));
   }
 
   /** Clinic portal: drafts are still internal, so they never reach the client. */

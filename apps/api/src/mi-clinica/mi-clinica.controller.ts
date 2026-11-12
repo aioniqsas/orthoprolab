@@ -132,8 +132,8 @@ export class MiClinicaController {
   }
 
   @Get('ordenes')
-  listOrdenes(@Req() req: AuthenticatedRequest) {
-    return this.miClinica.listOrdenes(req.user.id);
+  listOrdenes(@Req() req: AuthenticatedRequest, @Query('q') q?: string) {
+    return this.miClinica.listOrdenes(req.user.id, q);
   }
 
   @Post('ordenes')

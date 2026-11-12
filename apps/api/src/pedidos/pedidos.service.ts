@@ -1,3 +1,4 @@
+import { coincideOrden } from './orden-busqueda.js';
 import {
   BadRequestException,
   ForbiddenException,
@@ -41,6 +42,7 @@ export class PedidosService {
   async findAll(filters?: {
     estadoId?: number;
     urgente?: boolean;
+    q?: string;
   }): Promise<Orden[]> {
     const where: FindOptionsWhere<Orden> = {};
     if (filters?.estadoId !== undefined) {
@@ -51,7 +53,7 @@ export class PedidosService {
     }
     // Lista liviana: la tabla no usa detalles ni historial (se piden en el
     // detalle con findOne). Ver optimizacion B2.
-    return this.ordenRepo.find({
+    const ordenes = await this.ordenRepo.find({
       where,
       relations: {
         estado: true,
@@ -59,6 +61,7 @@ export class PedidosService {
       },
       order: { fechaCreacion: 'DESC' },
     });
+    return ordenes.filter((o) => coincideOrden(o, filters?.q));
   }
 
   /** Returns the order with full nested relations needed by the detail view. */
