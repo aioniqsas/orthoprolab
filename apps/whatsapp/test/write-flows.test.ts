@@ -107,7 +107,7 @@ describe('flujo 4: crear orden en conversación (S5, S6, S7–S10)', () => {
     expect(resumen.text).toContain('Doctor: Ana Gómez')
     // Entrada desconocida en el paso de confirmación: "No entendí" explícito.
     const r = await enviar(esc, ['__CONFIRMAR__'])
-    expect(r.text).toBe(PREGUNTA_CONFIRMAR)
+    expect(r.text).toContain(PREGUNTA_CONFIRMAR)
     const r2 = await enviar(esc, ['CONFIRMAR'])
     expect(r2.text).toContain('Orden 1234')
     expect(api.crearOrdenLlamadas[0]!.payload).toEqual({
@@ -141,7 +141,7 @@ describe('flujo 4: crear orden en conversación (S5, S6, S7–S10)', () => {
       await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
       const r = await enviar(esc, [palabra])
       expect(api.crearOrdenLlamadas).toHaveLength(0)
-      expect(r.text).toBe(PREGUNTA_CONFIRMAR)
+      expect(r.text).toContain(PREGUNTA_CONFIRMAR)
     }
   })
 
@@ -309,7 +309,7 @@ describe('flujo 4: crear orden en conversación (S5, S6, S7–S10)', () => {
     const esc = escritor(api)
     await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     const r = await esc.handle(TEL, '¿listo?')
-    expect(r.text).toBe(PREGUNTA_CONFIRMAR)
+    expect(r.text).toContain(PREGUNTA_CONFIRMAR)
     expect(api.crearOrdenLlamadas).toHaveLength(0)
   })
 

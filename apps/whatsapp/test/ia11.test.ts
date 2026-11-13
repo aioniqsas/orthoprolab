@@ -129,7 +129,7 @@ describe('IA11/S7–S10: la frase completa toma la orden sin menús ni pasos', (
     expect(r3.text).toContain(wf.CONFIRMAR_PIE)
     // Solo tras el sí se escribe.
     const r4 = await esc.handle(TEL, 'dale')
-    expect(r4.text).toBe(PREGUNTA_CONFIRMAR)
+    expect(r4.text).toContain(PREGUNTA_CONFIRMAR)
     const r5 = await esc.handle(TEL, 'confirmar')
     expect(r5.text).toContain('Orden 1234 creada.')
   })
@@ -243,5 +243,41 @@ describe('una anotación en la confirmación no se pierde (L8)', () => {
     expect(fin.text).toContain('Orden 1234 creada.')
     const payload = api.ordenesCreadas[0] as unknown as { detalles: Array<{ observaciones?: string }> }
     expect(payload.detalles[0]!.observaciones).toBe('Una observacion: test')
+  })
+})
+
+describe('la orden se corrige hablando en la confirmación (L8)', () => {
+  it('"añade otra prótesis para el 32" agrega el diente, suma la unidad y vuelve a pedir el sí', async () => {
+    const api = apiFalso(true)
+    const esc = escritor(api)
+    await esc.handle(TEL, FRASE_REAL)
+    await esc.handle(TEL, '2')
+    await esc.handle(TEL, 'Blanco')
+    const antes = await esc.handle(TEL, 'Añade otra protesis para el 32')
+    expect(antes.text).toContain('Agregué el 32')
+    expect(antes.text).toContain('Cantidad: 3')
+    expect(antes.text).toContain('32 – incisivo lateral inferior izquierdo')
+    expect(antes.text).toContain(wf.CONFIRMAR_PIE)
+    expect(api.ordenesCreadas).toHaveLength(0)
+
+    const fin = await esc.handle(TEL, 'si')
+    expect(fin.text).toContain('Orden 1234 creada.')
+    const payload = api.ordenesCreadas[0] as unknown as {
+      detalles: Array<{ cantidad: number; dientes: number[] }>
+    }
+    expect(payload.detalles[0]!.cantidad).toBe(3)
+    expect(payload.detalles[0]!.dientes).toEqual([14, 13, 32])
+  })
+
+  it('un texto que no pide nada no cambia la orden y dice qué sí entiende', async () => {
+    const api = apiFalso(true)
+    const esc = escritor(api)
+    await esc.handle(TEL, FRASE_REAL)
+    await esc.handle(TEL, '2')
+    await esc.handle(TEL, 'Blanco')
+    const r = await esc.handle(TEL, 'dale')
+    expect(r.text).toContain(PREGUNTA_CONFIRMAR)
+    expect(r.text).toContain(wf.AYUDA_CONFIRMAR)
+    expect(api.ordenesCreadas).toHaveLength(0)
   })
 })
