@@ -5,6 +5,7 @@ import { buildMenu, SALUDO } from './menu.js'
 import type { Ruta } from './llm.js'
 import { MENSAJE_LIMITE_LLAMADA, RateLimiter } from './rate-limit.js'
 import type { ConversationStore } from './state.js'
+import { OrdenExistenteFlows, PASO_CAMBIO } from './orden-existente.js'
 import type { OrderFlows } from './write-flows.js'
 
 /**
@@ -39,6 +40,7 @@ export function intencionDe(step: string, texto: string): string {
   // "ayuda" pregunta antes de llamar; la intención ya es de llamada (S11).
   if (/^(ayuda|help)$/i.test(texto.trim())) return 'llamada'
   if (step === 'menu' && texto.trim() === '5') return 'llamada'
+  if (step === PASO_CAMBIO) return 'estado'
   if (step === 'pedido-numero') return 'estado'
   if (step === 'control-numero') return 'control'
   if (step === 'cuenta-numero') return 'cuenta'
@@ -95,12 +97,17 @@ export function formatoOrden(orden: OrdenApi): string {
 }
 
 export class ReadFlows {
+  private readonly existente: OrdenExistenteFlows
+
   constructor(
     private readonly store: ConversationStore,
     private readonly api: ApiClient,
     private readonly escritor?: OrderFlows,
     private readonly limites: RateLimiter = new RateLimiter(),
-  ) {}
+    existente?: OrdenExistenteFlows,
+  ) {
+    this.existente = existente ?? new OrdenExistenteFlows(store, api)
+  }
 
   /** Un turno de conversación para un contacto ya identificado. */
   async handle(telefono: string, texto: string, doctorContacto?: string): Promise<Respuesta> {
@@ -157,6 +164,10 @@ export class ReadFlows {
       }
       return { kind: 'text', text: `No entendí. ${PREGUNTA_AYUDA}` }
     }
+
+    // Una conversación sobre una orden que ya existe (S2–S7): el borrador vive
+    // en ConversationStore y cada turno reinterpreta el mensaje completo.
+    if (step === PASO_CAMBIO) return this.existente.handle(telefono, texto)
 
     // El flujo de escritura maneja sus propios pasos y su cancelación (T6).
     if (step.startsWith('orden-')) {
@@ -227,6 +238,7 @@ export class ReadFlows {
 
   /** La pregunta del paso actual, para repetirla tras un medio no legible o tras "ayuda → 0". */
   private async preguntaDelPaso(telefono: string, step: string): Promise<string> {
+    if (step === PASO_CAMBIO) return this.existente.repetirPaso(telefono)
     if (step.startsWith('orden-') && this.escritor) return this.escritor.repetirPaso(telefono)
     if (step === 'pedido-numero') return PREGUNTA_PEDIDO
     if (step === 'control-numero') return PREGUNTA_CONTROL
@@ -248,6 +260,11 @@ export class ReadFlows {
         respuesta = this.escritor
           ? await this.escritor.handle(telefono, ruta.texto ?? '', doctorContacto)
           : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
+        break
+      case 'buscar_orden':
+      case 'editar_orden':
+        // El flujo reinterpreta el mensaje completo: el modelo elige la puerta.
+        respuesta = await this.existente.handle(telefono, ruta.texto ?? '')
         break
       case 'pedir_llamada':
         // Misma puerta que "ayuda": pregunta antes de registrar la llamada (S11).
@@ -283,7 +300,15 @@ export class ReadFlows {
         break
     }
     if (respuesta.intencion === undefined) {
-      const intenciones = { ver_pedido: 'estado', enviar_control: 'control', enviar_cuenta: 'cuenta', nuevo_pedido: 'orden', pedir_llamada: 'llamada' } as const
+      const intenciones = {
+        ver_pedido: 'estado',
+        enviar_control: 'control',
+        enviar_cuenta: 'cuenta',
+        nuevo_pedido: 'orden',
+        pedir_llamada: 'llamada',
+        buscar_orden: 'estado',
+        editar_orden: 'orden_creada',
+      } as const
       respuesta.intencion = intenciones[ruta.tipo]
       respuesta.paso = pasoPrevio
     }

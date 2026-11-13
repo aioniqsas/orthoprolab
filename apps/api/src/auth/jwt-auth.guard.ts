@@ -11,6 +11,7 @@ const BOT_ROUTES = [
   ['POST', /^\/mi-clinica\/pacientes$/], ['GET', /^\/mi-clinica\/servicios$/],
   ['GET', /^\/mi-clinica\/cuentas-cobro$/], ['GET', /^\/mi-clinica\/cuentas-cobro\/[^/]+$/], ['GET', /^\/mi-clinica\/cuentas-cobro\/[^/]+\/pdf$/],
   ['POST', /^\/mi-clinica\/ordenes$/],
+  ['PUT', /^\/mi-clinica\/ordenes\/[^/]+$/],
 ] as const;
 
 @Injectable()

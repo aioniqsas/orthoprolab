@@ -75,16 +75,37 @@ const ESQUEMAS: Record<string, Record<string, TipoParam>> = {
   pedir_llamada: {},
   enviar_control: { orden: 'numero' },
   enviar_cuenta: { numero: 'texto' },
+  // Órdenes existentes (S2, S6, S7): el modelo elige la puerta y el mensaje
+  // completo viaja al flujo, que reinterpreta paciente, número, día y cambios.
+  // No hay herramienta SQL por nombre porque `paciente.nombre` está cifrado:
+  // esa búsqueda va por la API, que sí descifra y ya filtra por clínica.
+  buscar_orden: {},
+  editar_orden: {},
 }
 
 /** Herramientas de intención: devuelven una ruta al flujo determinista, no consultan la base. */
-const ES_INTENCION = new Set(['ver_pedido', 'nuevo_pedido', 'pedir_llamada', 'enviar_control', 'enviar_cuenta'])
+const ES_INTENCION = new Set([
+  'ver_pedido',
+  'nuevo_pedido',
+  'pedir_llamada',
+  'enviar_control',
+  'enviar_cuenta',
+  'buscar_orden',
+  'editar_orden',
+])
 
 /** Ruta decidida por el modelo; la ejecuta el flujo determinista (IA7). */
 export type Ruta = {
-  tipo: 'ver_pedido' | 'enviar_control' | 'enviar_cuenta' | 'nuevo_pedido' | 'pedir_llamada'
+  tipo:
+    | 'ver_pedido'
+    | 'enviar_control'
+    | 'enviar_cuenta'
+    | 'nuevo_pedido'
+    | 'pedir_llamada'
+    | 'buscar_orden'
+    | 'editar_orden'
   numero?: string
-  /** Texto original para `nuevo_pedido` (IA11/S9): el flujo lo interpreta antes de preguntar. */
+  /** Texto original: el flujo lo reinterpreta completo antes de preguntar (S4). */
   texto?: string
 }
 
@@ -125,7 +146,22 @@ export function prechequeoRuta(texto: string): Ruta | null {
   // resto de mensajes con números va al modelo, que sí sabe extraer el dato
   // ("mándame la cuenta de la 1234").
   if (esPedidoDeOrden(t)) return { tipo: 'nuevo_pedido', texto }
+  // Cambiar algo de una orden que ya existe (S3): quitar o agregar dientes, la
+  // cantidad o el color. Va antes del descarte por dígitos: el mensaje los trae.
+  if (
+    /\b(quita\w*|quitar\w*|saca\w*|sacar\w*|elimina\w*|eliminar\w*|agrega\w*|agregar\w*|a[ñn]ade\w*|a[ñn]adir\w*|suma\w*|sumar\w*|pon\w*|cambia\w*|cambiar\w*|modifica\w*|modificar\w*|ya\s+no\s+(?:vamos\s+a\s+hacer(?:le)?|hay\s+que\s+hacer(?:le)?))\b/.test(t) &&
+    /\b(orden|pedido|trabajo|diente|dientes)\b/.test(t)
+  ) return { tipo: 'editar_orden', texto }
+  // "la orden 18", "la orden 18 de Sara": identificar una orden concreta (S6),
+  // y "¿cómo va la orden 7?" sigue yendo por las herramientas: ahí hay pregunta.
+  if (/^(?:la|el)\s+(?:orden|pedido)\b/.test(t)) return { tipo: 'buscar_orden', texto }
   if (/\d/.test(t)) return null
+  // Hablar de una orden concreta por paciente o por día (S2, S7). Con un número
+  // la consulta va por las herramientas de siempre, que ya lo resuelven.
+  if (/\b(orden|pedido)\b/.test(t) && /\b(de|del|para)\s+\p{L}/u.test(t)) return { tipo: 'buscar_orden', texto }
+  if (/\b(orden|pedido|trabajo)\b/.test(t) && /\b(hoy|ayer|anteayer|antier|lunes|martes|miercoles|jueves|viernes|sabado|domingo|semana)\b/.test(t)) {
+    return { tipo: 'buscar_orden', texto }
+  }
   if (/\bque\s+me\s+llame[nr]?\b/.test(t) || /\b(llamenme|llamame)\b/.test(t)) return { tipo: 'pedir_llamada' }
   if (
     /\bcomo\s+va\b[^.]{0,30}\b(orden|pedido|trabajo)\b/.test(t) ||
@@ -370,6 +406,8 @@ export class ClienteGroq {
             : nombre === 'pedir_llamada' ? 'La persona pide que el laboratorio la llame.'
             : nombre === 'enviar_control' ? 'Enviar el control de trabajos de una orden en PDF. El número de orden es opcional.'
             : nombre === 'enviar_cuenta' ? 'Enviar una cuenta de cobro en PDF. El número es opcional.'
+            : nombre === 'buscar_orden' ? 'La persona habla de una orden que ya existe: por el nombre del paciente, por el número, por los dos o por el día en que la hizo. El flujo la busca y contesta.'
+            : nombre === 'editar_orden' ? 'La persona quiere quitar o agregar dientes, cambiar la cantidad o el color de una orden que ya existe. El flujo muestra antes y después y confirma antes de escribir.'
             : 'Catálogo de servicios activos.',
         ),
       ),
@@ -446,7 +484,7 @@ export class ClienteGroq {
     }
     const historial = previo.historial.slice(-MAX_TURNOS_HISTORIAL * 2)
     const mensajes: Mensaje[] = [
-      { role: 'system', content: construirPromptSistema(contexto) },
+      { role: 'system', content: construirPromptSistema(contexto, new Date(ahora)) },
       ...historial.map((m) => ({ role: m.role, content: m.content }) as Mensaje),
       { role: 'user', content: usuarioRedactado },
     ]
@@ -511,7 +549,9 @@ export class ClienteGroq {
         store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
         this.auditar({ intencion: intencion.llamada.nombre, herramienta: intencion.llamada.nombre, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'herramienta_ok' })
         const ruta = rutaDe(intencion.llamada)
-        if (ruta.tipo === 'nuevo_pedido') ruta.texto = usuarioRedactado
+        if (ruta.tipo !== 'ver_pedido' && ruta.tipo !== 'enviar_control' && ruta.tipo !== 'enviar_cuenta' && ruta.tipo !== 'pedir_llamada') {
+          ruta.texto = usuarioRedactado
+        }
         return { ruta }
       }
       historialNuevo.push({ role: 'assistant', content: `[consultó ${nombrePrimera}]` })

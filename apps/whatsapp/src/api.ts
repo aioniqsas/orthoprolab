@@ -78,20 +78,24 @@ export interface SesionBot {
   doctorId: string | null
 }
 
+export interface DetalleOrdenApi {
+  servicio: string
+  cantidad: number
+  dientes: number[]
+  colorDiente?: string | null
+  observaciones?: string | null
+}
+
 export interface OrdenApi {
   id: string
   estado?: { codigo?: string | null; nombre?: string } | null
+  fechaCreacion?: string | null
   fechaEntrega: string | null
   asignacion?: {
     doctor?: { id?: string; nombres?: string; apellidos?: string } | null
     paciente?: { nombre?: string } | null
   } | null
-  detalles: Array<{
-    servicio: string
-    cantidad: number
-    dientes: number[]
-    colorDiente?: string | null
-  }>
+  detalles: DetalleOrdenApi[]
 }
 
 export interface CuentaCobroApi {
@@ -414,6 +418,22 @@ export class ApiClient {
     return res.json()
   }
 
+  /** PUT autenticado bajo /mi-clinica; reintenta una vez si el token venció. */
+  private async putJson(telefono: string, path: string, body: unknown, reintento = true): Promise<unknown> {
+    const sesion = await this.sesion(telefono)
+    const res = await this.fetchFn(`${this.baseUrl}${path}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: `auth_token=${sesion.token}` },
+      body: JSON.stringify(body),
+    })
+    if (res.status === 401 && reintento) {
+      this.tokens.delete(telefonoCanonical(telefono))
+      return this.putJson(telefono, path, body, false)
+    }
+    if (!res.ok) throw new ApiError(res.status, `${path} falló`)
+    return res.json()
+  }
+
   async getDoctores(telefono: string): Promise<DoctorApi[]> {
     return (await this.getJson(telefono, '/mi-clinica/doctores')) as DoctorApi[]
   }
@@ -458,6 +478,19 @@ export class ApiClient {
       cabeceras,
     )) as OrdenApi
   }
+
+  /**
+   * Modifica una orden existente (S3): el mismo `PUT /mi-clinica/ordenes/:id`
+   * que usa el portal, con la validación de la API. Reemplaza las líneas, así
+   * que el cuerpo lleva la lista completa; nunca ids de paciente ni de clínica.
+   */
+  async actualizarOrden(telefono: string, ordenId: string, payload: ActualizarOrdenPayload): Promise<OrdenApi> {
+    return (await this.putJson(
+      telefono,
+      `/mi-clinica/ordenes/${encodeURIComponent(ordenId)}`,
+      payload,
+    )) as OrdenApi
+  }
 }
 
 export interface DoctorApi {
@@ -482,6 +515,17 @@ export interface ServicioApi {
 export interface NuevaOrdenPayload {
   doctorId: string
   pacienteId?: number
+  detalles: Array<{
+    servicio: string
+    cantidad: number
+    dientes: number[]
+    colorDiente: string
+    observaciones?: string
+  }>
+}
+
+/** Cuerpo de PUT /mi-clinica/ordenes/:id (UpdateOrdenDto de la API). */
+export interface ActualizarOrdenPayload {
   detalles: Array<{
     servicio: string
     cantidad: number
