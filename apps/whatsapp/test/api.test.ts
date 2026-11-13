@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import {
   ApiClient,
   ApiError,
@@ -211,6 +211,27 @@ describe('clave de caché canónica', () => {
 })
 
 describe('cliente sin configuración', () => {
+  // Bun carga el .env local, así que sin aislar el entorno este test pasaría o
+  // fallaría según la máquina del operador y no según el código.
+  let guardado: { token?: string; hmac?: string } = {}
+  beforeEach(() => {
+    guardado = {
+      token: process.env.WHATSAPP_SERVICE_TOKEN,
+      hmac: process.env.WHATSAPP_HMAC_SECRET,
+    }
+    delete process.env.WHATSAPP_SERVICE_TOKEN
+    delete process.env.WHATSAPP_HMAC_SECRET
+  })
+  afterEach(() => {
+    for (const [clave, valor] of [
+      ['WHATSAPP_SERVICE_TOKEN', guardado.token],
+      ['WHATSAPP_HMAC_SECRET', guardado.hmac],
+    ] as const) {
+      if (valor === undefined) delete process.env[clave]
+      else process.env[clave] = valor
+    }
+  })
+
   it('informa que el bot no está configurado sin crashear', () => {
     const sinConfig = new ApiClient(falsoFetch([]).fetchFn, BASE)
     expect(sinConfig.mensajeConfigFaltante()).toContain('no está configurado')
