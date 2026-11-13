@@ -159,6 +159,7 @@ export class MiClinicaService {
       .innerJoinAndSelect('asig.paciente', 'paciente')
       .innerJoinAndSelect('o.estado', 'estado')
       .leftJoinAndSelect('o.detalles', 'detalle')
+<<<<<<< HEAD
       .where('doctor.clinicaId = :clinicaId', { clinicaId });
     qb.orderBy(
       orderByWhitelist(
@@ -177,7 +178,11 @@ export class MiClinicaService {
     aplicarBusquedaOrdenes(qb, q, pacienteIds, { conEstado: true });
     const total = await qb.getCount();
     if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
-    const data = await qb.skip(skip).take(currentSize).getMany();
+    // Ventana de edición (S8): el veredicto sale de la API y el bot y el portal
+    // lo leen; nadie lo vuelve a calcular por fuera.
+    const data = await this.pedidosService.anotarEditable(
+      await qb.skip(skip).take(currentSize).getMany(),
+    );
     return paginatedResult(data, total, currentPage, currentSize);
   }
 
@@ -474,6 +479,8 @@ export class MiClinicaService {
     if (orden.asignacion?.doctor?.clinicaId !== clinicaId) {
       throw new NotFoundException(`Orden ${ordenId} no encontrada`);
     }
-    return orden;
+    // `editable`/`editableHasta` viajan con el detalle (S8).
+    const [conVeredicto] = await this.pedidosService.anotarEditable([orden]);
+    return conVeredicto!;
   }
 }

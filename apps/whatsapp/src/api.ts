@@ -92,6 +92,9 @@ export interface OrdenApi {
   fechaCreacion?: string | null
   fechaEntrega: string | null
   urgente?: boolean
+  /** Veredicto de la ventana de edición (S8), calculado por la API. */
+  editable?: boolean
+  editableHasta?: string | null
   asignacion?: {
     doctor?: { id?: string; nombres?: string; apellidos?: string } | null
     paciente?: { nombre?: string } | null
