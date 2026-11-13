@@ -18,6 +18,7 @@ import { OrderFlows } from './write-flows'
 import { canjearVinculacion, parseVincular, VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA } from './vinculacion'
 import { resolveIdentity } from './identity'
 import { telefonoDelRemitente } from './lid'
+import { esperarEscribiendo, pausaAntesDeResponder, textoDeRespuesta } from './ritmo'
 import {
   INSTRUCCION_QR,
   iniciarSesion,
@@ -136,6 +137,19 @@ async function start(attempt = 1): Promise<void> {
     }
   ).lidMapping
 
+  /** Responde con ritmo humano: primero "escribiendo…", después el mensaje. */
+  const responder = async (jid: string, contenido: Parameters<typeof socket.sendMessage>[1]) => {
+    const texto = textoDeRespuesta(contenido as { text?: string; caption?: string })
+    const pausa = pausaAntesDeResponder(texto)
+    if (pausa > 0) {
+      console.log(`Escribiendo ${(pausa / 1000).toFixed(1)} s (${texto.length} caracteres)`)
+      await esperarEscribiendo(pausa, async (estado) => {
+        await socket.sendPresenceUpdate(estado, jid).catch(() => undefined)
+      })
+    }
+    return socket.sendMessage(jid, contenido)
+  }
+
   socket.ev.on('creds.update', () => void saveCredsSecured(saveCreds, authDir))
   socket.ev.on('connection.update', ({ connection, lastDisconnect }) => {
     if (connection === 'close') {
@@ -169,14 +183,14 @@ async function start(attempt = 1): Promise<void> {
       )
       if (!remitente) {
         console.log(`Mensaje descartado (lid sin traducir) de ${desde}`)
-        await socket.sendMessage(senderId, { text: NO_HABILITADO })
+        await responder(senderId, { text: NO_HABILITADO })
         continue
       }
       const quien = senderId.endsWith('@s.whatsapp.net')
         ? desde
         : `${etiquetaRemitente(remitente, MOSTRAR_NUMEROS)} (lid ${senderId.split('@')[0]})`
       if (!limites.interaccion(remitente, Date.now())) {
-        await socket.sendMessage(senderId, { text: MENSAJE_LIMITE })
+        await responder(senderId, { text: MENSAJE_LIMITE })
         continue
       }
       const type = messageType(message)
@@ -184,7 +198,7 @@ async function start(attempt = 1): Promise<void> {
       console.log(`Te escribieron desde ${quien} (${type}, paso ${state?.step ?? 'menu'})`)
       const faltante = api.mensajeConfigFaltante()
       if (faltante) {
-        await socket.sendMessage(senderId, { text: faltante })
+        await responder(senderId, { text: faltante })
         continue
       }
       // VINCULAR <código> (T8): antes del filtro de identidad, porque justamente
@@ -195,17 +209,17 @@ async function start(attempt = 1): Promise<void> {
         // y la respuesta genérica confundiría. Se responde antes de canjear.
         const previa = await resolveIdentity(remitente, api)
         if (previa.ok) {
-          await socket.sendMessage(senderId, { text: VINCULAR_YA })
+          await responder(senderId, { text: VINCULAR_YA })
           continue
         }
         const vinculado = await canjearVinculacion(api, remitente, codigoVincular)
-        await socket.sendMessage(senderId, { text: vinculado ? VINCULAR_OK : VINCULAR_FALLO })
+        await responder(senderId, { text: vinculado ? VINCULAR_OK : VINCULAR_FALLO })
         continue
       }
       const identidad = await resolveIdentity(remitente, api)
       if (!identidad.ok) {
         // Misma respuesta corta para no registrado y bloqueado (S1).
-        await socket.sendMessage(senderId, { text: identidad.reply })
+        await responder(senderId, { text: identidad.reply })
         continue
       }
       // Medios no legibles (S11/T12): audio y el resto reciben su aviso y la
@@ -213,7 +227,7 @@ async function start(attempt = 1): Promise<void> {
       if (type !== 'text') {
         const esAudio = Boolean(message.message?.audioMessage)
         const media = await flows.media(identidad.telefono, esAudio)
-        await socket.sendMessage(senderId, { text: media.text })
+        await responder(senderId, { text: media.text })
         continue
       }
       // IA7/S13: en el paso de saludo TODO el texto libre lo enruta el modelo
@@ -241,19 +255,19 @@ async function start(attempt = 1): Promise<void> {
             identidad.identidad.doctorId,
           )
           if (respuesta.kind === 'document') {
-            await socket.sendMessage(senderId, {
+            await responder(senderId, {
               document: respuesta.buffer,
               mimetype: 'application/pdf',
               fileName: respuesta.filename,
               caption: respuesta.text,
             })
           } else {
-            await socket.sendMessage(senderId, { text: respuesta.text })
+            await responder(senderId, { text: respuesta.text })
           }
           continue
         }
         if (ia.texto !== null) {
-          await socket.sendMessage(senderId, { text: ia.texto })
+          await responder(senderId, { text: ia.texto })
           continue
         }
       }
@@ -263,14 +277,14 @@ async function start(attempt = 1): Promise<void> {
         identidad.identidad.doctorId,
       )
       if (respuesta.kind === 'document') {
-        await socket.sendMessage(senderId, {
+        await responder(senderId, {
           document: respuesta.buffer,
           mimetype: 'application/pdf',
           fileName: respuesta.filename,
           caption: respuesta.text,
         })
       } else {
-        await socket.sendMessage(senderId, { text: respuesta.text })
+        await responder(senderId, { text: respuesta.text })
       }
     }
   })
