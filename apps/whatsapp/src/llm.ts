@@ -1,4 +1,5 @@
 import { NO_DISPONIBLE, NO_ENCONTRADO, type DatosBot } from './datos.js'
+import { numeroEnPalabras } from './numeros.js'
 import { ejecutarHerramienta, type LlamadaHerramienta } from './herramientas.js'
 import { PREGUNTA_ACLARAR, SALUDO } from './menu.js'
 import {
@@ -138,6 +139,16 @@ function esPedidoDeOrden(t: string): boolean {
   )
 }
 
+/** Número de orden dicho con cifras o con palabras en el texto. */
+function numeroDeOrdenDeTexto(texto: string): string | undefined {
+  const cifras = /\b(?:orden|pedido)\s*(?:n[uú]mero\s*)?#?\s*(\d{1,9})\b/i.exec(texto)
+  if (cifras?.[1]) return cifras[1]
+  const cola = /\b(?:orden|pedido)\s+(?:n[uú]mero\s+)?(.{2,40})/i.exec(texto)?.[1]
+  if (!cola) return undefined
+  const n = numeroEnPalabras(cola.split(/[\s,.;:!?]+/).slice(0, 4).join(' '))
+  return n === null ? undefined : String(n)
+}
+
 export function prechequeoRuta(texto: string): Ruta | null {
   const t = normalizar(texto)
   if (t === '') return null
@@ -155,6 +166,13 @@ export function prechequeoRuta(texto: string): Ruta | null {
   // "la orden 18", "la orden 18 de Sara": identificar una orden concreta (S6),
   // y "¿cómo va la orden 7?" sigue yendo por las herramientas: ahí hay pregunta.
   if (/^(?:la|el)\s+(?:orden|pedido)\b/.test(t)) return { tipo: 'buscar_orden', texto }
+  // "¿cuál es el estado de la orden diecisiete?": con un número presente la
+  // pregunta es por el estado de una orden, no por un paciente llamado
+  // "Diecisiete". Sin número, "la orden de Sara" sigue yendo a buscar_orden.
+  const numeroPedido = numeroDeOrdenDeTexto(texto)
+  if (numeroPedido && /\b(estado|situacion|como\s+va\w*|como\s+vamos)\b/.test(t) && /\b(orden|pedido)\b/.test(t)) {
+    return { tipo: 'ver_pedido', numero: numeroPedido }
+  }
   if (/\d/.test(t)) return null
   // Hablar de una orden concreta por paciente o por día (S2, S7). Con un número
   // la consulta va por las herramientas de siempre, que ya lo resuelven.

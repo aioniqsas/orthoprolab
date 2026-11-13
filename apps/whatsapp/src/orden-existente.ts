@@ -2,6 +2,7 @@ import { esDienteValido } from '@repo/api-client/dientes'
 import { ApiError, type ApiClient, type DetalleOrdenApi, type OrdenApi } from './api.js'
 import { formatoOrden } from './flows.js'
 import { SALUDO } from './menu.js'
+import { esPalabraNumerica, numeroEnPalabras } from './numeros.js'
 import type { ConversationStore } from './state.js'
 import { entregaDeTexto, esDelDia, fechaCorta, fechaLarga, fechaLocal, resolverDiaReferencia } from './tiempo.js'
 import {
@@ -78,7 +79,14 @@ export function numeroDeOrden(texto: string): string {
   const conNombre = RE_ORDEN_NUMERO.exec(texto)
   if (conNombre?.[1]) return conNombre[1]
   const solo = /^\s*(\d{1,9})\s*$/.exec(texto)
-  return solo?.[1] ?? ''
+  if (solo?.[1]) return solo[1]
+  // "la orden diecisiete": el número dicho con palabras.
+  const cola = /\b(?:orden|pedido)\s+(?:n[uú]mero\s+)?(.{2,40})/i.exec(texto)?.[1]
+  if (cola) {
+    const n = numeroEnPalabras(cola.split(/[\s,.;:!?]+/).slice(0, 4).join(' '))
+    if (n !== null) return String(n)
+  }
+  return ''
 }
 
 /** Conectores que sí pueden ir delante del nombre ("de Sara", "del paciente Sara"). */
@@ -98,6 +106,12 @@ function nombreDeFragmento(crudo: string): string {
       break
     }
     if (/\d/.test(palabra)) {
+      if (nombre.length === 0) continue
+      break
+    }
+    // "diecisiete" es un número, no un paciente: se salta, y con nombre ya
+    // empezado corta, igual que las cifras.
+    if (esPalabraNumerica(palabra)) {
       if (nombre.length === 0) continue
       break
     }
