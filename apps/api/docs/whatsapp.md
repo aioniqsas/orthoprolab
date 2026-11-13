@@ -85,3 +85,11 @@ bun run db:bot-role -- --rotate  # además re-aplica la contraseña
 El SQL del bot nunca devuelve columnas cifradas con `encryptedColumn()` (por ejemplo `paciente.nombre`, `paciente.cedula`, `detalle_orden.observaciones`): por diseño los nombres de pacientes llegan por la API, que descifra y aplica la multi-tenencia, nunca por el rol `whatsapp_bot`.
 
 Conexión administrativa: `WHATSAPP_DB_ADMIN_URL` si existe, si no las `DATABASE_*` de la API. `WHATSAPP_DB_PASSWORD` es obligatoria y nunca se imprime ni se escribe en archivos. Si la conexión no tiene `CREATEROLE`, el script termina con código distinto de cero y le dice al operador exactamente qué ejecutar como administrador.
+
+## Conversación sobre órdenes existentes (C1–C4)
+
+El bot identifica una orden por número, por nombre de paciente o por ambos («la 18», «la de Sara Jiménez», «la 18 de Sara»). La búsqueda por nombre ignora mayúsculas y tildes y se hace siempre sobre las órdenes de la clínica del contacto verificado. Si hay varias candidatas, las ofrece con su número, su estado y su fecha de entrega, una por línea y sin numerar; si el número y el nombre no coinciden, lo dice antes de tocar nada.
+
+También resuelve referencias temporales («la orden que te hice el martes», «el pedido del miércoles»): el prompt del sistema lleva la fecha de hoy y la zona `America/Bogota` calculadas en código —nunca deducidas por el modelo— y las órdenes le llegan con su fecha de creación. Las órdenes de un mismo día se ofrecen una por línea.
+
+Para modificar, el allowlist del bot (`BOT_ROUTES` en `src/auth/jwt-auth.guard.ts`) incluye `PUT /mi-clinica/ordenes/:id`, y solo esa ruta además de las de lectura y `POST /mi-clinica/ordenes`. La API solo permite editar una orden en estado `creada`; en cualquier otro estado el bot lo dice en lenguaje llano y no escribe. Todo cambio se muestra como antes → después y exige confirmación literal antes del `PUT`.

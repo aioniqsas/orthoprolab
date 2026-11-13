@@ -12,6 +12,8 @@
  * frase fija sin consumo de tokens ni herramientas.
  */
 
+import { ZONA_LABORATORIO, fechaLarga, fechaLocal } from './tiempo.js'
+
 export const SISTEMA_PARTES: readonly string[] = [
   'Aquí en OrthoPro Lab te atendemos por WhatsApp; escribimos con calidez y cercanía, como lo haría alguien del equipo del laboratorio.',
   'Atiendes por WhatsApp a personal de clínicas odontológicas.',
@@ -22,6 +24,9 @@ export const SISTEMA_PARTES: readonly string[] = [
   'Cuando no puedas hacer algo, dilo en una frase, explica brevemente por qué y ofrece lo que sí puedes hacer, sin cortar a la persona.',
   'Cuando tengas el nombre de la clínica o del doctor, úsalo de forma natural.',
   'Puedes ayudar con cuatro cosas: consultar el estado de un pedido, enviar el control de trabajos o una cuenta de cobro, tomar un pedido nuevo y avisar para que el laboratorio llame.',
+  'Una orden se puede nombrar por su número, por el nombre del paciente o por las dos cosas, y también por el día en que se hizo ("la orden que te hice el martes").',
+  'Si la persona quiere ver una orden o cambiar algo de una orden que ya existe, llama a la herramienta que corresponda: el flujo la busca y hace el cambio.',
+  'La fecha de hoy te la damos aquí abajo, calculada de nuestro lado: nunca la inventes ni la supongas, y no prometas fechas que no estén en los datos.',
   'Cuando la persona quiera tomar un pedido nuevo, pedir una llamada, ver un pedido, recibir el control de trabajos o una cuenta de cobro, llama a la herramienta de intención que corresponda.',
   'El pedido nuevo y su confirmación los toma el flujo paso a paso, nunca tú: no escribas datos ni confirmes por tu cuenta.',
   'Nunca inventes datos. Si una búsqueda no da resultado, di que no lo encontraste y ofrece volver al inicio escribiendo 0.',
@@ -47,8 +52,11 @@ function saneaNombre(valor: string): string {
 }
 
 /** El prompt del sistema, siempre desde constantes. El texto del usuario no entra. */
-export function construirPromptSistema(contexto?: { clinica?: string; doctor?: string }): string {
-  const lineas = [...SISTEMA_PARTES]
+export function construirPromptSistema(contexto?: { clinica?: string; doctor?: string }, ahora: Date = new Date()): string {
+  // S7: la fecha de hoy y la zona del laboratorio se calculan en código, nunca
+  // las deduce el modelo. Solo la fecha, sin la hora, para que dos llamadas
+  // seguidas del mismo turno digan exactamente lo mismo.
+  const lineas = [`Hoy es ${fechaLarga(fechaLocal(ahora))} (zona horaria del laboratorio: ${ZONA_LABORATORIO}).`, ...SISTEMA_PARTES]
   const clinica = contexto?.clinica ? saneaNombre(contexto.clinica) : ''
   const doctor = contexto?.doctor ? saneaNombre(contexto.doctor) : ''
   if (clinica) lineas.push(`Atiendes a la clínica ${clinica}.`)
@@ -72,9 +80,12 @@ export function negativaIdentidad(nombre?: string): string {
 }
 export const NEGATIVA_IDENTIDAD = negativaIdentidad()
 
-/** Negativa de escritura disfrazada: se ofrece el flujo determinista. */
+/**
+ * Negativa de escritura disfrazada (borrar una orden, marcar una cuenta como
+ * pagada): se ofrece el cambio por conversación, que sí existe y se confirma.
+ */
 export const NEGATIVA_ESCRITURA =
-  'Cambios y borrados no los hago por el chat, para no equivocarme con tus datos. Escribe 0 y lo hacemos paso a paso, sin apuro.'
+  'Borrados no los hago por el chat, para no equivocarme con tus datos. Si es un cambio de una orden, dímelo con tus palabras y te lo muestro antes de guardarlo.'
 
 /** Negativa ante suplantación: se ofrece la llamada del laboratorio. */
 export const NEGATIVA_SUPLANTACION =
@@ -195,7 +206,9 @@ const PATRONES_INFRA: RegExp[] = [
 ]
 
 const PATRONES_ESCRITURA: RegExp[] = [
-  /\b(borra|elimina|borrar|eliminar)\b/i,
+  // Un diente no es la orden: "elimina el diente 42" es un cambio que el bot
+  // sí hace (S3); "elimina la orden" sigue siendo una negativa de escritura.
+  /\b(borra|elimina|borrar|eliminar)\b(?!\s+(?:el|los|la|las)?\s*dientes?)/i,
   /\bmarca\s+(la\s+)?cuenta\s+como\s+pagada\b/i,
   /\bmarcar\b[^.!?]{0,30}\bpagada\b/i,
   /\bcrea\w*\s+(la\s+orden|la\s+cuenta|un[ao]?s?\s+orden(es)?)\s+(sin|ya|directo|rapido|r[áa]pido)\b/i,

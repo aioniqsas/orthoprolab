@@ -30,6 +30,24 @@ describe('JwtAuthGuard', () => {
   });
 });
 
+describe('JwtAuthGuard · edición de una orden desde el bot', () => {
+  it('permite PUT /mi-clinica/ordenes/:id y sigue denegando el resto de escrituras', async () => {
+    const guard = new JwtAuthGuard(new Reflector());
+    await expect(
+      guard.canActivate(contexto('PUT', '/mi-clinica/ordenes/18', 'whatsapp-bot')),
+    ).resolves.toBe(true);
+    await expect(
+      guard.canActivate(contexto('PUT', '/mi-clinica/ordenes', 'whatsapp-bot')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      guard.canActivate(contexto('DELETE', '/mi-clinica/ordenes/18', 'whatsapp-bot')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      guard.canActivate(contexto('PUT', '/mi-clinica/pacientes/18', 'whatsapp-bot')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
 describe('JwtAuthGuard · ruta de PDF de cuentas de cobro', () => {
   it('permite el token whatsapp-bot en GET /mi-clinica/cuentas-cobro/:id/pdf y sigue denegando escrituras', async () => {
     const guard = new JwtAuthGuard(new Reflector());

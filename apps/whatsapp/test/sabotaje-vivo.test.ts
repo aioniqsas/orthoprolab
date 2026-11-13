@@ -234,7 +234,9 @@ describe('catálogo cerrado de herramientas: la frontera es el catálogo, no el 
   // alguien añade una herramienta que ejecute comandos, reciba SQL de texto
   // o lea configuración, esta prueba falla de inmediato.
   const CATALOGO_ESPERADO = [
+    'buscar_orden',
     'cuenta_de_cobro',
+    'editar_orden',
     'enviar_control',
     'enviar_cuenta',
     'estado_orden',
