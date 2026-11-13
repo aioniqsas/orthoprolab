@@ -107,9 +107,25 @@ function normalizar(texto: string): string {
     .trim()
 }
 
+function esPedidoDeOrden(t: string): boolean {
+  return (
+    /\b(crear|hacer|tomar|registrar)\s+(una\s+)?(orden|pedido)\b/.test(t) ||
+    /\bnecesito\s+crear\b/.test(t) ||
+    /\bhay\s+que\s+hacerle\b/.test(t) ||
+    /\b(hazme|haceme)\s+(un|una)\s+pedido\b/.test(t) ||
+    /\b(nuevo|nueva)\s+(pedido|orden)\b/.test(t)
+  )
+}
+
 export function prechequeoRuta(texto: string): Ruta | null {
   const t = normalizar(texto)
-  if (t === '' || /\d/.test(t)) return null
+  if (t === '') return null
+  // Un pedido de trabajo trae números de dientes ("prótesis de los 14 y 13") y
+  // sigue siendo un pedido: se reconoce antes de descartar por dígitos. El
+  // resto de mensajes con números va al modelo, que sí sabe extraer el dato
+  // ("mándame la cuenta de la 1234").
+  if (esPedidoDeOrden(t)) return { tipo: 'nuevo_pedido', texto }
+  if (/\d/.test(t)) return null
   if (/\bque\s+me\s+llame[nr]?\b/.test(t) || /\b(llamenme|llamame)\b/.test(t)) return { tipo: 'pedir_llamada' }
   if (
     /\bcomo\s+va\b[^.]{0,30}\b(orden|pedido|trabajo)\b/.test(t) ||
@@ -126,6 +142,9 @@ export function prechequeoRuta(texto: string): Ruta | null {
     /\b(hacer|tomar|hagamos)\s+(un\s+)?(nuevo\s+)?pedido\b/.test(t) ||
     /\bvamos\s+a\s+hacer\s+(un\s+)?(nuevo\s+)?pedido\b/.test(t) ||
     /\b(nuevo|nueva)\s+(pedido|orden)\b/.test(t) ||
+    /\b(crear|hacer|tomar|registrar)\s+(una\s+)?(orden|pedido)\b/.test(t) ||
+    /\bnecesito\s+crear\b/.test(t) ||
+    /\bhay\s+que\s+hacerle\b/.test(t) ||
     /\b(quiero|quisiera|necesito)\s+(pedir|hacer|tomar)\b/.test(t) ||
     /\b(quiero|quisiera|necesito)\s+(una|un)\s+\w+/.test(t)
   ) return { tipo: 'nuevo_pedido', texto }

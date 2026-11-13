@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import * as wf from '../src/write-flows.js'
+import { prechequeoRuta } from '../src/llm.js'
 import { PREGUNTA_CONFIRMAR } from '../src/flows.js'
 import type { ApiClient, DoctorApi, ServicioApi } from '../src/api.js'
 import { ConversationStore } from '../src/state.js'
@@ -207,5 +208,40 @@ describe('nombrePresentable (S9)', () => {
   it('el paciente extraído ya sale presentable', () => {
     const texto = 'necesito una orden para el paciente sANTIAGO aRISTIZABAL, prótesis de los 14 y 13'
     expect(wf.pacienteDeTexto(texto)).toBe('Santiago Aristizabal')
+  })
+})
+
+describe('un pedido con números no deja de ser un pedido (L8)', () => {
+  it('la frase real se enruta al flujo de orden sin depender del modelo', () => {
+    const ruta = prechequeoRuta(FRASE_REAL)
+    expect(ruta?.tipo).toBe('nuevo_pedido')
+  })
+
+  it('un número suelto sigue siendo una opción del menú de respaldo', () => {
+    expect(prechequeoRuta('1')).toBeNull()
+    expect(prechequeoRuta('0')).toBeNull()
+  })
+})
+
+describe('una anotación en la confirmación no se pierde (L8)', () => {
+  it('guarda la observación, la muestra y solo crea tras el sí', async () => {
+    const api = apiFalso()
+    const esc = escritor(api)
+    await esc.handle(TEL, FRASE_REAL)
+    await esc.handle(TEL, '1039445567')
+    await esc.handle(TEL, '2')
+    const resumen = await esc.handle(TEL, 'Blanco')
+    expect(resumen.text).toContain('Nueva orden:')
+
+    const anotacion = await esc.handle(TEL, 'Una observacion: test')
+    expect(anotacion.text).toContain('Anoté: Una observacion: test')
+    expect(anotacion.text).toContain('Observaciones: Una observacion: test')
+    expect(anotacion.text).toContain(wf.CONFIRMAR_PIE)
+    expect(api.ordenesCreadas).toHaveLength(0)
+
+    const fin = await esc.handle(TEL, 'si')
+    expect(fin.text).toContain('Orden 1234 creada.')
+    const payload = api.ordenesCreadas[0] as unknown as { detalles: Array<{ observaciones?: string }> }
+    expect(payload.detalles[0]!.observaciones).toBe('Una observacion: test')
   })
 })

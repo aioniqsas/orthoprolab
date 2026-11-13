@@ -613,6 +613,18 @@ export class OrderFlows {
       return { kind: 'text', text: `Orden descartada.\n\n${SALUDO}`, intencion: 'menu' }
     }
     if (!CONFIRMAR_SI.test(entrada)) {
+      // "Una observación: test" no es una confirmación, pero tampoco es ruido:
+      // el resumen muestra "Observaciones: —", así que hay que poder llenarlo.
+      const anotacion = entrada.trim().slice(0, 300)
+      if (anotacion.length >= 3 && /(observaci[oó]n|observaciones|nota|anota|agrega|agregar|ojo)\b|:/i.test(anotacion)) {
+        const juntas = [campos.observaciones?.trim(), anotacion].filter(Boolean).join(' / ').slice(0, 500)
+        const actualizados: Campos = { ...campos, observaciones: juntas }
+        this.store.set(telefono, 'orden-confirmar', actualizados)
+        return {
+          kind: 'text',
+          text: `Anoté: ${anotacion}\n\n${resumenOrden(actualizados)}\n\n${PREGUNTA_CONFIRMAR}`,
+        }
+      }
       return { kind: 'text', text: PREGUNTA_CONFIRMAR }
     }
     const observaciones = (campos.observaciones ?? '').slice(0, 500)
