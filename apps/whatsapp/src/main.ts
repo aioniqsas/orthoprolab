@@ -5,7 +5,6 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys'
 import qrcodeTerminal from 'qrcode-terminal'
 import { chmod, mkdir, readdir } from 'node:fs/promises'
-import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { crearCliente, NO_HABILITADO, type ApiClient } from './api'
@@ -28,15 +27,19 @@ import {
 import {
   assertAuthDirOutsideRepo,
   detectRepoRoot,
+  etiquetaRemitente,
+  motivoDescarte,
   reconnectDelayMs,
   RECONNECT_MAX_ATTEMPTS,
-  shouldIgnoreSender,
+  senderTagHash,
   AUTH_DIR_MODE,
   AUTH_FILE_MODE,
 } from './safety'
 
 // WHATSAPP_AUTH_DIR configures external Baileys credentials; never put it in this repo.
 const authDir = process.env.WHATSAPP_AUTH_DIR ?? join(homedir(), '.orthopro-lab', 'whatsapp', 'auth_info')
+// El número del remitente se ve en el log mientras se depura; fuera de eso, solo su hash.
+const MOSTRAR_NUMEROS = process.env.WHATSAPP_LOG_NUMEROS === '1' || process.env.NODE_ENV !== 'production'
 const conversations = new ConversationStore()
 // Límite por número (T7): un puñado de interacciones por minuto. Siempre se
 // aplica después de shouldIgnoreSender, nunca antes: los chats ignorados no
@@ -98,11 +101,6 @@ async function saveCredsSecured(saveCreds: () => Promise<void>, dir: string): Pr
   await secureAuthDir(dir)
 }
 
-function senderTagHash(senderId: string): string {
-  // A stable tag is enough for correlation without logging the phone number.
-  return createHash('sha256').update(senderId).digest('hex').slice(0, 16)
-}
-
 function messageType(message: WAMessage): string {
   if (message.message?.conversation || message.message?.extendedTextMessage) return 'text'
   return 'other'
@@ -140,21 +138,28 @@ async function start(attempt = 1): Promise<void> {
       if (plan.accion === 'salir') process.exit(1)
       setTimeout(() => void start(attempt + 1), reconnectDelayMs(attempt))
     }
-    if (connection === 'open') console.log('WhatsApp conectado.')
+    if (connection === 'open' && socket.user?.id) {
+      console.log(`WhatsApp conectado como ${etiquetaRemitente(socket.user.id, true)}.`)
+    }
   })
 
   socket.ev.on('messages.upsert', async ({ messages }) => {
     for (const message of messages) {
-      const senderId = message.key.remoteJid
+      const senderId = message.key.remoteJid ?? undefined
+      const desde = senderId ? etiquetaRemitente(senderId, MOSTRAR_NUMEROS) : '(sin remitente)'
       // Solo chats 1:1 con el número del bot: nada de grupos ni difusiones.
-      if (!senderId || shouldIgnoreSender(senderId, message.key.fromMe === true)) continue
+      const descarte = motivoDescarte(senderId, message.key.fromMe === true)
+      if (descarte || !senderId) {
+        console.log(`Mensaje descartado (${descarte ?? 'sin remitente'}) de ${desde}`)
+        continue
+      }
       if (!limites.interaccion(senderId, Date.now())) {
         await socket.sendMessage(senderId, { text: MENSAJE_LIMITE })
         continue
       }
       const type = messageType(message)
       const state = conversations.get(senderId)
-      console.log(JSON.stringify({ senderTagHash: senderTagHash(senderId), type, step: state?.step ?? 'menu' }))
+      console.log(`Te escribieron desde ${desde} (${type}, paso ${state?.step ?? 'menu'})`)
       const faltante = api.mensajeConfigFaltante()
       if (faltante) {
         await socket.sendMessage(senderId, { text: faltante })

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 
 export const RECONNECT_MAX_ATTEMPTS = 8
@@ -11,16 +12,36 @@ export function reconnectDelayMs(attempt: number): number {
 
 /**
  * Only direct 1:1 chats are answered: ignore groups, broadcasts, newsletters
- * and any other non-personal JID.
+ * and any other non-personal JID. Returns the reason so the log can say why a
+ * message was dropped, or null when the message must be answered.
  */
+export function motivoDescarte(senderId: string | undefined, fromMe: boolean): string | null {
+  if (fromMe) return 'propio'
+  if (!senderId) return 'sin remitente'
+  if (senderId === 'status@broadcast') return 'estado'
+  if (senderId.endsWith('@broadcast')) return 'difusión'
+  if (senderId.endsWith('@g.us')) return 'grupo'
+  if (senderId.endsWith('@newsletter')) return 'canal'
+  return senderId.endsWith('@s.whatsapp.net') ? null : 'no es un chat 1:1'
+}
+
 export function shouldIgnoreSender(senderId: string | undefined, fromMe: boolean): boolean {
-  if (fromMe) return true
-  if (!senderId) return true
-  if (senderId === 'status@broadcast') return true
-  if (senderId.endsWith('@broadcast')) return true
-  if (senderId.endsWith('@g.us')) return true
-  if (senderId.endsWith('@newsletter')) return true
-  return !senderId.endsWith('@s.whatsapp.net')
+  return motivoDescarte(senderId, fromMe) !== null
+}
+
+/** Stable tag for correlating one sender across lines without printing the phone. */
+export function senderTagHash(senderId: string): string {
+  return createHash('sha256').update(senderId).digest('hex').slice(0, 16)
+}
+
+/**
+ * Who wrote, for the operator's log: the plain number while debugging, the hash
+ * otherwise. The flag is passed in so the decision never depends on the ambient
+ * environment of a test.
+ */
+export function etiquetaRemitente(senderId: string, mostrarNumero: boolean): string {
+  const numero = senderId.split('@')[0]?.split(':')[0] ?? senderId
+  return mostrarNumero ? `+${numero}` : senderTagHash(senderId)
 }
 
 /**

@@ -12,6 +12,8 @@ import {
   reconnectDelayMs,
   RECONNECT_MAX_ATTEMPTS,
   shouldIgnoreSender,
+  motivoDescarte,
+  etiquetaRemitente,
 } from '../src/safety'
 
 describe('menú', () => {
@@ -78,6 +80,23 @@ describe('senderFilter', () => {
     expect(shouldIgnoreSender('1203@newsletter', false)).toBe(true)
     expect(shouldIgnoreSender('573001234567@s.whatsapp.net', true)).toBe(true)
     expect(shouldIgnoreSender(undefined, false)).toBe(true)
+  })
+
+  it('dice el motivo del descarte, para poder verlo en el log', () => {
+    expect(motivoDescarte('573001234567@s.whatsapp.net', false)).toBeNull()
+    expect(motivoDescarte('573001234567@s.whatsapp.net', true)).toBe('propio')
+    expect(motivoDescarte('1203@g.us', false)).toBe('grupo')
+    expect(motivoDescarte('status@broadcast', false)).toBe('estado')
+    expect(motivoDescarte('1203@newsletter', false)).toBe('canal')
+    expect(motivoDescarte('raro@lidl', false)).toBe('no es un chat 1:1')
+    expect(motivoDescarte(undefined, false)).toBe('sin remitente')
+  })
+
+  it('etiqueta al remitente con su número solo cuando se pide', () => {
+    expect(etiquetaRemitente('573001234567:12@s.whatsapp.net', true)).toBe('+573001234567')
+    const oculto = etiquetaRemitente('573001234567:12@s.whatsapp.net', false)
+    expect(oculto).toHaveLength(16)
+    expect(oculto).not.toContain('573001234567')
   })
 })
 
