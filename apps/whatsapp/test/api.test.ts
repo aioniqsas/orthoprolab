@@ -140,8 +140,11 @@ describe('mapeo de estados a respuestas', () => {
   it('usa el mismo texto para no registrado y bloqueado (S1)', () => {
     expect(textoPorEstado(401)).toBe(NO_HABILITADO)
     expect(textoPorEstado(403)).toBe(NO_HABILITADO)
-    expect(textoPorEstado(409)).toBe(NO_HABILITADO)
-    expect(textoPorEstado(403)).toBe(textoPorEstado(409))
+  })
+
+  it('un 409 no dice "no habilitado": ese número sí está autorizado', () => {
+    expect(textoPorEstado(409)).not.toBe(NO_HABILITADO)
+    expect(textoPorEstado(409)).toContain('configurar')
   })
 
   it('distingue límite y servicio no disponible', () => {
@@ -172,12 +175,19 @@ describe('resolveIdentity', () => {
   })
 
   it('rechaza con texto corto y no revelador cuando la API rechaza', async () => {
-    for (const status of [401, 403, 409]) {
+    for (const status of [401, 403]) {
       const { client } = cliente([{ status }])
       const r = await resolveIdentity('573001234567@s.whatsapp.net', client)
       expect(r.ok).toBe(false)
       if (!r.ok) expect(r.reply).toBe(NO_HABILITADO)
     }
+  })
+
+  it('un 409 pide terminar la configuración, sin mentirle a la persona', async () => {
+    const { client } = cliente([{ status: 409 }])
+    const r = await resolveIdentity('573001234567@s.whatsapp.net', client)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reply).toContain('configurar')
   })
 
   it('503 de la API se traduce a un aviso sencillo de indisponibilidad', async () => {
@@ -245,7 +255,7 @@ describe('rutas de lectura', () => {
     const r = await client.getOrden('+573001234567', '12')
     expect(r.id).toBe('12')
     expect(llamadas[1]!.url).toContain("/mi-clinica/ordenes/12")
-    expect((llamadas[1]!.init as RequestInit).headers).toEqual({ authorization: 'Bearer jwt' })
+    expect((llamadas[1]!.init as RequestInit).headers).toEqual({ cookie: 'auth_token=jwt' })
   })
 
   it('un 401 a mitad de flujo refresca el token y reintenta una vez', async () => {
@@ -287,5 +297,23 @@ describe('rutas de lectura', () => {
     // Host en la allowlist: el 404 del servidor debe propagarse igual.
     await expect(client.descargarPdf('https://res.cloudinary.com/x.pdf')).rejects.toMatchObject({ status: 404 })
     expect(new ApiError(404, 'x')).toBeInstanceOf(ApiError)
+  })
+})
+
+describe('transporte del token', () => {
+  it('manda el token en la cookie auth_token, nunca en Authorization', async () => {
+    const { client, llamadas } = cliente([
+      { status: 200, body: SESION },
+      { status: 200, body: [] },
+      { status: 200, body: [] },
+    ])
+    await client.getOrdenes('+573001234567')
+    await client.getDoctores('+573001234567')
+    const autenticadas = llamadas.slice(1).map((l) => l.init?.headers as Record<string, string>)
+    expect(autenticadas.length).toBeGreaterThan(0)
+    for (const cabeceras of autenticadas) {
+      expect(cabeceras.cookie).toBe('auth_token=jwt')
+      expect(cabeceras.authorization).toBeUndefined()
+    }
   })
 })

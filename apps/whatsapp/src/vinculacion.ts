@@ -14,8 +14,9 @@ export function parseVincular(texto: string): string | null {
 }
 
 export const VINCULAR_OK =
-  '¡Listo! Este número quedó vinculado a tu clínica. Ahora puedes escribirme:\n' +
-  '1. Estado de pedido\n2. Control de trabajos\n3. Cuenta de cobro\n4. Crear orden\n0. Que el laboratorio te llame'
+  '¡Listo! Ya quedó vinculado este número, y desde acá te atiendo. ' +
+  'Cuéntame qué necesitas: puedo contarte cómo va un pedido, mandarte el papel del trabajo o una cuenta de cobro, ' +
+  'tomar un pedido nuevo, o pedir que el laboratorio te llame.'
 
 /** Un solo texto para todo fallo: no revela si el código existió (T8). */
 export const VINCULAR_FALLO = 'No pude vincular ese código, verifica que sea el vigente.'

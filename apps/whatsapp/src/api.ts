@@ -23,8 +23,14 @@ const CONFIG_FALTANTE =
   'El bot de WhatsApp no está configurado todavía. Mientras tanto, contacta al laboratorio por el portal o por teléfono.'
 
 /** Texto corto y no revelador para cada estado de la API (S1). */
+export const SIN_CONFIGURAR =
+  'El laboratorio todavía no ha terminado de configurar este canal contigo. Escríbeles y pídeles que lo activen, por favor.'
+
 export function textoPorEstado(status: number): string {
-  if (status === 401 || status === 403 || status === 409) return NO_HABILITADO
+  if (status === 401 || status === 403) return NO_HABILITADO
+  // 409: el número sí está autorizado; lo que falta es que el laboratorio termine
+  // de configurar el canal. Decirle "no estás habilitado" sería mentirle.
+  if (status === 409) return SIN_CONFIGURAR
   if (status === 429) return LIMITE
   if (status === 503) return NO_DISPONIBLE
   return NO_DISPONIBLE
@@ -299,7 +305,7 @@ export class ApiClient {
   private async getJson(telefono: string, path: string, reintento = true): Promise<unknown> {
     const sesion = await this.sesion(telefono)
     const res = await this.fetchFn(`${this.baseUrl}${path}`, {
-      headers: { authorization: `Bearer ${sesion.token}` },
+      headers: { cookie: `auth_token=${sesion.token}` },
     })
     if (res.status === 401 && reintento) {
       this.tokens.delete(telefonoCanonical(telefono))
@@ -314,7 +320,7 @@ export class ApiClient {
     const sesion = await this.sesion(telefono)
     const res = await this.fetchFn(
       `${this.baseUrl}/mi-clinica/ordenes/${encodeURIComponent(ordenId)}/control-trabajos`,
-      { headers: { authorization: `Bearer ${sesion.token}` } },
+      { headers: { cookie: `auth_token=${sesion.token}` } },
     )
     if (!res.ok) throw new ApiError(res.status, 'control-trabajos falló')
     return Buffer.from(await res.arrayBuffer())
@@ -395,7 +401,7 @@ export class ApiClient {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${sesion.token}`,
+        cookie: `auth_token=${sesion.token}`,
         ...extraHeaders,
       },
       body: JSON.stringify(body),

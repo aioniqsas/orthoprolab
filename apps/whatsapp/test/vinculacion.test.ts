@@ -25,9 +25,11 @@ describe('respuestas del vínculo', () => {
     },
   })
 
-  it('el éxito confirma el vínculo y lista lo que el bot puede hacer', () => {
+  it('el éxito confirma el vínculo y dice en lenguaje llano qué puede hacer', () => {
     expect(VINCULAR_OK).toContain('vinculad')
-    expect(VINCULAR_OK).toContain('Estado de pedido')
+    expect(VINCULAR_OK).toContain('Cuéntame qué necesitas')
+    // IA7: nada de menú numerado en la primera respuesta.
+    expect(VINCULAR_OK).not.toMatch(/^\s*\d\./m)
   })
 
   it('código errado, vencido o de otra clínica reciben el mismo texto genérico', async () => {
