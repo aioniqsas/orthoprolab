@@ -2,7 +2,25 @@
 
 Proceso de Bun que conecta Baileys con WhatsApp y expone los flujos de lectura
 contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
-(PDF). Al iniciar muestra el QR de emparejamiento en la terminal.
+(PDF). Antes de crear el socket consulta con `fetchLatestBaileysVersion()` la
+versión vigente de WhatsApp Web y la pasa al socket; sin ella WhatsApp termina
+la conexión justo después del registro.
+
+## Emparejamiento (dos vías)
+
+**QR (por defecto).** Sin variables extra, la terminal imprime una instrucción
+y el QR renderizado (`qrcode-terminal`, tamaño pequeño); se escanea desde
+WhatsApp > Dispositivos vinculados > Vincular un dispositivo.
+
+**Código de emparejamiento.** Con `WHATSAPP_PAIRING_PHONE` definido (dígitos
+E.164 del número del bot, sin `+`, ej. `573001234567`) no se muestra QR: el bot
+pide un código de 8 caracteres con `requestPairingCode()` y lo imprime con la
+instrucción "WhatsApp > Dispositivos vinculados > Vincular con número de
+teléfono", para digitarlo en el teléfono. Si el valor de la variable no es
+dígitos E.164 válidos, el bot sale con error antes de conectar.
+
+Al iniciar (una línea, no es dato sensible) se registra la versión resuelta:
+`Versión de WhatsApp Web: 2.3000.x.y`.
 
 ## Variables
 
@@ -11,6 +29,8 @@ contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
   `POST /internal/whatsapp/sesion` (cabecera `X-Whatsapp-Service-Token`).
 - `WHATSAPP_HMAC_SECRET`: secreto distinto para firmar cada solicitud
   (`telefono|timestamp|nonce`, HMAC-SHA256). Obligatorio.
+- `WHATSAPP_PAIRING_PHONE`: opcional; activa la vía de código de emparejamiento
+  con el número del bot en dígitos E.164 sin `+` (ej. `573001234567`).
 - `WHATSAPP_AUTH_DIR`: directorio externo para `auth_info`; por defecto
   `~/.orthopro-lab/whatsapp/auth_info`.
 - `WHATSAPP_AUTH_DIR` nunca debe apuntar al repositorio.
@@ -25,6 +45,14 @@ contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
 
 Si falta `WHATSAPP_SERVICE_TOKEN` o `WHATSAPP_HMAC_SECRET`, el bot responde a
 cada mensaje que no está configurado y no crashea.
+
+## Desconexiones
+
+Cada cierre registra el código de estado de Baileys (`lastDisconnect.error
+.output.statusCode`): `Desconectado (código 440); reintentando en 1 s …`. Un
+401 (sesión cerrada) es terminal: no se queman los 8 intentos de reconexión; el
+bot pide eliminar el directorio de sesión (`WHATSAPP_AUTH_DIR`) y volver a
+iniciar para emparejar de nuevo.
 
 ## Inteligencia con Groq (IA3, IA7)
 

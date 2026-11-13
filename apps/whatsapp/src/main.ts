@@ -1,8 +1,9 @@
 import makeWASocket, {
-  DisconnectReason,
+  fetchLatestBaileysVersion,
   useMultiFileAuthState,
   type WAMessage,
 } from '@whiskeysockets/baileys'
+import qrcodeTerminal from 'qrcode-terminal'
 import { chmod, mkdir, readdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
@@ -17,6 +18,13 @@ import { ConversationStore } from './state'
 import { OrderFlows } from './write-flows'
 import { canjearVinculacion, parseVincular, VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA } from './vinculacion'
 import { resolveIdentity } from './identity'
+import {
+  INSTRUCCION_QR,
+  iniciarSesion,
+  mostrarCodigoEmparejamiento,
+  planDesconexion,
+  telefonoEmparejamiento,
+} from './sesion'
 import {
   assertAuthDirOutsideRepo,
   detectRepoRoot,
@@ -50,6 +58,15 @@ const storeLlm = new StoreLlm()
 // Escape con palabras naturales (IA7): nunca llega al modelo; el flujo
 // determinista responde con el saludo sin gastar tokens.
 const ES_ESCAPE = /^(?:0|cancelar|menú|menu|volver|inicio)$/i
+
+// Vía de emparejamiento: QR en la terminal o código de 8 caracteres si se
+// define WHATSAPP_PAIRING_PHONE (defecto del `console.log(qr)` crudo).
+const telefonoEmparejado = telefonoEmparejamiento(process.env.WHATSAPP_PAIRING_PHONE)
+const mostrarQr = (qr: string): void => {
+  console.log(INSTRUCCION_QR)
+  qrcodeTerminal.generate(qr, { small: true })
+}
+const mostrarCodigo = (codigo: string): void => mostrarCodigoEmparejamiento(codigo, console.log)
 
 /**
  * Ruta o texto del modelo (IA7/S13); null si el modelo no está disponible y
@@ -98,21 +115,30 @@ function messageText(message: WAMessage): string {
 async function start(attempt = 1): Promise<void> {
   await secureAuthDir(authDir)
   const { state, saveCreds } = await useMultiFileAuthState(authDir)
-  const socket = makeWASocket({ auth: state, printQRInTerminal: false })
+  let sockRef: Awaited<ReturnType<typeof makeWASocket>> | undefined
+  const socket = await iniciarSesion({
+    crearSocket: makeWASocket,
+    consultarVersion: fetchLatestBaileysVersion,
+    auth: state,
+    telefonoVinculado: telefonoEmparejado,
+    pedirCodigo: (numero) => {
+      if (!sockRef) throw new Error('socket no listo')
+      return sockRef.requestPairingCode(numero)
+    },
+    mostrarQr,
+    mostrarCodigo,
+    log: console.log,
+  })
+  sockRef = socket
 
   socket.ev.on('creds.update', () => void saveCredsSecured(saveCreds, authDir))
-  socket.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
-    if (qr) console.log(`QR para emparejar (escanea desde WhatsApp):\n${qr}`)
+  socket.ev.on('connection.update', ({ connection, lastDisconnect }) => {
     if (connection === 'close') {
       const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode
-      if (code === DisconnectReason.loggedOut) return
-      if (attempt >= RECONNECT_MAX_ATTEMPTS) {
-        console.error(`Reconexión fallida tras ${RECONNECT_MAX_ATTEMPTS} intentos. Revisa la red y vuelve a iniciar el bot.`)
-        process.exit(1)
-      }
-      const delay = reconnectDelayMs(attempt)
-      console.error(`Desconectado; reintentando en ${delay / 1000} s (intento ${attempt + 1} de ${RECONNECT_MAX_ATTEMPTS}).`)
-      setTimeout(() => void start(attempt + 1), delay)
+      const plan = planDesconexion(code, attempt, RECONNECT_MAX_ATTEMPTS, reconnectDelayMs(attempt) / 1000)
+      console.error(plan.mensaje)
+      if (plan.accion === 'salir') process.exit(1)
+      setTimeout(() => void start(attempt + 1), reconnectDelayMs(attempt))
     }
     if (connection === 'open') console.log('WhatsApp conectado.')
   })
@@ -226,6 +252,11 @@ async function start(attempt = 1): Promise<void> {
 const guard = assertAuthDirOutsideRepo(authDir, detectRepoRoot(process.cwd()))
 if (!guard.ok) {
   console.error(`${guard.reason}\nWHATSAPP_AUTH_DIR=${authDir}`)
+  process.exit(1)
+}
+
+if (process.env.WHATSAPP_PAIRING_PHONE !== undefined && telefonoEmparejado === undefined) {
+  console.error('WHATSAPP_PAIRING_PHONE inválido: usa dígitos E.164 sin + (ej. 573001234567).')
   process.exit(1)
 }
 
