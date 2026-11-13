@@ -488,6 +488,17 @@ const envSchema = z
       }),
     ),
 
+    // ── WhatsApp bot (optional — POST /internal/whatsapp/sesion answers 503 without it) ──
+    /** Shared service token for the bot's internal session endpoint. */
+    WHATSAPP_SERVICE_TOKEN: z.preprocess(fromEnv, z.string().optional()),
+    /** Optional HMAC secret; required together with WHATSAPP_SERVICE_TOKEN at runtime. */
+    WHATSAPP_HMAC_SECRET: z.preprocess(fromEnv, z.string().optional()),
+    /**
+     * Optional laboratory address for the bot's callback notifications
+     * (POST /internal/whatsapp/llamada answers 503 without it).
+     */
+    WHATSAPP_LAB_EMAIL: z.preprocess(fromEnv, z.string().optional()),
+
     // ── SMTP (optional — email delivery is disabled when absent) ─────────────
     SMTP_HOST: z.preprocess(fromEnv, z.string().optional()),
     SMTP_PORT: z.preprocess(

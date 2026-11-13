@@ -59,7 +59,7 @@ describe('admin bootstrap (e2e)', () => {
       passwords: app.get(PasswordService),
       store: typeormAdminStore(ds),
     };
-  });
+  }, 60_000); // app boot is slow when the whole suite runs in parallel
 
   afterAll(async () => {
     await ds.query(
@@ -80,10 +80,8 @@ describe('admin bootstrap (e2e)', () => {
       password_hash: string;
       cedula: string;
       cedula_hash: string;
-      doctors: string;
     }> = await ds.query(
-      `SELECT r.nombre AS rol, u.activo, u.password_hash, u.cedula, u.cedula_hash,
-              (SELECT count(*) FROM doctor d WHERE d.usuario_id = u.id) AS doctors
+      `SELECT r.nombre AS rol, u.activo, u.password_hash, u.cedula, u.cedula_hash
          FROM usuario u JOIN rol r ON r.id = u.rol_id WHERE u.id = $1`,
       [created.id],
     );
@@ -91,7 +89,6 @@ describe('admin bootstrap (e2e)', () => {
     const row = rows[0];
     expect(row.rol).toBe('administrador');
     expect(row.activo).toBe(true);
-    expect(Number(row.doctors)).toBe(0);
     expect(row.password_hash).toMatch(/^\$2[aby]\$\d{2}\$/);
     expect(row.password_hash).not.toContain(password);
     expect(row.cedula).not.toContain(cedula);

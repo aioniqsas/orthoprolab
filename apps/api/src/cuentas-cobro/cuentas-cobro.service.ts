@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  ServiceUnavailableException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -31,6 +32,24 @@ import type { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
 @Injectable()
 export class CuentasCobroService {
   private readonly logger = new Logger(CuentasCobroService.name);
+
+  /**
+   * Único host del que se descarga un `pdfUrl` almacenado. `uploadToCloudinary`
+   * usa el SDK con `secure: true`, que siempre produce URLs
+   * `https://res.cloudinary.com/<cloud>/...`: el nombre de la nube nunca cambia
+   * el host, así que no hace falta configurarlo.
+   */
+  private static readonly CLOUDINARY_PDF_HOST = 'res.cloudinary.com';
+
+  /** Límite de descarga en memoria para servir el PDF al portal de clínicas. */
+  private static readonly PDF_MAX_BYTES = 5 * 1024 * 1024;
+
+  /**
+   * Generaciones de PDF en curso por cuenta. La API corre como una sola
+   * instancia de Render: el dedupe en proceso basta; un lock distribuido está
+   * fuera de alcance hasta que haya más de una réplica.
+   */
+  private readonly pdfEnCurso = new Map<string, Promise<Buffer>>();
 
   constructor(
     @InjectRepository(CuentaCobro)
@@ -208,6 +227,7 @@ export class CuentasCobroService {
         // Idempotent: skip if already attached to this cuenta
         const alreadyAttached = await em.findOne(CuentaCobroOrden, {
           where: { cuentaCobroId, ordenId: String(ordenId) },
+          withDeleted: true,
         });
         if (!alreadyAttached) {
           const cco = em.create(CuentaCobroOrden, {
@@ -216,6 +236,13 @@ export class CuentasCobroService {
             valorSnapshot: valor.toFixed(2),
           });
           await em.save(cco);
+        } else if (alreadyAttached.eliminadoEn) {
+          await em.restore(CuentaCobroOrden, { cuentaCobroId, ordenId: String(ordenId) });
+          await em.update(
+            CuentaCobroOrden,
+            { cuentaCobroId, ordenId: String(ordenId) },
+            { valorSnapshot: valor.toFixed(2) },
+          );
         }
       }
 
@@ -239,7 +266,7 @@ export class CuentasCobroService {
     cuentaCobroId: string,
     ordenId: string,
   ): Promise<CuentaCobro> {
-    await this.cuentaCobroOrdenRepo.delete({ cuentaCobroId, ordenId });
+    await this.cuentaCobroOrdenRepo.softDelete({ cuentaCobroId, ordenId });
 
     const allAttached = await this.cuentaCobroOrdenRepo.find({
       where: { cuentaCobroId },
@@ -499,6 +526,76 @@ export class CuentasCobroService {
     const conPdf = (await this.findOne(id))!;
     this.eventos.emitir('pdf', conPdf.id);
     return conPdf;
+  }
+
+  /**
+   * Bytes del PDF de una cuenta cuya pertenencia ya fue verificada por el
+   * llamador: sirve el almacenado o lo genera por la misma vía del admin
+   * (`generarYGuardarPdf`). Nunca devuelve ni redirige a la URL de Cloudinary.
+   */
+  async obtenerPdfBytes(id: string): Promise<Buffer> {
+    const cuenta = await this.findOne(id);
+    if (!cuenta) throw new NotFoundException('Cuenta de cobro no encontrada.');
+    if (cuenta.pdfUrl) {
+      return this.descargarPdfValidado(cuenta.pdfUrl);
+    }
+    const enCurso = this.pdfEnCurso.get(id);
+    if (enCurso) return enCurso;
+    const promesa = this
+      .generarYGuardarPdf(id)
+      .then((generada) => {
+        if (!generada.pdfUrl) {
+          throw new Error('La generación no dejó pdfUrl.');
+        }
+        return this.descargarPdfValidado(generada.pdfUrl);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof ServiceUnavailableException) throw err;
+        this.logger.error(
+          `Generación de PDF fallida para cuenta ${id}: ${String(err)}`,
+        );
+        throw new ServiceUnavailableException(
+          'No se pudo generar el PDF de la cuenta de cobro.',
+        );
+      })
+      .finally(() => this.pdfEnCurso.delete(id));
+    this.pdfEnCurso.set(id, promesa);
+    return promesa;
+  }
+
+  /** Descarga el PDF almacenado solo desde el host de Cloudinary, con tope de tamaño. */
+  private async descargarPdfValidado(pdfUrl: string): Promise<Buffer> {
+    let url: URL | null = null;
+    try {
+      url = new URL(pdfUrl);
+    } catch {
+      url = null;
+    }
+    const host = url?.hostname ?? 'url-invalida';
+    if (
+      !url ||
+      url.protocol !== 'https:' ||
+      host !== CuentasCobroService.CLOUDINARY_PDF_HOST
+    ) {
+      // Solo el host va al log: la URL puede venir de datos corruptos.
+      this.logger.error(`pdfUrl rechazado para descarga (host: ${host})`);
+      throw new ServiceUnavailableException(
+        'El PDF almacenado no está en el almacenamiento autorizado.',
+      );
+    }
+    const pdfRes = await fetch(pdfUrl);
+    if (!pdfRes.ok) {
+      throw new ServiceUnavailableException(
+        'No se pudo obtener el PDF de la cuenta de cobro.',
+      );
+    }
+    const buffer = Buffer.from(await pdfRes.arrayBuffer());
+    if (buffer.length > CuentasCobroService.PDF_MAX_BYTES) {
+      throw new ServiceUnavailableException(
+        'El PDF de la cuenta de cobro supera el tamaño máximo permitido.',
+      );
+    }
+    return buffer;
   }
 
   /**

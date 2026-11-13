@@ -66,7 +66,7 @@ describe('Data protection (integration)', () => {
     });
     await ds.initialize();
     await ds.runMigrations();
-  });
+  }, 60_000); // migrations are slow under full-suite parallelism
 
   afterAll(async () => {
     resetCrypto();
@@ -184,29 +184,34 @@ describe('Data protection (integration)', () => {
         [`e-${uniq()}`],
       )
     )[0];
-    await qr.query(`INSERT INTO doctor (usuario_id) VALUES ($1)`, [u.id]);
+    // The doctor is a standalone entity tied to a clinic (no usuario link).
+    const cli = (
+      await raw(`INSERT INTO clinica (nombre) VALUES ($1) RETURNING id`, [
+        `cli-${uniq()}`,
+      ])
+    )[0];
+    const doc = (
+      await raw(
+        `INSERT INTO doctor (clinica_id, nombres, apellidos) VALUES ($1,'D','T') RETURNING id`,
+        [cli.id],
+      )
+    )[0];
     const p = await em.save(Paciente, em.create(Paciente, { nombre: 'P' }));
     await qr.query(
       `INSERT INTO paciente_doctor (paciente_id, doctor_id) VALUES ($1,$2)`,
-      [p.id, u.id],
+      [p.id, doc.id],
     );
     const orden = (
       await raw(
         `INSERT INTO orden (doctor_id, paciente_id, estado_id) VALUES ($1,$2,$3) RETURNING id`,
-        [u.id, p.id, estado.id],
-      )
-    )[0];
-    const servicio = (
-      await raw(
-        `INSERT INTO servicio (nombre, slug, precio) VALUES ($1, $1, 10) RETURNING id`,
-        [`s-${uniq()}`],
+        [doc.id, p.id, estado.id],
       )
     )[0];
     const d = await em.save(
       DetalleOrden,
       em.create(DetalleOrden, {
         ordenId: orden.id!,
-        servicioId: servicio.id!,
+        servicio: `s-${uniq()}`,
         precioUnitario: '10.00',
         observaciones: note,
       }),

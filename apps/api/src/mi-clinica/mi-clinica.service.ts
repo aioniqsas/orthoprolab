@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { CuentaCobro } from '../cuentas-cobro/cuenta-cobro.entity.js';
+import { CuentasCobroService } from '../cuentas-cobro/cuentas-cobro.service.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { PacientesService } from '../pacientes/pacientes.service.js';
 import { Orden } from '../pedidos/orden.entity.js';
@@ -20,6 +21,18 @@ import { Doctor } from '../usuarios/doctor.entity.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
 import type { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
+
+/**
+ * Los ids de negocio son bigint identity: un id no numérico (SQL inyectado,
+ * byte nulo en el parámetro) jamás debe llegar a PostgreSQL como cast de
+ * bigint fallido (500); se responde 400 con un mensaje plano.
+ */
+function asegurarIdNumerico(id: string, etiqueta: string): string {
+  if (!/^\d+$/.test(id)) {
+    throw new BadRequestException(`${etiqueta} inválido.`);
+  }
+  return id;
+}
 
 @Injectable()
 export class MiClinicaService {
@@ -42,12 +55,17 @@ export class MiClinicaService {
     private readonly pdfControlTrabajos: PdfControlTrabajosService,
     private readonly mailerControlTrabajos: MailerControlTrabajosService,
     private readonly pacientesService: PacientesService,
+    private readonly cuentasCobro: CuentasCobroService,
   ) {}
 
   async resolveClinicaId(usuarioId: string): Promise<string> {
     const usuario = await this.usuarioRepo.findOneBy({ id: usuarioId });
     if (!usuario?.clinicaId) {
       throw new ForbiddenException('Sin clínica asignada');
+    }
+    const clinica = await this.clinicaRepo.findOneBy({ id: usuario.clinicaId });
+    if (!clinica?.activo) {
+      throw new ForbiddenException('Clínica inactiva');
     }
     return usuario.clinicaId;
   }
@@ -81,6 +99,7 @@ export class MiClinicaService {
   }
 
   async getDoctor(usuarioId: string, doctorId: string): Promise<Doctor> {
+    doctorId = asegurarIdNumerico(doctorId, 'Doctor');
     const clinicaId = await this.resolveClinicaId(usuarioId);
     const doctor = await this.doctorRepo.findOneBy({ id: doctorId, clinicaId });
     if (!doctor) throw new NotFoundException(`Doctor ${doctorId} no encontrado`);
@@ -107,15 +126,19 @@ export class MiClinicaService {
 
   async listOrdenes(usuarioId: string): Promise<Orden[]> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.ordenRepo
+    const ordenes = await this.ordenRepo
       .createQueryBuilder('o')
       .innerJoinAndSelect('o.asignacion', 'asig')
       .innerJoinAndSelect('asig.doctor', 'doctor')
       .innerJoinAndSelect('asig.paciente', 'paciente')
       .innerJoinAndSelect('o.estado', 'estado')
+      .leftJoinAndSelect('o.detalles', 'detalle')
       .where('doctor.clinicaId = :clinicaId', { clinicaId })
       .orderBy('o.fechaCreacion', 'DESC')
       .getMany();
+    // Ventana de edición (S8): el veredicto sale de la API y el bot y el portal
+    // lo leen; nadie lo vuelve a calcular por fuera.
+    return this.pedidosService.anotarEditable(ordenes);
   }
 
   /** Clinic portal: drafts are still internal, so they never reach the client. */
@@ -132,6 +155,7 @@ export class MiClinicaService {
 
   /** Detail view for the client portal; rejects accounts from other clinics. */
   async getCuentaCobro(usuarioId: string, cuentaId: string): Promise<CuentaCobro> {
+    cuentaId = asegurarIdNumerico(cuentaId, 'Cuenta de cobro');
     const clinicaId = await this.resolveClinicaId(usuarioId);
     const cuenta = await this.cuentaCobroRepo.findOne({
       where: { id: cuentaId, clinicaId },
@@ -142,6 +166,17 @@ export class MiClinicaService {
     }
     cuenta.pagos.sort((a, b) => Number(b.id) - Number(a.id));
     return cuenta;
+  }
+
+  /** PDF de una cuenta de cobro propia: los bytes siempre pasan por la API,
+   * sin exponer la URL de Cloudinary. La pertenencia la valida getCuentaCobro. */
+  async cuentaPdf(
+    usuarioId: string,
+    cuentaId: string,
+  ): Promise<{ pdf: Buffer; numero: string }> {
+    const cuenta = await this.getCuentaCobro(usuarioId, cuentaId);
+    const pdf = await this.cuentasCobro.obtenerPdfBytes(cuenta.id);
+    return { pdf, numero: cuenta.numero };
   }
 
   async listPacientesDelDoctor(
@@ -203,13 +238,25 @@ export class MiClinicaService {
     usuarioId: string,
     cedula: string,
     nombre: string,
+    doctorId?: string,
   ): Promise<{ id: string; nombre: string }> {
     if (!cedula?.trim() || !nombre?.trim()) {
       throw new BadRequestException('Cédula y nombre son obligatorios.');
     }
     // Verify the user belongs to a valid clinic.
     await this.resolveClinicaId(usuarioId);
-    return this.pacientesService.findOrCreate(cedula.trim(), nombre.trim());
+    // Un doctorId nunca se confía: se valida contra la clínica del usuario.
+    // Sin doctorId no se adivina vínculo: el paciente vuelve sin relación.
+    let resolvedDoctorId: string | null = null;
+    if (doctorId) {
+      await this.getDoctor(usuarioId, doctorId);
+      resolvedDoctorId = doctorId;
+    }
+    return this.pacientesService.findOrCreateForClinica(
+      cedula.trim(),
+      nombre.trim(),
+      resolvedDoctorId,
+    );
   }
 
   async devolverOrden(
@@ -300,6 +347,7 @@ export class MiClinicaService {
   }
 
   async getOrden(usuarioId: string, ordenId: string): Promise<Orden> {
+    ordenId = asegurarIdNumerico(ordenId, 'Orden');
     const clinicaId = await this.resolveClinicaId(usuarioId);
     const orden = await this.ordenRepo
       .createQueryBuilder('o')
@@ -319,6 +367,8 @@ export class MiClinicaService {
     if (orden.asignacion?.doctor?.clinicaId !== clinicaId) {
       throw new NotFoundException(`Orden ${ordenId} no encontrada`);
     }
-    return orden;
+    // `editable`/`editableHasta` viajan con el detalle (S8).
+    const [conVeredicto] = await this.pedidosService.anotarEditable([orden]);
+    return conVeredicto!;
   }
 }

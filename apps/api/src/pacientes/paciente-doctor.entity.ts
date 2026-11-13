@@ -1,5 +1,6 @@
 import {
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -27,4 +28,8 @@ export class PacienteDoctor {
 
   @CreateDateColumn({ name: 'fecha_asignacion', type: 'timestamptz' })
   fechaAsignacion: Date;
+
+  // Null while the link is active; set once on soft delete (SD1).
+  @DeleteDateColumn({ name: 'eliminado_en', type: 'timestamptz', nullable: true })
+  eliminadoEn: Date | null;
 }

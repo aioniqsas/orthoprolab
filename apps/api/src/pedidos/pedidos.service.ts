@@ -5,8 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { FindOptionsWhere, Repository } from 'typeorm';
-import { DataSource } from 'typeorm';
+import type { EntityManager, FindOptionsWhere, Repository } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { Paciente } from '../pacientes/paciente.entity.js';
@@ -19,6 +19,7 @@ import { PedidosEventosService } from './pedidos-eventos.service.js';
 import type { CreateOrdenDto } from './dto/create-orden.dto.js';
 import type { UpdateOrdenDto } from './dto/update-orden.dto.js';
 import { diaBogota, parseFechaEntrega } from './fecha-entrega.js';
+import { veredictoEdicion } from './ventana-edicion.js';
 
 @Injectable()
 export class PedidosService {
@@ -165,6 +166,7 @@ export class PedidosService {
       }
       const asignacion = await manager.findOne(PacienteDoctor, {
         where: { doctorId: dto.doctorId, pacienteId: resolvedPacienteId },
+        withDeleted: true,
       });
       if (!asignacion) {
         const link = manager.create(PacienteDoctor, {
@@ -172,6 +174,11 @@ export class PedidosService {
           doctorId: dto.doctorId,
         });
         await manager.save(PacienteDoctor, link);
+      } else if (asignacion.eliminadoEn) {
+        await manager.restore(PacienteDoctor, {
+          doctorId: dto.doctorId,
+          pacienteId: resolvedPacienteId,
+        });
       }
 
       // 2. Load the initial state.
@@ -327,16 +334,81 @@ export class PedidosService {
     return result;
   }
 
-  /** Edit an order only while it is in 'creada' state. */
-  async update(id: string, dto: UpdateOrdenDto): Promise<Orden> {
+  /**
+   * Última entrada a `en_proceso` de cada orden, que es desde donde se cuenta la
+   * ventana de edición (S8). SQL equivalente:
+   * `SELECT h.orden_id, h.fecha_cambio FROM historial_estado_orden h
+   *  JOIN estado_orden e ON e.id = h.estado_nuevo_id
+   *  WHERE h.orden_id IN (...) AND e.codigo = 'en_proceso'
+   *  ORDER BY h.fecha_cambio DESC`.
+   */
+  async entradasEnProceso(
+    ordenIds: string[],
+    manager?: EntityManager,
+  ): Promise<Map<string, Date>> {
+    if (ordenIds.length === 0) return new Map();
+    const repo = (manager ?? this.ordenRepo.manager).getRepository(
+      HistorialEstadoOrden,
+    );
+    const filas = await repo.find({
+      where: { ordenId: In(ordenIds), estadoNuevo: { codigo: 'en_proceso' } },
+      relations: { estadoNuevo: true },
+      order: { fechaCambio: 'DESC' },
+    });
+    const entradas = new Map<string, Date>();
+    // Viene de lo más nuevo a lo más viejo: la primera fila de cada orden es su
+    // última entrada a producción (una orden puede volver a proceso).
+    for (const fila of filas) {
+      if (!entradas.has(fila.ordenId)) entradas.set(fila.ordenId, fila.fechaCambio);
+    }
+    return entradas;
+  }
+
+  /** Anota el veredicto de la ventana de edición (S8) en cada orden. */
+  async anotarEditable(ordenes: Orden[], ahora: Date = new Date()): Promise<Orden[]> {
+    const enProceso = await this.entradasEnProceso(
+      ordenes.filter((o) => o.estado?.codigo === 'en_proceso').map((o) => o.id),
+    );
+    for (const orden of ordenes) {
+      const veredicto = veredictoEdicion({
+        estadoCodigo: orden.estado?.codigo,
+        entradaEnProceso: enProceso.get(orden.id) ?? null,
+        fechaCreacion: orden.fechaCreacion,
+        ahora,
+      });
+      orden.editable = veredicto.editable;
+      orden.editableHasta = veredicto.editableHasta?.toISOString() ?? null;
+    }
+    return ordenes;
+  }
+
+  /**
+   * Edita una orden mientras la ventana de edición esté abierta (S8):
+   * `creada`, `recibida`, `devuelta_correccion`, y `en_proceso` dentro de las 5
+   * horas siguientes a haber entrado a ese estado. `ahora` entra por parámetro
+   * para poder probar los bordes de la ventana sin depender del reloj real.
+   */
+  async update(id: string, dto: UpdateOrdenDto, ahora: Date = new Date()): Promise<Orden> {
     const result = await this.dataSource.transaction(async (manager) => {
       const orden = await manager.findOne(Orden, {
         where: { id },
         relations: { estado: true },
       });
       if (!orden) throw new NotFoundException('Orden no encontrada.');
-      if (orden.estado?.codigo !== 'creada') {
-        throw new ForbiddenException('Solo se puede editar una orden en estado Creada.');
+      const entradaEnProceso =
+        orden.estado?.codigo === 'en_proceso'
+          ? ((await this.entradasEnProceso([orden.id], manager)).get(orden.id) ?? null)
+          : null;
+      const veredicto = veredictoEdicion({
+        estadoCodigo: orden.estado?.codigo,
+        entradaEnProceso,
+        fechaCreacion: orden.fechaCreacion,
+        ahora,
+      });
+      if (!veredicto.editable) {
+        throw new ForbiddenException(
+          `No se puede editar esta orden: ${veredicto.motivo}.`,
+        );
       }
 
       if (dto.urgente !== undefined) {
@@ -350,7 +422,7 @@ export class PedidosService {
       }
 
       if (dto.detalles) {
-        await manager.delete(DetalleOrden, { ordenId: orden.id });
+        await manager.softDelete(DetalleOrden, { ordenId: orden.id });
         for (const d of dto.detalles) {
           const numeros = new Set(d.dientes);
           if (numeros.size !== d.dientes.length) {

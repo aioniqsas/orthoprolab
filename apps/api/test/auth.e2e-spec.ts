@@ -15,6 +15,12 @@ import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import { APP_CREATE_OPTIONS, configureApp } from './../src/app.setup.js';
 import { Roles } from './../src/auth/roles.decorator.js';
+import {
+  type AdminDeps,
+  createAdministrator,
+  typeormAdminStore,
+} from './../src/auth/admin-bootstrap.js';
+import { PasswordService } from './../src/crypto/password.service.js';
 
 // ConfigModule.forRoot() validates env at import time.
 vi.hoisted(() => {
@@ -32,15 +38,13 @@ class TestController {
   }
 
   @Get('doctor-or-admin')
-  @Roles('odontologo', 'administrador')
+  @Roles('clinica', 'administrador')
   either() {
     return { ok: true };
   }
 }
 
 const PASSWORD = 'correct horse battery';
-const GENERIC_503 =
-  'No pudimos completar el registro en este momento. Intentalo de nuevo mas tarde.';
 const freshIp = () =>
   `10.${randomInt(1, 255)}.${randomInt(1, 255)}.${randomInt(1, 255)}`;
 const email = () => `auth-e2e-${randomBytes(6).toString('hex')}@test.local`;
@@ -53,17 +57,36 @@ describe('Auth (e2e)', () => {
   let config: ConfigService;
   const http = () => request(app.getHttpServer());
 
+  // Public registration no longer exists: an administrator creates accounts
+  // through POST /usuarios (rol 'clinica' or 'administrador'). The stored
+  // password is the auto-generated one, so for login tests we overwrite the
+  // hash with a known password via PasswordService (same bcrypt+prehash).
   const registerBody = (over: Record<string, unknown> = {}) => ({
     nombres: 'Ana María',
     apellidos: "O'Brien-Pérez",
     cedula: cedula(),
     correo: email(),
-    password: PASSWORD,
+    rol: 'clinica',
     ...over,
   });
 
-  const register = (body = registerBody(), ip = freshIp()) =>
-    http().post('/auth/register').set('X-Forwarded-For', ip).send(body);
+  const postUsuario = (body: Record<string, unknown>) =>
+    http()
+      .post('/usuarios')
+      .set('X-Forwarded-For', freshIp())
+      .set('Cookie', adminCookie)
+      .send(body);
+
+  async function createAndLogin(over: Record<string, unknown> = {}) {
+    const body = registerBody(over);
+    await postUsuario(body).expect(201);
+    await ds.query(
+      `UPDATE usuario SET password_hash = $1 WHERE correo = $2`,
+      [await passwords.hash(PASSWORD), body.correo],
+    );
+    const res = await login(body.correo, PASSWORD).expect(200);
+    return { body, jar: cookiesOf(res), res };
+  }
 
   const login = (correo: string, password = PASSWORD, ip = freshIp()) =>
     http()
@@ -86,13 +109,7 @@ describe('Auth (e2e)', () => {
       .map(([k, v]) => `${k}=${valueOf(v)}`)
       .join('; ');
 
-  async function registerAndLogin() {
-    const body = registerBody();
-    const ip = freshIp();
-    await register(body, ip).expect(201);
-    const res = await login(body.correo, PASSWORD, ip).expect(200);
-    return { body, jar: cookiesOf(res), res };
-  }
+  const registerAndLogin = createAndLogin;
 
   const refreshWith = (refreshValue: string, ip = freshIp()) =>
     http()
@@ -106,6 +123,9 @@ describe('Auth (e2e)', () => {
     for (const [k, v] of Object.entries(headers)) r.set(k, v);
     return r;
   };
+
+  let adminCookie = '';
+  let passwords: PasswordService;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -121,14 +141,25 @@ describe('Auth (e2e)', () => {
     ds = app.get(DataSource);
     jwt = app.get(JwtService);
     config = app.get(ConfigService);
-  });
+    passwords = app.get(PasswordService);
+
+    // Bootstrap a real administrator (there is no public registration).
+    const deps: AdminDeps = { passwords, store: typeormAdminStore(ds) };
+    const adminInput = {
+      nombres: 'Root',
+      apellidos: 'Admin',
+      cedula: cedula(),
+      correo: email(),
+      password: PASSWORD,
+    };
+    await createAdministrator(deps, adminInput);
+    const res = await login(adminInput.correo, PASSWORD).expect(200);
+    adminCookie = cookieHeader(cookiesOf(res));
+  }, 60_000); // app boot + admin bootstrap are slow under full-suite parallelism
 
   afterAll(async () => {
     await ds.query(
       `DELETE FROM sesion_refresco WHERE usuario_id IN (SELECT id FROM usuario WHERE correo LIKE 'auth-e2e-%')`,
-    );
-    await ds.query(
-      `DELETE FROM doctor WHERE usuario_id IN (SELECT id FROM usuario WHERE correo LIKE 'auth-e2e-%')`,
     );
     await ds.query(`DELETE FROM usuario WHERE correo LIKE 'auth-e2e-%'`);
     await app.close();
@@ -148,18 +179,30 @@ describe('Auth (e2e)', () => {
     });
   });
 
-  describe('POST /auth/register', () => {
-    it('creates an odontologo with a doctor profile and sets no cookies', async () => {
+  describe('admin-managed accounts (POST /usuarios; /auth/register no longer exists)', () => {
+    it('answers 404 for the removed public registration endpoint', async () => {
+      await http()
+        .post('/auth/register')
+        .set('X-Forwarded-For', freshIp())
+        .send({})
+        .expect(404);
+    });
+
+    it('creates an active clinica user with a hashed password and no cookies', async () => {
       const body = registerBody();
-      const res = await register(body).expect(201);
-      expect(res.body).toEqual({ message: 'Registro completado.' });
+      const res = await postUsuario(body).expect(201);
       expect(res.headers['set-cookie']).toBeUndefined();
-      expect(res.headers['cache-control']).toBe('no-store');
+      expect(res.body).toMatchObject({
+        correo: body.correo,
+        activo: true,
+        rol: { nombre: 'clinica' },
+      });
+      // The generated password is never echoed back.
+      expect(JSON.stringify(res.body)).not.toMatch(/password|hash/i);
 
       const rows = (await ds.query(
-        `SELECT u.password_hash, u.activo, r.nombre AS rol, d.clinica_id, d.usuario_id
+        `SELECT u.activo, u.password_hash, r.nombre AS rol, u.clinica_id
            FROM usuario u JOIN rol r ON r.id = u.rol_id
-           LEFT JOIN doctor d ON d.usuario_id = u.id
           WHERE u.correo = $1`,
         [body.correo],
       )) as Array<{
@@ -167,57 +210,36 @@ describe('Auth (e2e)', () => {
         activo: boolean;
         rol: string;
         clinica_id: string | null;
-        usuario_id: string | null;
       }>;
       expect(rows).toHaveLength(1);
-      expect(rows[0].rol).toBe('odontologo');
+      expect(rows[0].rol).toBe('clinica');
       expect(rows[0].activo).toBe(true);
-      expect(rows[0].usuario_id).not.toBeNull();
       expect(rows[0].clinica_id).toBeNull();
       expect(rows[0].password_hash).toMatch(/^\$2[aby]\$/);
-      expect(rows[0].password_hash).not.toContain(PASSWORD);
     });
 
-    it('answers the same 503 for a duplicate email (any case) and a duplicate cedula', async () => {
+    it('answers 409 Conflict for a duplicate correo (any case) or cedula', async () => {
       const first = registerBody();
-      await register(first).expect(201);
-      const dupEmail = await register(
+      await postUsuario(first).expect(201);
+      const dupEmail = await postUsuario(
         registerBody({ correo: first.correo.toUpperCase() }),
-      ).expect(503);
-      const dupCedula = await register(
+      ).expect(409);
+      expect(dupEmail.body.message).toContain('en uso');
+      const dupCedula = await postUsuario(
         registerBody({ cedula: first.cedula }),
-      ).expect(503);
-      expect(dupEmail.body).toEqual(dupCedula.body);
-      expect(dupEmail.body.message).toBe(GENERIC_503);
-      expect(JSON.stringify(dupEmail.body)).not.toMatch(/correo|cedula|exist/i);
+      ).expect(409);
+      expect(dupCedula.body.message).toContain('en uso');
     });
 
     it.each([
-      ['short password', { password: 'a'.repeat(11) }],
-      ['oversized password', { password: 'a'.repeat(201) }],
-      ['extra rol field', { rol: 'administrador' }],
       ['bad cedula', { cedula: 'abc' }],
       ['bad email', { correo: 'nope' }],
+      ['unknown rol', { rol: 'odontologo' }],
+      ['missing rol', { rol: undefined }],
+      ['short password', { password: 'a'.repeat(11) }],
+      ['oversized password', { password: 'a'.repeat(201) }],
     ])('rejects %s with 400', async (_name, over) => {
-      await register(registerBody(over)).expect(400);
-    });
-
-    it('accepts a 200 character password', async () => {
-      const body = registerBody({ password: 'p'.repeat(200) });
-      await register(body).expect(201);
-      await login(body.correo, 'p'.repeat(200)).expect(200);
-    });
-
-    it('is rate limited', async () => {
-      const ip = freshIp();
-      const codes: number[] = [];
-      for (let i = 0; i < 7; i++) {
-        codes.push(
-          (await register(registerBody({ password: 'x' }), ip)).status,
-        );
-      }
-      expect(codes.slice(0, 5)).toEqual([400, 400, 400, 400, 400]);
-      expect(codes[6]).toBe(429);
+      await postUsuario(registerBody(over)).expect(400);
     });
   });
 
@@ -230,7 +252,7 @@ describe('Auth (e2e)', () => {
           nombres: 'Ana María',
           apellidos: "O'Brien-Pérez",
           correo: body.correo,
-          rol: 'odontologo',
+          rol: 'clinica',
         },
       });
       expect(res.headers['cache-control']).toBe('no-store');
@@ -241,7 +263,8 @@ describe('Auth (e2e)', () => {
       expect(jar.auth_token).toContain('HttpOnly');
       expect(jar.auth_token).toContain('SameSite=Strict');
       expect(jar.auth_token).not.toContain('Secure');
-      expect(jar.refresh_token).toContain('Path=/auth');
+      // Path / so portals can read it for silent renewal (legacy /auth copies are cleared).
+      expect(jar.refresh_token).toContain('Path=/');
       expect(jar.refresh_token).toContain('Max-Age=604800');
       expect(jar.refresh_token).toContain('HttpOnly');
       expect(jar.refresh_token).toContain('SameSite=Strict');
@@ -323,7 +346,7 @@ describe('Auth (e2e)', () => {
         nombres: 'Ana María',
         apellidos: "O'Brien-Pérez",
         correo: body.correo,
-        rol: 'odontologo',
+        rol: 'clinica',
       });
       expect(res.headers['cache-control']).toBe('no-store');
     });
@@ -412,7 +435,7 @@ describe('Auth (e2e)', () => {
       const next = cookiesOf(res);
       expect(valueOf(next.refresh_token)).not.toBe(oldRefresh);
       expect(valueOf(next.auth_token)).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
-      expect(next.refresh_token).toContain('Path=/auth');
+      expect(next.refresh_token).toContain('Path=/');
       expect(next.refresh_token).toContain('Max-Age=604800');
 
       const after = (await ds.query(
@@ -554,7 +577,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('allows an administrator', async () => {
-      const { body } = await registerAndLogin();
+      const { body } = await createAndLogin();
       await ds.query(
         `UPDATE usuario SET rol_id = (SELECT id FROM rol WHERE nombre = 'administrador') WHERE correo = $1`,
         [body.correo],
@@ -572,7 +595,6 @@ describe('Auth (e2e)', () => {
   it('sends Cache-Control: no-store on every auth route', async () => {
     for (const [method, path] of [
       ['post', '/auth/login'],
-      ['post', '/auth/register'],
       ['post', '/auth/refresh'],
       ['post', '/auth/logout'],
       ['get', '/auth/me'],

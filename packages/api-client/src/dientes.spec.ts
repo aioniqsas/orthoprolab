@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nombreDiente, parseColor, parseDientes, resumenDientes } from "./dientes";
+import { esDienteValido, nombreDiente, parseColor, parseDientes, resumenDientes } from "./dientes";
 
 describe("parseDientes", () => {
   it("accepts a valid selection", () => {
@@ -77,5 +77,12 @@ describe("resumenDientes", () => {
 
   it("devuelve vacío sin piezas", () => {
     expect(resumenDientes([])).toBe("");
+  });
+
+  it("esDienteValido acepta la numeración FDI y rechaza lo demás", () => {
+    expect(esDienteValido(26)).toBe(true);
+    expect(esDienteValido(48)).toBe(true);
+    expect(esDienteValido(99)).toBe(false);
+    expect(esDienteValido(19)).toBe(false);
   });
 });

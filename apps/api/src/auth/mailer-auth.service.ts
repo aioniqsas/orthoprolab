@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import { MailQueueService } from '../queues/mail-queue.service.js';
@@ -14,7 +14,9 @@ export class MailerAuthService {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly mailQueue: MailQueueService,
+    // Optional so module graphs without queues (the admin:create CLI) still boot;
+    // without a queue the mailer falls back to direct SMTP.
+    @Optional() private readonly mailQueue?: MailQueueService,
   ) {}
 
   async sendWelcome(
@@ -72,11 +74,11 @@ export class MailerAuthService {
 </body>
 </html>`;
 
-    const encolado = await this.mailQueue.enqueue({
+    const encolado = (await this.mailQueue?.enqueue({
       to,
       subject: 'Bienvenido a OrthoPro Lab — tus credenciales de acceso',
       html,
-    });
+    })) ?? { sent: false };
     if (encolado.sent) return encolado;
 
     try {
@@ -142,11 +144,11 @@ export class MailerAuthService {
 </body>
 </html>`;
 
-    const encolado = await this.mailQueue.enqueue({
+    const encolado = (await this.mailQueue?.enqueue({
       to,
       subject: 'Restablece tu contraseña — OrthoPro Lab',
       html,
-    });
+    })) ?? { sent: false };
     if (encolado.sent) return encolado;
 
     try {

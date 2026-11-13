@@ -35,6 +35,16 @@ function formatDate(value: string | null) {
   return formatearFecha(value, "—");
 }
 
+function doctorNombre(o: Orden) {
+  return o.asignacion?.doctor
+    ? `${o.asignacion.doctor.nombres} ${o.asignacion.doctor.apellidos}`
+    : "—";
+}
+
+function pacienteNombre(o: Orden) {
+  return o.asignacion?.paciente?.nombre ?? "—";
+}
+
 function formatCop(value: string) {
   return Number(value).toLocaleString("es-CO", {
     style: "currency",
@@ -63,20 +73,14 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
         {
           id: "doctor",
           header: "Doctor",
-          render: (o) =>
-            o.asignacion?.doctor
-              ? `${o.asignacion.doctor.nombres} ${o.asignacion.doctor.apellidos}`
-              : "—",
-          searchValue: (o) =>
-            o.asignacion?.doctor
-              ? `${o.asignacion.doctor.nombres} ${o.asignacion.doctor.apellidos}`
-              : "",
+          render: doctorNombre,
+          searchValue: (o) => (o.asignacion?.doctor ? doctorNombre(o) : ""),
           sortValue: (o) => o.asignacion?.doctor?.nombres ?? "",
         },
         {
           id: "paciente",
           header: "Paciente",
-          render: (o) => o.asignacion?.paciente?.nombre ?? "—",
+          render: pacienteNombre,
           searchValue: (o) => o.asignacion?.paciente?.nombre ?? "",
           sortValue: (o) => o.asignacion?.paciente?.nombre ?? "",
         },
@@ -117,6 +121,43 @@ export function OrdenesTable({ ordenes }: { ordenes: Orden[] }) {
       filters={filters}
       initialFilterValues={{ grupo: "activas" }}
       initialSort={{ id: "creada", dir: "asc" }}
+      renderCard={(o) => (
+        <li className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <Link
+              href={`/ordenes/${o.id}`}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              #{o.id}
+            </Link>
+            {estadoBadge(o.estado.nombre, o.estado.color)}
+          </div>
+          <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+            <div>
+              <dt className="text-xs text-muted-foreground">Doctor</dt>
+              <dd>{doctorNombre(o)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Paciente</dt>
+              <dd>{pacienteNombre(o)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Total</dt>
+              <dd className="tabular-nums">
+                {Number(o.valor) > 0 ? formatCop(o.valor) : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Creada</dt>
+              <dd>{formatDate(o.fechaCreacion)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Entrega</dt>
+              <dd>{formatDate(o.fechaEntrega)}</dd>
+            </div>
+          </dl>
+        </li>
+      )}
       empty={
         <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
           <p className="font-heading text-lg font-semibold">
