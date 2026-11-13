@@ -1,7 +1,7 @@
 import { NO_DISPONIBLE, NO_ENCONTRADO, type DatosBot } from './datos.js'
-import { numeroEnPalabras } from './numeros.js'
+import { MAX_INTERCAMBIOS, MemoriaConversacion } from './memoria.js'
 import { ejecutarHerramienta, type LlamadaHerramienta } from './herramientas.js'
-import { PREGUNTA_ACLARAR, SALUDO } from './menu.js'
+import { PREGUNTA_ACLARAR, SALUDO } from './mensajes.js'
 import {
   NOMBRE_BOT_DEFECTO,
   NEGATIVA_ESCRITURA,
@@ -21,9 +21,10 @@ export { NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_INFRAES
  * Cliente Groq con tool calling (IA3, S4). Sin SDK: `fetch` es global. El
  * modelo nunca escribe SQL ni toca la base directamente: elige una
  * herramienta del catálogo cerrado de herramientas.ts, que se valida contra
- * el esquema declarado ANTES de ejecutarse. Cualquier fallo (bandera apagada,
- * sin llave, timeout, HTTP != 200, respuesta malformada) devuelve null y el
- * flujo determinista del menú atiende el mensaje: el bot no se cae con Groq.
+ * el esquema declarado ANTES de ejecutarse. Cualquier fallo (sin llave,
+ * bandera apagada, timeout, HTTP != 200, respuesta malformada) devuelve el
+ * mensaje fijo de S5 (FALLO_MODELO): el bot no cae a flujos ni a menú
+ * numerado, y nunca se cae con Groq.
  */
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -34,8 +35,8 @@ const TIMEOUT_MS = 12_000
 const MAX_RONDAS = 2
 /** Tope de tokens (entrada+salida) acumulados por conversación. */
 const LIMITE_TOKENS = 4_000
-/** Turnos de historial enviados al modelo (recorte anti prompt infinito). */
-const MAX_TURNOS_HISTORIAL = 8
+/** Intercambios de historial enviados al modelo (recorte anti prompt infinito). */
+const MAX_TURNOS_HISTORIAL = MAX_INTERCAMBIOS
 
 export interface ConfigLlm {
   apiKey: string
@@ -46,9 +47,9 @@ export interface ConfigLlm {
 }
 
 /**
- * Configuración (S4). Null => el menú determinista atiende todo. `GROQ_API_KEY`
- * es obligatoria; `WHATSAPP_LLM_ENABLED` por defecto true (apagarla con
- * 'false' vuelve al menú sin desplegar).
+ * Configuración (S4/S5). Null => no hay modelo; el bot responde con el
+ * mensaje fijo FALLO_MODELO. `GROQ_API_KEY` es obligatoria;
+ * `WHATSAPP_LLM_ENABLED` por defecto true (apagarla con 'false' lo deshabilita).
  */
 export function configuracionLlm(env: Record<string, string | undefined> = process.env): ConfigLlm | null {
   if ((env.WHATSAPP_LLM_ENABLED ?? 'true') === 'false') return null
@@ -108,101 +109,6 @@ export type Ruta = {
   numero?: string
   /** Texto original: el flujo lo reinterpreta completo antes de preguntar (S4). */
   texto?: string
-}
-
-/**
- * Prechequeo de intención (sabotaje en vivo: "hazme un pedido" no disparaba
- * la herramienta). Corre ANTES del modelo, tras la política de negativas:
- * reconoce las formas comunes de pedir cada acción en español, tolerante de
- * tildes y mayúsculas, y devuelve la misma ruta que el modelo habría
- * elegido; el flujo determinista la ejecuta igual que hoy. Todo lo que no
- * reconoce sigue al modelo. Con cualquier dígito presente devuelve null:
- * "¿cómo va la orden 1234?" y "mándame la cuenta 105" conservan su número
- * porque van por las herramientas/flujo, no por la ruta sin dato.
- */
-function normalizar(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function esPedidoDeOrden(t: string): boolean {
-  return (
-    /\b(crear|hacer|tomar|registrar)\s+(una\s+)?(orden|pedido)\b/.test(t) ||
-    /\bnecesito\s+crear\b/.test(t) ||
-    /\bhay\s+que\s+hacerle\b/.test(t) ||
-    /\b(hazme|haceme)\s+(un|una)\s+pedido\b/.test(t) ||
-    /\b(nuevo|nueva)\s+(pedido|orden)\b/.test(t)
-  )
-}
-
-/** Número de orden dicho con cifras o con palabras en el texto. */
-function numeroDeOrdenDeTexto(texto: string): string | undefined {
-  const cifras = /\b(?:orden|pedido)\s*(?:n[uú]mero\s*)?#?\s*(\d{1,9})\b/i.exec(texto)
-  if (cifras?.[1]) return cifras[1]
-  const cola = /\b(?:orden|pedido)\s+(?:n[uú]mero\s+)?(.{2,40})/i.exec(texto)?.[1]
-  if (!cola) return undefined
-  const n = numeroEnPalabras(cola.split(/[\s,.;:!?]+/).slice(0, 4).join(' '))
-  return n === null ? undefined : String(n)
-}
-
-export function prechequeoRuta(texto: string): Ruta | null {
-  const t = normalizar(texto)
-  if (t === '') return null
-  // Un pedido de trabajo trae números de dientes ("prótesis de los 14 y 13") y
-  // sigue siendo un pedido: se reconoce antes de descartar por dígitos. El
-  // resto de mensajes con números va al modelo, que sí sabe extraer el dato
-  // ("mándame la cuenta de la 1234").
-  if (esPedidoDeOrden(t)) return { tipo: 'nuevo_pedido', texto }
-  // Cambiar algo de una orden que ya existe (S3): quitar o agregar dientes, la
-  // cantidad o el color. Va antes del descarte por dígitos: el mensaje los trae.
-  if (
-    /\b(quita\w*|quitar\w*|saca\w*|sacar\w*|elimina\w*|eliminar\w*|agrega\w*|agregar\w*|a[ñn]ade\w*|a[ñn]adir\w*|suma\w*|sumar\w*|pon\w*|cambia\w*|cambiar\w*|modifica\w*|modificar\w*|ya\s+no\s+(?:vamos\s+a\s+hacer(?:le)?|hay\s+que\s+hacer(?:le)?))\b/.test(t) &&
-    /\b(orden|pedido|trabajo|diente|dientes)\b/.test(t)
-  ) return { tipo: 'editar_orden', texto }
-  // "la orden 18", "la orden 18 de Sara": identificar una orden concreta (S6),
-  // y "¿cómo va la orden 7?" sigue yendo por las herramientas: ahí hay pregunta.
-  if (/^(?:la|el)\s+(?:orden|pedido)\b/.test(t)) return { tipo: 'buscar_orden', texto }
-  // "¿cuál es el estado de la orden diecisiete?": con un número presente la
-  // pregunta es por el estado de una orden, no por un paciente llamado
-  // "Diecisiete". Sin número, "la orden de Sara" sigue yendo a buscar_orden.
-  const numeroPedido = numeroDeOrdenDeTexto(texto)
-  if (numeroPedido && /\b(estado|situacion|como\s+va\w*|como\s+vamos)\b/.test(t) && /\b(orden|pedido)\b/.test(t)) {
-    return { tipo: 'ver_pedido', numero: numeroPedido }
-  }
-  if (/\d/.test(t)) return null
-  // Hablar de una orden concreta por paciente o por día (S2, S7). Con un número
-  // la consulta va por las herramientas de siempre, que ya lo resuelven.
-  if (/\b(orden|pedido)\b/.test(t) && /\b(de|del|para)\s+\p{L}/u.test(t)) return { tipo: 'buscar_orden', texto }
-  if (/\b(orden|pedido|trabajo)\b/.test(t) && /\b(hoy|ayer|anteayer|antier|lunes|martes|miercoles|jueves|viernes|sabado|domingo|semana)\b/.test(t)) {
-    return { tipo: 'buscar_orden', texto }
-  }
-  if (/\bque\s+me\s+llame[nr]?\b/.test(t) || /\b(llamenme|llamame)\b/.test(t)) return { tipo: 'pedir_llamada' }
-  if (
-    /\bcomo\s+va\b[^.]{0,30}\b(orden|pedido|trabajo)\b/.test(t) ||
-    /\b(estado|como\s+vamos?)\b[^.]{0,20}\b(orden|pedido)\b/.test(t) ||
-    /\b(ver|consultar)\s+(mi|el|la)?\s*(orden|pedido)\b/.test(t)
-  ) return { tipo: 'ver_pedido' }
-  if (
-    /\bcuenta\b/.test(t) &&
-    /\b(manda|mandame|mandar|envia|enviame|enviar|pasame|dame|quiero|quisiera|necesito)\b/.test(t)
-  ) return { tipo: 'enviar_cuenta' }
-  if (/\b(papel\s+del\s+trabajo|control\s+de\s+trabajos)\b/.test(t)) return { tipo: 'enviar_control' }
-  if (
-    /\b(hazme|haceme)\s+(un|una)\s+pedido\b/.test(t) ||
-    /\b(hacer|tomar|hagamos)\s+(un\s+)?(nuevo\s+)?pedido\b/.test(t) ||
-    /\bvamos\s+a\s+hacer\s+(un\s+)?(nuevo\s+)?pedido\b/.test(t) ||
-    /\b(nuevo|nueva)\s+(pedido|orden)\b/.test(t) ||
-    /\b(crear|hacer|tomar|registrar)\s+(una\s+)?(orden|pedido)\b/.test(t) ||
-    /\bnecesito\s+crear\b/.test(t) ||
-    /\bhay\s+que\s+hacerle\b/.test(t) ||
-    /\b(quiero|quisiera|necesito)\s+(pedir|hacer|tomar)\b/.test(t) ||
-    /\b(quiero|quisiera|necesito)\s+(una|un)\s+\w+/.test(t)
-  ) return { tipo: 'nuevo_pedido', texto }
-  return null
 }
 
 function rutaDe(llamada: LlamadaHerramienta): Ruta {
@@ -336,23 +242,40 @@ export class StoreLlm {
   constructor(
     private readonly ttlMs = 15 * 60 * 1000,
     private readonly maxEntradas = 2000,
+    private readonly memoria: MemoriaConversacion | null = null,
   ) {}
 
   get size(): number {
     return this.estados.size
   }
 
-  get(telefono: string, ahora = Date.now()): ConversacionLlm | undefined {
+  /** Estado de la conversación: historial desde la memoria persistente y tokens acumulados. */
+  async get(telefono: string, ahora = Date.now()): Promise<ConversacionLlm | undefined> {
     const estado = this.estados.get(telefono)
-    if (!estado) return undefined
-    if (estado.expiresAt <= ahora) {
-      this.estados.delete(telefono)
-      return undefined
+    if (estado && estado.expiresAt <= ahora) this.estados.delete(telefono)
+    const vivo = estado && estado.expiresAt > ahora ? estado : undefined
+    if (this.memoria) {
+      try {
+        const [historial, tokens] = await Promise.all([
+          this.memoria.obtener(telefono),
+          this.memoria.tokens(telefono),
+        ])
+        if (historial.length === 0 && tokens === 0 && !vivo) return undefined
+        return {
+          historial: historial.map((m) => ({ ...m })),
+          tokens,
+          expiresAt: ahora + this.ttlMs,
+        }
+      } catch {
+        // Redis caído: se degrada al estado en memoria (o sin memoria).
+      }
     }
-    return { historial: estado.historial.map((m) => ({ ...m })), tokens: estado.tokens, expiresAt: estado.expiresAt }
+    if (!vivo) return undefined
+    return { historial: vivo.historial.map((m) => ({ ...m })), tokens: vivo.tokens, expiresAt: vivo.expiresAt }
   }
 
-  set(telefono: string, estado: ConversacionLlm, ahora = Date.now()): void {
+  /** Persiste los tokens acumulados (el historial lo lleva la memoria persistente). */
+  async set(telefono: string, estado: ConversacionLlm, ahora = Date.now()): Promise<void> {
     for (const [id, v] of this.estados) if (v.expiresAt <= ahora) this.estados.delete(id)
     while (this.estados.size >= this.maxEntradas) {
       const masViejo = this.estados.keys().next().value
@@ -360,19 +283,36 @@ export class StoreLlm {
       this.estados.delete(masViejo)
     }
     this.estados.set(telefono, { historial: estado.historial.map((m) => ({ ...m })), tokens: estado.tokens, expiresAt: ahora + this.ttlMs })
+    if (this.memoria) {
+      try {
+        await this.memoria.guardarTokens(telefono, estado.tokens)
+      } catch {
+        // Redis caído: el bot sigue sin caerse.
+      }
+    }
   }
 
-  clear(telefono: string): void {
+  async clear(telefono: string): Promise<void> {
     this.estados.delete(telefono)
+    if (this.memoria) {
+      try {
+        await this.memoria.limpiar(telefono)
+      } catch {
+        // Redis caído: degradación silenciosa.
+      }
+    }
   }
 }
 
 /** Mensaje cortés cuando el tope de costo se alcanzó. */
 export const LIMITE_COSTO =
-  'Hemos llegado al tope de mensajes de esta conversación, disculpa. Más tarde seguimos con gusto: escribe 0 y volvemos al menú.'
+  'Hemos llegado al tope de mensajes de esta conversación, disculpa. Más tarde seguimos con gusto: escribe 0 para empezar de nuevo.'
 
 /** Mensaje cuando el modelo pidió algo fuera del catálogo o inválido: la misma negativa fija. */
 export const NO_PUEDO = NEGATIVA_FIJA
+
+/** S5 (L4): mensaje fijo cuando el modelo falla, tarda o no está configurado. */
+export const FALLO_MODELO = 'Ahora mismo no puedo responder. Intenta de nuevo en un momento, por favor.'
 
 /** Frase fija por clase de negativa (IA4). La de identidad lleva el nombre del bot. */
 function textoNegativa(clase: ClaseNegativa, nombre: string): string {
@@ -382,9 +322,6 @@ function textoNegativa(clase: ClaseNegativa, nombre: string): string {
     : clase === 'infraestructura' ? NEGATIVA_INFRAESTRUCTURA
     : NEGATIVA_FIJA
 }
-
-/** Mensaje cuando el modelo no dio respuesta utilizable en las rondas permitidas. */
-const SIN_RESPUESTA = 'Ahora mismo no pude darte una respuesta, disculpa. Escribe 0 y seguimos paso a paso.'
 
 function parseUso(cuerpo: unknown): UsoGroq {
   const uso = (cuerpo as { usage?: { prompt_tokens?: unknown; completion_tokens?: unknown } })?.usage
@@ -396,7 +333,7 @@ function parseUso(cuerpo: unknown): UsoGroq {
 
 /** Un turno de conversación completo: posible ida y vuelta al modelo (máx 2). */
 export type RespuestaLlm =
-  | { texto: string | null; ruta?: undefined } // texto null => fallback al menú
+  | { texto: string | null; ruta?: undefined } // texto null: compatibilidad; S5 usa FALLO_MODELO
   | { texto?: undefined; ruta: Ruta }
 
 export class ClienteGroq {
@@ -464,7 +401,7 @@ export class ClienteGroq {
    * Bucle acotado (máx MAX_RONDAS rondas): envía el mensaje, ejecuta las
    * herramientas válidas que pida y entrega los resultados al modelo. Toda
    * conversación queda con el historial recortado y el costo acumulado.
-   * Devuelve el texto para el contacto, o null si Groq falló (fallback menú).
+   * Devuelve el texto para el contacto (o FALLO_MODELO si Groq falló, S5).
    */
   async manejar(
     telefono: string,
@@ -475,9 +412,9 @@ export class ClienteGroq {
     ahora = Date.now(),
     contexto?: { clinica?: string; doctor?: string },
   ): Promise<RespuestaLlm> {
-    const previo = store.get(telefono, ahora) ?? { historial: [], tokens: 0, expiresAt: ahora }
+    const previo = await store.get(telefono, ahora) ?? { historial: [], tokens: 0, expiresAt: ahora }
     if (previo.tokens >= LIMITE_TOKENS) {
-      store.set(telefono, previo, ahora)
+      await store.set(telefono, previo, ahora)
       return { texto: LIMITE_COSTO }
     }
     const usuarioRedactado = redactar(texto)
@@ -486,19 +423,9 @@ export class ClienteGroq {
     // fetches, cero tokens, y el estado de la conversación queda intacto.
     const clase = clasificarNegativa(usuarioRedactado)
     if (clase !== null) {
-      store.set(telefono, previo, ahora)
+      await store.set(telefono, previo, ahora)
       this.auditar({ intencion: 'conversacion', herramienta: null, tokensEntrada: 0, tokensSalida: 0, resultado: 'negado' })
       return { texto: textoNegativa(clase, this.config.nombre) }
-    }
-    // Prechequeo de intención: ruta directa al flujo determinista sin una
-    // sola llamada al modelo (sabotaje en vivo: el modelo no elegía la
-    // herramienta para "hazme un pedido"). La política de negativas va
-    // primero a propósito: una inyección nunca se aprovecha de la ruta.
-    const rutaPrevia = prechequeoRuta(usuarioRedactado)
-    if (rutaPrevia) {
-      store.set(telefono, previo, ahora)
-      this.auditar({ intencion: rutaPrevia.tipo, herramienta: rutaPrevia.tipo, tokensEntrada: 0, tokensSalida: 0, resultado: 'herramienta_ok' })
-      return { ruta: rutaPrevia }
     }
     const historial = previo.historial.slice(-MAX_TURNOS_HISTORIAL * 2)
     const mensajes: Mensaje[] = [
@@ -514,12 +441,12 @@ export class ClienteGroq {
       try {
         respuesta = await this.ronda(mensajes)
       } catch {
-        store.set(telefono, previo, ahora)
-        return { texto: null }
+        await store.set(telefono, previo, ahora)
+        return { texto: FALLO_MODELO }
       }
       if (!respuesta) {
-        store.set(telefono, previo, ahora)
-        return { texto: null }
+        await store.set(telefono, previo, ahora)
+        return { texto: FALLO_MODELO }
       }
       tokens += respuesta.uso.entrada + respuesta.uso.salida
       if ('texto' in respuesta) {
@@ -529,7 +456,7 @@ export class ClienteGroq {
         // consultados (ronda mayor a 0), la respuesta del modelo sí se muestra.
         const textoFinal = ronda === 0 ? (previo.historial.length === 0 ? SALUDO : PREGUNTA_ACLARAR) : respuesta.texto
         historialNuevo.push({ role: 'assistant', content: textoFinal })
-        store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
+        await store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
         this.auditar({ intencion: 'conversacion', herramienta: null, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'texto' })
         return { texto: textoFinal }
       }
@@ -555,7 +482,7 @@ export class ClienteGroq {
         validas.push({ llamada: { nombre: cruda.function.name, entrada: valida.entrada }, id: cruda.id })
       }
       if (rechazada || validas.length === 0) {
-        store.set(telefono, previo, ahora)
+        await store.set(telefono, previo, ahora)
         this.auditar({ intencion: 'conversacion', herramienta: nombrePrimera, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'negado' })
         return { texto: NO_PUEDO }
       }
@@ -564,7 +491,7 @@ export class ClienteGroq {
       const intencion = validas.find((v) => ES_INTENCION.has(v.llamada.nombre))
       if (intencion) {
         historialNuevo.push({ role: 'assistant', content: `[ruta ${intencion.llamada.nombre}]` })
-        store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
+        await store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
         this.auditar({ intencion: intencion.llamada.nombre, herramienta: intencion.llamada.nombre, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'herramienta_ok' })
         const ruta = rutaDe(intencion.llamada)
         if (ruta.tipo !== 'ver_pedido' && ruta.tipo !== 'enviar_control' && ruta.tipo !== 'enviar_cuenta' && ruta.tipo !== 'pedir_llamada') {
@@ -579,7 +506,7 @@ export class ClienteGroq {
         // "No encontré" nunca vuelve al modelo (IA4): el modelo podría
         // inventar datos para llenar el vacío. La frase fija responde.
         if (!resultado.ok && resultado.texto === NO_ENCONTRADO) {
-          store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
+          await store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
           this.auditar({ intencion: 'conversacion', herramienta: nombrePrimera, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'negado' })
           return { texto: NEGATIVA_NO_ENCONTRADO }
         }
@@ -587,15 +514,15 @@ export class ClienteGroq {
       }
       this.auditar({ intencion: 'conversacion', herramienta: nombrePrimera, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'herramienta_ok' })
       if (tokens >= LIMITE_TOKENS) {
-        store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
+        await store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
         this.auditar({ intencion: 'conversacion', herramienta: nombrePrimera, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'fallo' })
         return { texto: LIMITE_COSTO }
       }
     }
     // Dos rondas y el modelo seguía pidiendo herramientas: se cierra en corto.
-    store.set(telefono, previo, ahora)
+    await store.set(telefono, previo, ahora)
     this.auditar({ intencion: 'conversacion', herramienta: null, tokensEntrada: 0, tokensSalida: 0, resultado: 'fallo' })
-    return { texto: SIN_RESPUESTA }
+    return { texto: FALLO_MODELO }
   }
 }
 

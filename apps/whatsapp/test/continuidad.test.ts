@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { ApiClient } from '../src/api'
 import { OrdenExistenteFlows } from '../src/orden-existente'
-import { ConversationStore, UltimaOrdenVista } from '../src/state'
+import { ConversationStore, UltimaOrdenVista } from '../src/estado'
 
 const TEL = '573001234567@s.whatsapp.net'
 

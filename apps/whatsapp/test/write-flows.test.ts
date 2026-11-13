@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { ApiError, type ApiClient, type DoctorApi, type ServicioApi } from '../src/api.js'
-import { SALUDO } from '../src/menu.js'
-import { ConversationStore } from '../src/state.js'
+import { SALUDO } from '\.\./src/mensajes.js'
+import { ConversationStore } from '../src/estado.js'
 import { ReadFlows } from '../src/flows.js'
 import { PREGUNTA_CONFIRMAR } from '../src/flows.js'
 import {
@@ -323,17 +323,17 @@ describe('flujo 4: crear orden en conversación (S5, S6, S7–S10)', () => {
     expect(r.text).not.toMatch(/Escribe \d/)
   })
 
-  it('ReadFlows delega la opción 4 al escritor', async () => {
+  it('ReadFlows delega nuevo_pedido al escritor', async () => {
     const api = apiFalso()
     const esc = escritor(api)
     const flows = leerFlows(api, esc)
-    const r = await flows.handle(TEL, '4')
+    const r = await flows.atenderRuta(TEL, { tipo: 'nuevo_pedido', texto: 'nuevo pedido' })
     expect(r.text).toContain('doctor')
   })
 
-  it('ReadFlows sin escritor mantiene el mensaje anterior', async () => {
+  it('ReadFlows sin escritor informa que la creación no está disponible', async () => {
     const flows = new ReadFlows(new ConversationStore(), apiFalso())
-    const r = await flows.handle(TEL, '4')
+    const r = await flows.atenderRuta(TEL, { tipo: 'nuevo_pedido', texto: 'nuevo pedido' })
     expect(r.text).toContain('todavía no está disponible')
   })
 

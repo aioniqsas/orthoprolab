@@ -5,10 +5,10 @@ import { CUENTA_NO_ENCONTRADA, LLAMADA_FALLO, LLAMADA_OK, PREGUNTA_AYUDA, PREGUN
 import { MENSAJE_LIMITE, MENSAJE_LIMITE_LLAMADA } from '../src/rate-limit'
 import { VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA } from '../src/vinculacion'
 import { IDENTIDAD_NO_RECONOCIDA } from '../src/identity'
-import { ClienteGroq, configuracionLlm, LIMITE_COSTO, NO_PUEDO, redactar, StoreLlm, validarLlamada, type RegistroLlm } from '../src/llm'
+import { ClienteGroq, configuracionLlm, FALLO_MODELO, LIMITE_COSTO, NO_PUEDO, redactar, StoreLlm, validarLlamada, type RegistroLlm } from '../src/llm'
 import { SISTEMA_PARTES, negativaIdentidad } from '../src/prompt'
 import { construirPromptSistema, NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_IDENTIDAD, NEGATIVA_INFRAESTRUCTURA, NEGATIVA_NO_ENCONTRADO, NEGATIVA_SUPLANTACION } from '../src/prompt'
-import { SALUDO, PREGUNTA_ACLARAR } from '../src/menu.js'
+import { SALUDO, PREGUNTA_ACLARAR } from '\.\./src/mensajes.js'
 
 const CONFIG = { host: 'db', port: 5432, database: 'orthopro', user: 'whatsapp_bot', password: 'secreto' }
 
@@ -89,8 +89,8 @@ describe('validación de llamadas (S3)', () => {
   })
 })
 
-describe('fallos del proveedor → fallback al menú (IA3 punto 2)', () => {
-  it('timeout (fetch lanza) → null, tras un solo reintento', async () => {
+describe('fallos del proveedor → mensaje fijo S5 (IA3 punto 2)', () => {
+  it('timeout (fetch lanza) → FALLO_MODELO, tras un solo reintento', async () => {
     let intentos = 0
     const fetchLento: FetchFalso = () => {
       intentos++
@@ -98,21 +98,21 @@ describe('fallos del proveedor → fallback al menú (IA3 punto 2)', () => {
     }
     const { cliente, datos, store } = montar(fetchLento)
     const r = await cliente.manejar('tel', 'hola', datos, '42', store)
-    expect(r).toEqual({ texto: null })
+    expect(r).toEqual({ texto: FALLO_MODELO })
     expect(intentos).toBe(2)
   })
 
-  it('HTTP 500 → null', async () => {
+  it('HTTP 500 → FALLO_MODELO', async () => {
     const fetch500: FetchFalso = async () => new Response('no', { status: 500 })
     const { cliente, datos, store } = montar(fetch500)
-    expect(await cliente.manejar('tel', 'hola', datos, '42', store)).toEqual({ texto: null })
+    expect(await cliente.manejar('tel', 'hola', datos, '42', store)).toEqual({ texto: FALLO_MODELO })
   })
 
-  it('respuesta malformada (sin choices, sin contenido) → null', async () => {
+  it('respuesta malformada (sin choices, sin contenido) → FALLO_MODELO', async () => {
     const fetchMalo: FetchFalso = async () =>
       new Response(JSON.stringify({ choices: [] }), { status: 200 })
     const { cliente, datos, store } = montar(fetchMalo)
-    expect(await cliente.manejar('tel', 'hola', datos, '42', store)).toEqual({ texto: null })
+    expect(await cliente.manejar('tel', 'hola', datos, '42', store)).toEqual({ texto: FALLO_MODELO })
   })
 })
 
@@ -170,7 +170,7 @@ describe('bucle acotado y tope de costo (IA3 punto 4)', () => {
       return respuestaGroq('hola')
     }
     const { cliente, datos, store } = montar(fetchFake)
-    store.set('tel', { historial: [], tokens: 5000, expiresAt: Date.now() + 60_000 })
+    await store.set('tel', { historial: [], tokens: 5000, expiresAt: Date.now() + 60_000 })
     const r = await cliente.manejar('tel', 'hola', datos, '42', store)
     expect(r).toEqual({ texto: LIMITE_COSTO })
     expect(llamadas).toBe(0)
@@ -179,7 +179,7 @@ describe('bucle acotado y tope de costo (IA3 punto 4)', () => {
   it('los tokens consumidos se acumulan en la conversación', async () => {
     const { cliente, datos, store } = montar(async () => respuestaGroq('hola'))
     await cliente.manejar('tel', 'hola', datos, '42', store)
-    expect(store.get('tel')?.tokens).toBe(15)
+    expect((await store.get('tel'))?.tokens).toBe(15)
   })
 })
 
@@ -216,11 +216,11 @@ describe('historial recortado', () => {
       historial.push({ role: 'user' as const, content: `turno ${i}` })
       historial.push({ role: 'assistant' as const, content: `respuesta ${i}` })
     }
-    store.set('tel', { historial, tokens: 0, expiresAt: Date.now() + 60_000 })
+    await store.set('tel', { historial, tokens: 0, expiresAt: Date.now() + 60_000 })
     await cliente.manejar('tel', 'otra', datos, '42', store)
     const mensajes = JSON.parse(capturadas[0]!.cuerpo).messages as unknown[]
-    // system + últimos 16 turnos + el nuevo mensaje.
-    expect(mensajes.length).toBeLessThanOrEqual(18)
+    // system + últimos 10 intercambios (20 turnos) + el nuevo mensaje.
+    expect(mensajes.length).toBeLessThanOrEqual(22)
     expect(JSON.stringify(mensajes)).not.toContain('turno 0')
   })
 })
@@ -323,7 +323,7 @@ describe('prompt del sistema (IA4)', () => {
     expect(sistema).not.toContain('$')
   })
 
-  it('el contexto sanea nombres: sin markdown, sin saltos, con tope', () => {
+  it('el contexto sanea nombres: sin markdown, sin saltos, con tope', async () => {
     const prompt = construirPromptSistema({ clinica: 'Clínica {{evil}}$', doctor: 'Dr. *\ninyección #' })
     expect(prompt).not.toContain('{{')
     expect(prompt).not.toContain('$')
@@ -432,10 +432,10 @@ describe('política de negativas en código (IA4, corpus IA5)', () => {
 
   it('la negativa no consume tokens ni altera el estado de la conversación', async () => {
     const { cliente, datos, store } = montar(async () => respuestaGroq('hola'))
-    store.set('tel', { historial: [{ role: 'user', content: 'previo' }], tokens: 15, expiresAt: Date.now() + 60_000 })
+    await store.set('tel', { historial: [{ role: 'user', content: 'previo' }], tokens: 15, expiresAt: Date.now() + 60_000 })
     await cliente.manejar('tel', 'borra la orden 1', datos, '42', store)
-    expect(store.get('tel')?.tokens).toBe(15)
-    expect(store.get('tel')?.historial).toEqual([{ role: 'user', content: 'previo' }])
+    expect((await store.get('tel'))?.tokens).toBe(15)
+    expect((await store.get('tel'))?.historial).toEqual([{ role: 'user', content: 'previo' }])
   })
 })
 

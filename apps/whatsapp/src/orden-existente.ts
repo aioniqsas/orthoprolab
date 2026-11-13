@@ -1,9 +1,10 @@
 import { esDienteValido } from '@repo/api-client/dientes'
 import { ApiError, type ApiClient, type DetalleOrdenApi, type OrdenApi } from './api.js'
 import { formatoOrden } from './flows.js'
-import { SALUDO } from './menu.js'
+import { SALUDO } from '\./mensajes.js'
 import { esPalabraNumerica, numeroEnPalabras } from './numeros.js'
-import { UltimaOrdenVista, type ConversationStore } from './state.js'
+import { UltimaOrdenVista, type ConversationStore } from './estado.js'
+import { PuertaConfirmacion } from './confirmacion.js'
 import { entregaDeTexto, esDelDia, fechaCorta, fechaLarga, fechaLocal, resolverDiaReferencia } from './tiempo.js'
 import {
   CONFIRMAR_NO,
@@ -469,7 +470,13 @@ export class OrdenExistenteFlows {
     private readonly api: ApiClient,
     private readonly ahora: () => Date = () => new Date(),
     private readonly ultima = new UltimaOrdenVista(),
+    private readonly puerta: PuertaConfirmacion = new PuertaConfirmacion(),
   ) {}
+
+  /** Limpia la confirmación pendiente de este teléfono (escape/reinicio). */
+  limpiar(telefono: string): void {
+    this.puerta.limpiar(telefono)
+  }
 
   /** Un turno de conversación sobre una orden que ya existe. */
   async handle(telefono: string, texto: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
@@ -483,6 +490,7 @@ export class OrdenExistenteFlows {
       return { kind: 'text', text: SALUDO, intencion: 'menu' }
     }
     if (enFlujo && CONFIRMAR_NO.test(entrada)) {
+      this.puerta.consumir(telefono)
       this.store.clear(telefono)
       return { kind: 'text', text: 'Listo, no toqué la orden.', intencion: 'menu' }
     }
@@ -548,6 +556,7 @@ export class OrdenExistenteFlows {
       return { kind: 'text', text: `${formatoOrden(orden)}\n\n${cierre}`, intencion: 'estado' }
     }
     if (!esEditable(orden)) {
+      this.puerta.consumir(telefono)
       this.store.clear(telefono)
       return {
         kind: 'text',
@@ -571,11 +580,21 @@ export class OrdenExistenteFlows {
     }
     if (!CONFIRMAR_SI.test(entrada)) {
       this.store.set(telefono, PASO_CAMBIO, base)
-      return { kind: 'text', text: resumenCambio(orden, resultado.despues, resultado.avisos) }
+      const resumen = resumenCambio(orden, resultado.despues, resultado.avisos)
+      this.puerta.proponer(telefono, 'editar_orden', resumen, { ordenId: orden.id, ...base })
+      return { kind: 'text', text: resumen }
     }
 
+    // Puerta de confirmación explícita y verificable (S4/T3): sin confirmación
+    // previa registrada, la herramienta de escritura no se ejecuta.
+    const confirmada = this.puerta.confirmar(telefono, entrada)
+    if (!confirmada || confirmada.tipo !== 'editar_orden') {
+      this.puerta.proponer(telefono, 'editar_orden', resumenCambio(orden, resultado.despues, resultado.avisos), { ordenId: orden.id, ...base })
+      return { kind: 'text', text: `Necesito tu confirmación antes de guardar el cambio. ${resumenCambio(orden, resultado.despues, resultado.avisos)}` }
+    }
     // S1: se escribe solo aquí, después del sí literal.
     if (!/^\d{1,18}$/.test(orden.id)) {
+      this.puerta.consumir(telefono)
       this.store.clear(telefono)
       return { kind: 'text', text: 'No pude identificar esa orden. Escríbele al laboratorio, por favor.' }
     }
@@ -585,6 +604,7 @@ export class OrdenExistenteFlows {
         ...(resultado.entrega ? { fechaEntrega: resultado.entrega } : {}),
         ...(resultado.urgente ? { urgente: true } : {}),
       })
+      this.puerta.consumir(telefono)
       this.store.clear(telefono)
       return {
         kind: 'text',
@@ -599,6 +619,7 @@ export class OrdenExistenteFlows {
       }
     } catch (error) {
       this.store.set(telefono, PASO_CAMBIO, base)
+      this.puerta.proponer(telefono, 'editar_orden', resumenCambio(orden, resultado.despues, resultado.avisos), { ordenId: orden.id, ...base })
       const motivo =
         error instanceof ApiError && (error.status === 403 || error.status === 409)
           ? 'la orden ya no admite cambios'

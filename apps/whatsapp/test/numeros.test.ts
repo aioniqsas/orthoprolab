@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'bun:test'
-import { prechequeoRuta } from '../src/llm'
 import { esPalabraNumerica, numeroEnPalabras } from '../src/numeros'
 import { numeroDeOrden, pacienteDeOrden } from '../src/orden-existente'
 
@@ -38,8 +37,4 @@ describe('la orden diecisiete es la orden 17, no un paciente (L3)', () => {
     expect(pacienteDeOrden('la orden diecisiete de Sara')).toBe('Sara')
   })
 
-  it('la pregunta por el estado se enruta con su número', () => {
-    expect(prechequeoRuta(pregunta)).toEqual({ tipo: 'ver_pedido', numero: '17' })
-    expect(prechequeoRuta('como va la orden 7?')).toEqual({ tipo: 'ver_pedido', numero: '7' })
-  })
 })

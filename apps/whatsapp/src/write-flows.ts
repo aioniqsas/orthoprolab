@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { esDienteValido, nombreDiente } from '@repo/api-client/dientes'
 import type { ApiClient, DoctorApi, NuevaOrdenPayload } from './api.js'
 import { ApiError } from './api.js'
-import { SALUDO } from './menu.js'
-import type { ConversationStore } from './state.js'
+import { SALUDO } from '\./mensajes.js'
+import type { ConversationStore } from './estado.js'
+import { PuertaConfirmacion, type TipoEscritura } from './confirmacion.js'
 import { entregaDeTexto, fechaLarga } from './tiempo.js'
 
 /**
@@ -225,7 +226,13 @@ export class OrderFlows {
   constructor(
     private readonly store: ConversationStore,
     private readonly api: ApiClient,
+    private readonly puerta: PuertaConfirmacion = new PuertaConfirmacion(),
   ) {}
+
+  /** Limpia la confirmación pendiente de este teléfono (escape/reinicio). */
+  limpiar(telefono: string): void {
+    this.puerta.limpiar(telefono)
+  }
 
   /**
    * Un turno del flujo de creación. `doctorContacto` es el doctor 1:1 del
@@ -392,7 +399,10 @@ export class OrderFlows {
     // una orden nueva generan una clave nueva al volver a llegar aquí.
     const siguientes = { ...campos, idemKey: campos.idemKey ?? randomUUID() }
     this.store.set(telefono, 'orden-confirmar', siguientes)
-    return { kind: 'text', text: resumenOrden(siguientes) }
+    const resumen = resumenOrden(siguientes)
+    // Estado de confirmación explícito y verificable (S4/T3): propuesta pendiente.
+    this.puerta.proponer(telefono, 'crear_orden', resumen, { ...siguientes })
+    return { kind: 'text', text: resumen }
   }
 
   private async pasoDoctor(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
@@ -674,6 +684,7 @@ export class OrderFlows {
 
   private async pasoConfirmar(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     if (CONFIRMAR_NO.test(entrada)) {
+      this.puerta.consumir(telefono)
       this.store.clear(telefono)
       return { kind: 'text', text: `Orden descartada.\n\n${SALUDO}`, intencion: 'menu' }
     }
@@ -683,10 +694,12 @@ export class OrderFlows {
       const cambio = this.aplicarCambio(campos, entrada)
       if (cambio) {
         this.store.set(telefono, 'orden-confirmar', cambio.campos)
+        const resumen = resumenOrden(cambio.campos)
+        this.puerta.proponer(telefono, 'crear_orden', resumen, { ...cambio.campos })
         // El resumen ya termina pidiendo el sí (S3): el pie no se repite.
         return {
           kind: 'text',
-          text: `${cambio.aviso}.\n\n${resumenOrden(cambio.campos)}`,
+          text: `${cambio.aviso}.\n\n${resumen}`,
         }
       }
       // "Una observación: test" no es una confirmación, pero tampoco es ruido:
@@ -696,12 +709,22 @@ export class OrderFlows {
         const juntas = [campos.observaciones?.trim(), anotacion].filter(Boolean).join(' / ').slice(0, 500)
         const actualizados: Campos = { ...campos, observaciones: juntas }
         this.store.set(telefono, 'orden-confirmar', actualizados)
+        const resumen = resumenOrden(actualizados)
+        this.puerta.proponer(telefono, 'crear_orden', resumen, { ...actualizados })
         return {
           kind: 'text',
-          text: `Anoté: ${anotacion}\n\n${resumenOrden(actualizados)}`,
+          text: `Anoté: ${anotacion}\n\n${resumen}`,
         }
       }
       return { kind: 'text', text: SIN_AVANCE_CONFIRMAR }
+    }
+    // Puerta de confirmación explícita y verificable (S4/T3): sin confirmación
+    // previa registrada, la herramienta de escritura no se ejecuta.
+    const confirmada = this.puerta.confirmar(telefono, entrada)
+    if (!confirmada || confirmada.tipo !== 'crear_orden') {
+      // Reafirmar la propuesta pendiente para que el usuario pueda confirmar.
+      this.puerta.proponer(telefono, 'crear_orden', resumenOrden(campos), { ...campos })
+      return { kind: 'text', text: `Necesito tu confirmación antes de crear la orden. ${resumenOrden(campos)}` }
     }
     const observaciones = (campos.observaciones ?? '').slice(0, 500)
     const payload: NuevaOrdenPayload = {
@@ -721,12 +744,14 @@ export class OrderFlows {
     }
     try {
       const orden = await this.api.crearOrden(telefono, payload, campos.idemKey)
+      this.puerta.consumir(telefono)
       this.store.clear(telefono)
       return { kind: 'text', text: `Orden ${orden.id} creada.`, intencion: 'orden_creada' }
     } catch (error) {
       // Los datos se conservan (con la misma clave de idempotencia):
-      // sí reintenta, cancelar descarta.
+      // sí reintenta, cancelar descarta. Se exige confirmar de nuevo.
       this.store.set(telefono, 'orden-confirmar', campos)
+      this.puerta.proponer(telefono, 'crear_orden', resumenOrden(campos), { ...campos })
       // Un error de red o un 5xx puede que sí haya creado la orden (el POST
       // pudo haber llegado y perderse la respuesta): lo decimos y damos la vía
       // de verificación en vez de sugerir un reintento que duplicaría.

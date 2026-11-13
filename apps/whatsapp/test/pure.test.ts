@@ -2,11 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'bun:test'
-import type { ApiClient } from '../src/api'
 import { telefonoDelRemitente } from '../src/lid'
-import { buildMenu } from '../src/menu'
-import { ReadFlows } from '../src/flows'
-import { ConversationStore } from '../src/state'
+import { ConversationStore } from '../src/estado'
 import {
   assertAuthDirOutsideRepo,
   detectRepoRoot,
@@ -16,24 +13,6 @@ import {
   motivoDescarte,
   etiquetaRemitente,
 } from '../src/safety'
-
-describe('menú', () => {
-  it('construye las opciones numeradas en lenguaje llano (S11)', () => {
-    expect(buildMenu()).toContain('1. ¿Cómo va mi trabajo?')
-    expect(buildMenu()).toContain('2. Papel del trabajo')
-    expect(buildMenu()).toContain('3. Cuenta de cobro')
-    expect(buildMenu()).toContain('4. Hacer un pedido')
-    expect(buildMenu()).toContain('5. Que me llamen')
-  })
-
-  it('responde al texto desconocido con "No entendí" y el menú', async () => {
-    const api = { solicitarLlamada: async () => {}, registrarIntencion: async () => {} } as unknown as ApiClient
-    const r = await new ReadFlows(new ConversationStore(), api).handle('+573001234567', 'no entiendo')
-    expect(r.kind).toBe('text')
-    expect(r.text).toContain('No entendí')
-    expect(r.text).toContain(buildMenu())
-  })
-})
 
 describe('estado de conversación', () => {
   it('permite guardar, leer y limpiar', () => {
@@ -177,16 +156,6 @@ describe('guardia del directorio de sesión', () => {
     } finally {
       rmSync(base, { recursive: true, force: true })
     }
-  })
-})
-
-describe('opción 5', () => {
-  // La respuesta honesta (registro real o vía directa) se prueba en
-  // test/llamada.test.ts; aquí solo queda el menú.
-  it('la opción 5 es "Que me llamen" y el 0 ya no está en el menú (S11)', () => {
-    expect(buildMenu()).toMatch(/5\. Que me llamen/)
-    expect(buildMenu()).not.toMatch(/^0\./m)
-    expect(buildMenu()).not.toContain('próximamente')
   })
 })
 

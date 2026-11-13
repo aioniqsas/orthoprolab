@@ -9,11 +9,13 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { crearCliente, NO_HABILITADO, type ApiClient } from './api'
 import { configuracionDesdeEntorno, DatosBot } from './datos'
-import { ClienteGroq, configuracionLlm, StoreLlm, type RespuestaLlm } from './llm'
+import { ClienteGroq, configuracionLlm, FALLO_MODELO, StoreLlm, type RespuestaLlm } from './llm'
+import { clasificarNegativa, negativaIdentidad, NEGATIVA_ESCRITURA, NEGATIVA_FIJA, NEGATIVA_INFRAESTRUCTURA, NEGATIVA_SUPLANTACION } from './prompt'
+import { redactar } from './llm'
+import { crearClienteRedis, MemoriaConversacion } from './memoria'
 import { ReadFlows, type Respuesta } from './flows'
-import { buildMenu } from './menu'
 import { MENSAJE_LIMITE, RateLimiter } from './rate-limit'
-import { ConversationStore } from './state'
+import { ConversationStore } from './estado'
 import { OrderFlows } from './write-flows'
 import { canjearVinculacion, parseVincular, VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA } from './vinculacion'
 import { resolveIdentity } from './identity'
@@ -59,10 +61,13 @@ const flows = new ReadFlows(conversations, api, new OrderFlows(conversations, ap
 const configLlm = configuracionLlm()
 const datosBot = new DatosBot(configuracionDesdeEntorno())
 const flujoLlm = configLlm ? new ClienteGroq(configLlm) : null
-const storeLlm = new StoreLlm()
-// Escape con palabras naturales (IA7): nunca llega al modelo; el flujo
-// determinista responde con el saludo sin gastar tokens.
-const ES_ESCAPE = /^(?:0|cancelar|menú|menu|volver|inicio)$/i
+const redisMemoria = crearClienteRedis()
+const memoria = new MemoriaConversacion(redisMemoria)
+const storeLlm = new StoreLlm(undefined, undefined, memoria)
+// Escape determinístico y barato (T4 corrección): reinicia la conversación sin
+// llamar al modelo y limpia estado/confirmaciones pendientes.
+const ES_ESCAPE = /^(?:0|cancelar|men[úu]|volver|inicio)$/i
+const REINICIO = 'Listo, empecé de nuevo. ¿En qué te puedo ayudar?'
 
 // Vía de emparejamiento: QR en la terminal o código de 8 caracteres si se
 // define WHATSAPP_PAIRING_PHONE (defecto del `console.log(qr)` crudo).
@@ -73,20 +78,35 @@ const mostrarQr = (qr: string): void => {
 }
 const mostrarCodigo = (codigo: string): void => mostrarCodigoEmparejamiento(codigo, console.log)
 
+function textoNegativa(clase: ReturnType<typeof clasificarNegativa>, nombre: string): string {
+  return clase === 'escritura' ? NEGATIVA_ESCRITURA
+    : clase === 'suplantacion' ? NEGATIVA_SUPLANTACION
+    : clase === 'identidad' ? negativaIdentidad(nombre)
+    : clase === 'infraestructura' ? NEGATIVA_INFRAESTRUCTURA
+    : NEGATIVA_FIJA
+}
+
 /**
- * Ruta o texto del modelo (IA7/S13); null si el modelo no está disponible y
- * toca el flujo determinista del menú como red de seguridad.
+ * Entrada de texto al modelo (T3): S3 negativas antes del modelo; S5 mensaje
+ * fijo si el modelo no está disponible o falla. Nunca cae a flujos ni a menú.
  */
-async function respuestaLlm(
+async function respuestaAgente(
   telefono: string,
   texto: string,
   clinicaId: string,
 ): Promise<RespuestaLlm> {
-  if (!flujoLlm || !configLlm) return { texto: null }
+  const clase = clasificarNegativa(redactar(texto))
+  if (clase !== null) {
+    const nombre = configLlm?.nombre ?? 'Aioniq'
+    return { texto: textoNegativa(clase, nombre) }
+  }
+  if (!flujoLlm || !configLlm) return { texto: FALLO_MODELO }
   // IA8: el nombre del bot viene de la base (cacheado en DatosBot) y alimenta
   // tanto el prompt como la negativa de identidad; falla => 'Aioniq'.
   configLlm.nombre = await datosBot.nombreBot(clinicaId)
-  return await flujoLlm.manejar(telefono, texto, datosBot, clinicaId, storeLlm)
+  const r = await flujoLlm.manejar(telefono, texto, datosBot, clinicaId, storeLlm)
+  if (r.texto === null) return { texto: FALLO_MODELO }
+  return r
 }
 
 /** Create the auth dir with owner-only permissions and chmod every credential file to 0600. */
@@ -150,6 +170,26 @@ async function start(attempt = 1): Promise<void> {
     return socket.sendMessage(jid, contenido)
   }
 
+  /** Envía la respuesta y registra el intercambio en la memoria (S1). */
+  const registrarYResponder = async (
+    jid: string,
+    telefonoMemoria: string,
+    textoUsuario: string,
+    respuesta: Respuesta | { kind: 'text'; text: string },
+  ): Promise<void> => {
+    await memoria.registrarIntercambio(telefonoMemoria, textoUsuario, respuesta.text)
+    if (respuesta.kind === 'document') {
+      await responder(jid, {
+        document: respuesta.buffer,
+        mimetype: 'application/pdf',
+        fileName: respuesta.filename,
+        caption: respuesta.text,
+      })
+    } else {
+      await responder(jid, { text: respuesta.text })
+    }
+  }
+
   socket.ev.on('creds.update', () => void saveCredsSecured(saveCreds, authDir))
   socket.ev.on('connection.update', ({ connection, lastDisconnect }) => {
     if (connection === 'close') {
@@ -183,6 +223,7 @@ async function start(attempt = 1): Promise<void> {
       )
       if (!remitente) {
         console.log(`Mensaje descartado (lid sin traducir) de ${desde}`)
+        await memoria.registrarIntercambio(senderId, '[sin número]', NO_HABILITADO)
         await responder(senderId, { text: NO_HABILITADO })
         continue
       }
@@ -190,6 +231,7 @@ async function start(attempt = 1): Promise<void> {
         ? desde
         : `${etiquetaRemitente(remitente, MOSTRAR_NUMEROS)} (lid ${senderId.split('@')[0]})`
       if (!limites.interaccion(remitente, Date.now())) {
+        await memoria.registrarIntercambio(remitente, messageText(message) || '[medio]', MENSAJE_LIMITE)
         await responder(senderId, { text: MENSAJE_LIMITE })
         continue
       }
@@ -198,6 +240,7 @@ async function start(attempt = 1): Promise<void> {
       console.log(`Te escribieron desde ${quien} (${type}, paso ${state?.step ?? 'menu'})`)
       const faltante = api.mensajeConfigFaltante()
       if (faltante) {
+        await memoria.registrarIntercambio(remitente, messageText(message) || '[medio]', faltante)
         await responder(senderId, { text: faltante })
         continue
       }
@@ -209,83 +252,62 @@ async function start(attempt = 1): Promise<void> {
         // y la respuesta genérica confundiría. Se responde antes de canjear.
         const previa = await resolveIdentity(remitente, api)
         if (previa.ok) {
+          await memoria.registrarIntercambio(remitente, messageText(message), VINCULAR_YA)
           await responder(senderId, { text: VINCULAR_YA })
           continue
         }
         const vinculado = await canjearVinculacion(api, remitente, codigoVincular)
-        await responder(senderId, { text: vinculado ? VINCULAR_OK : VINCULAR_FALLO })
+        const textoVinc = vinculado ? VINCULAR_OK : VINCULAR_FALLO
+        await memoria.registrarIntercambio(remitente, messageText(message), textoVinc)
+        await responder(senderId, { text: textoVinc })
         continue
       }
       const identidad = await resolveIdentity(remitente, api)
       if (!identidad.ok) {
         // Misma respuesta corta para no registrado y bloqueado (S1).
+        await memoria.registrarIntercambio(remitente, messageText(message) || '[medio]', identidad.reply)
         await responder(senderId, { text: identidad.reply })
         continue
       }
-      // Medios no legibles (S11/T12): audio y el resto reciben su aviso y la
-      // pregunta del paso en curso, nunca el menú ni un salto de flujo.
+      // Medios no legibles (S11/T12): el modelo solo recibe texto; los medios
+      // se responden con un aviso y la pregunta del paso en curso.
       if (type !== 'text') {
         const esAudio = Boolean(message.message?.audioMessage)
         const media = await flows.media(identidad.telefono, esAudio)
+        await memoria.registrarIntercambio(identidad.telefono, esAudio ? '[audio]' : '[medio]', media.text)
         await responder(senderId, { text: media.text })
         continue
       }
-      // IA7/S13: en el paso de saludo TODO el texto libre lo enruta el modelo
-      // ("1", "la A", "quiero ver mi pedido", "mándame la cuenta"). Solo el
-      // escape con palabras naturales va derecho al flujo determinista. Sin
-      // modelo, o si el modelo no respondió, el menú numerado es la red de
-      // seguridad: el bot nunca queda mudo.
       const textoMensaje = messageText(message)
-      const pasoActual = conversations.get(identidad.telefono)?.step ?? 'menu'
-      if (
-        flujoLlm &&
-        pasoActual === 'menu' &&
-        textoMensaje.trim() !== '' &&
-        !ES_ESCAPE.test(textoMensaje.trim())
-      ) {
-        const ia = await respuestaLlm(
-          identidad.telefono,
-          textoMensaje,
-          identidad.identidad.clinicId,
-        )
-        if (ia.ruta !== undefined) {
-          const respuesta = await flows.atenderRuta(
-            identidad.telefono,
-            ia.ruta,
-            identidad.identidad.doctorId,
-          )
-          if (respuesta.kind === 'document') {
-            await responder(senderId, {
-              document: respuesta.buffer,
-              mimetype: 'application/pdf',
-              fileName: respuesta.filename,
-              caption: respuesta.text,
-            })
-          } else {
-            await responder(senderId, { text: respuesta.text })
-          }
-          continue
-        }
-        if (ia.texto !== null) {
-          await responder(senderId, { text: ia.texto })
-          continue
-        }
+      // Escape determinístico: no llama al modelo; limpia estado y confirmación.
+      if (ES_ESCAPE.test(textoMensaje.trim())) {
+        conversations.clear(identidad.telefono)
+        await storeLlm.clear(identidad.telefono)
+        flows.limpiar(identidad.telefono)
+        await memoria.registrarIntercambio(identidad.telefono, textoMensaje, REINICIO)
+        await responder(senderId, { text: REINICIO })
+        continue
       }
-      const respuesta: Respuesta = await flows.handle(
+      // T3: el mensaje de texto va directo al modelo (sin prechequeo, sin
+      // flows.handle en el camino normal). S5: si el modelo falla/no está
+      // configurado, texto fijo de reintento; nunca menú ni flujos.
+      const ia = await respuestaAgente(
         identidad.telefono,
-        messageText(message),
-        identidad.identidad.doctorId,
+        textoMensaje,
+        identidad.identidad.clinicId,
       )
-      if (respuesta.kind === 'document') {
-        await responder(senderId, {
-          document: respuesta.buffer,
-          mimetype: 'application/pdf',
-          fileName: respuesta.filename,
-          caption: respuesta.text,
-        })
-      } else {
-        await responder(senderId, { text: respuesta.text })
+      if (ia.ruta !== undefined) {
+        const respuesta = await flows.atenderRuta(
+          identidad.telefono,
+          ia.ruta,
+          identidad.identidad.doctorId,
+        )
+        await registrarYResponder(senderId, identidad.telefono, textoMensaje, respuesta)
+        continue
       }
+      const textoRespuesta = ia.texto ?? FALLO_MODELO
+      await memoria.registrarIntercambio(identidad.telefono, textoMensaje, textoRespuesta)
+      await responder(senderId, { text: textoRespuesta })
     }
   })
 }
