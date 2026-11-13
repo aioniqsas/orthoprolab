@@ -57,7 +57,7 @@ describe('MiClinicaService.resolveClinicaId', () => {
 });
 
 describe('MiClinicaService.listOrdenes', () => {
-  function montarListado(ordenes: unknown[]) {
+  function montarListado(ordenes: unknown[], anotarEditable?: (o: unknown[]) => Promise<unknown[]>) {
     const qb: Record<string, ReturnType<typeof vi.fn>> = {};
     for (const metodo of [
       'innerJoinAndSelect',
@@ -68,15 +68,18 @@ describe('MiClinicaService.listOrdenes', () => {
       qb[metodo] = vi.fn(() => qb);
     }
     qb['getMany'] = vi.fn(async () => ordenes);
+    const pedidos = {
+      anotarEditable: vi.fn(anotarEditable ?? (async (o: unknown[]) => o)),
+    };
     const service = new MiClinicaService(
       { findOneBy: vi.fn(async () => ({ clinicaId: '2' })) } as never,
       {} as never,
       { createQueryBuilder: vi.fn(() => qb) } as never,
       {} as never, {} as never, {} as never,
       { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
-      {} as never, {} as never, {} as never, {} as never, {} as never,
+      pedidos as never, {} as never, {} as never, {} as never, {} as never,
     );
-    return { service, qb };
+    return { service, qb, pedidos };
   }
 
   it('la consulta une los detalles y el doctor, con el filtro de clinica', async () => {
@@ -106,6 +109,20 @@ describe('MiClinicaService.listOrdenes', () => {
 
     expect(ordenes).toHaveLength(1);
     expect(ordenes[0]!.detalles).toEqual(detalles);
+  });
+
+  it('el veredicto de edición (S8) sale de la API y no de cada portal', async () => {
+    const { service, pedidos } = montarListado(
+      [{ id: '9', estado: { codigo: 'recibida' } }],
+      async (lista) =>
+        (lista as Array<Record<string, unknown>>).map((o) => ({ ...o, editable: true })),
+    );
+
+    const ordenes = await service.listOrdenes('u');
+
+    // La regla se pide una sola vez, para todas las órdenes de la clínica.
+    expect(pedidos.anotarEditable).toHaveBeenCalledTimes(1);
+    expect(ordenes[0]).toMatchObject({ editable: true });
   });
 });
 
@@ -143,6 +160,46 @@ describe('MiClinicaService.controlTrabajos', () => {
 
     // getOrden aplica la verificación de pertenencia a la clínica del usuario.
     expect(getOrden).toHaveBeenCalledWith('usuario-7', '9');
+  });
+});
+
+describe('MiClinicaService.getOrden · veredicto de edición', () => {
+  it('la orden de detalle lleva editable/editableHasta', async () => {
+    const orden = {
+      id: '9',
+      estado: { codigo: 'en_proceso' },
+      fechaCreacion: new Date('2025-06-10T12:00:00.000Z'),
+      asignacion: { doctor: { clinicaId: '2' } },
+    };
+    const qb = {
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getOne: vi.fn(async () => orden),
+    };
+    const pedidos = {
+      anotarEditable: vi.fn(async (lista: unknown[]) =>
+        (lista as Array<Record<string, unknown>>).map((o) => ({
+          ...o,
+          editable: false,
+          editableHasta: null,
+        })),
+      ),
+    };
+    const service = new MiClinicaService(
+      { findOneBy: vi.fn(async () => ({ clinicaId: '2' })) } as never,
+      {} as never,
+      { createQueryBuilder: vi.fn(() => qb) } as never,
+      {} as never, {} as never, {} as never,
+      { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
+      pedidos as never, {} as never, {} as never, {} as never, {} as never,
+    );
+
+    await expect(service.getOrden('u', '9')).resolves.toMatchObject({
+      id: '9',
+      editable: false,
+      editableHasta: null,
+    });
   });
 });
 

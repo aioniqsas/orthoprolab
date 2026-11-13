@@ -126,7 +126,7 @@ export class MiClinicaService {
 
   async listOrdenes(usuarioId: string): Promise<Orden[]> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.ordenRepo
+    const ordenes = await this.ordenRepo
       .createQueryBuilder('o')
       .innerJoinAndSelect('o.asignacion', 'asig')
       .innerJoinAndSelect('asig.doctor', 'doctor')
@@ -136,6 +136,9 @@ export class MiClinicaService {
       .where('doctor.clinicaId = :clinicaId', { clinicaId })
       .orderBy('o.fechaCreacion', 'DESC')
       .getMany();
+    // Ventana de edición (S8): el veredicto sale de la API y el bot y el portal
+    // lo leen; nadie lo vuelve a calcular por fuera.
+    return this.pedidosService.anotarEditable(ordenes);
   }
 
   /** Clinic portal: drafts are still internal, so they never reach the client. */
@@ -364,6 +367,8 @@ export class MiClinicaService {
     if (orden.asignacion?.doctor?.clinicaId !== clinicaId) {
       throw new NotFoundException(`Orden ${ordenId} no encontrada`);
     }
-    return orden;
+    // `editable`/`editableHasta` viajan con el detalle (S8).
+    const [conVeredicto] = await this.pedidosService.anotarEditable([orden]);
+    return conVeredicto!;
   }
 }

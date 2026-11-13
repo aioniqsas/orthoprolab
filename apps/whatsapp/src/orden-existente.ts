@@ -236,8 +236,14 @@ export function nombrePaciente(orden: OrdenApi): string {
 
 const listaDe = (valor: string | undefined): string[] => (valor ?? '').split(',').filter((d) => d !== '')
 
-/** El estado decide si se puede escribir (S3): la API solo edita una orden "creada". */
+/**
+ * Si la orden admite cambios lo dice la API en `editable` (S8): la regla de la
+ * ventana de gracia vive allá y el bot no la reimplementa. El respaldo por
+ * estado solo cubre una API vieja que todavía no manda el campo (legado).
+ */
 export function esEditable(orden: OrdenApi): boolean {
+  if (typeof orden.editable === 'boolean') return orden.editable
+  // Legado: antes de S8 la única orden editable era la que estaba `creada`.
   const codigo = orden.estado?.codigo
   if (typeof codigo === 'string' && codigo !== '') return codigo === 'creada'
   return normalizarParaCoincidir(estadoNombre(orden)) === 'creada'
@@ -534,8 +540,8 @@ export class OrdenExistenteFlows {
 
     if (!hayCambios) {
       this.store.set(telefono, PASO_CAMBIO, base)
-      // Invitar a cambiar solo si de verdad se puede: una orden en otro estado
-      // no se edita por la API, y prometerlo sería mentirle a la persona.
+      // Invitar a cambiar solo si de verdad se puede (S8: lo dice la API en
+      // `editable`). Prometerlo cuando la ventana está cerrada sería mentirle.
       const cierre = esEditable(orden)
         ? AYUDA_CAMBIAR
         : 'Si hay algo que corregir, el laboratorio lo cambia desde su lado: escríbeles y lo ajustan.'
@@ -594,7 +600,7 @@ export class OrdenExistenteFlows {
     } catch (error) {
       this.store.set(telefono, PASO_CAMBIO, base)
       const motivo =
-        error instanceof ApiError && error.status === 403
+        error instanceof ApiError && (error.status === 403 || error.status === 409)
           ? 'la orden ya no admite cambios'
           : error instanceof ApiError && error.status === 404
             ? 'esa orden no está en tu clínica'
