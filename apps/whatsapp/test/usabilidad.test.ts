@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import type { ApiClient, DoctorApi, ServicioApi } from '../src/api.js'
 import { extraerNumero } from '../src/digitos.js'
 import { AVISO_AUDIO, AVISO_MEDIA, PREGUNTA_AYUDA, PREGUNTA_CONFIRMAR } from '../src/flows.js'
+import { CONFIRMAR_PIE, PREGUNTA_CANTIDAD, PREGUNTA_DOCTOR, PREGUNTA_SERVICIO } from '../src/write-flows.js'
 import { buildMenu, SALUDO } from '../src/menu.js'
 import { ConversationStore } from '../src/state.js'
 import { ReadFlows, type Respuesta } from '../src/flows.js'
@@ -77,7 +78,7 @@ describe('0 = volver al menú en todos los flujos (S11/T12)', () => {
   })
 
   it('en el flujo de orden, 0 en cada paso devuelve al menú y descarta', async () => {
-    for (const pasos of [['4'], ['4', '1'], ['4', '1', '1'], ['4', '1', '1', '1'], ['4', '1', '1', '1', '2'], ['4', '1', '1', '1', '2', '26 27'], ['4', '1', '1', '1', '2', '26 27', 'A1']]) {
+    for (const pasos of [['4'], ['4', 'Ana'], ['4', 'Ana', 'Luis'], ['4', 'Ana', 'Luis', 'Corona zirconio'], ['4', 'Ana', 'Luis', 'Corona zirconio', '2'], ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27'], ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1']]) {
       const api = apiFalso()
       const { flows, esc, store } = par(api)
       for (const p of pasos) await esc.handle(TEL, p)
@@ -133,7 +134,7 @@ describe('"ayuda" pregunta antes de llamar (S11/T12)', () => {
     const r1 = await flows.handle(TEL, 'ayuda')
     expect(texto(r1)).toBe(PREGUNTA_AYUDA)
     const r2 = await flows.handle(TEL, '0')
-    expect(texto(r2)).toContain('Selecciona el doctor')
+    expect(texto(r2)).toBe(PREGUNTA_DOCTOR)
     expect(store.get(TEL)?.step).toBe('orden-doctor')
     expect(api.llamadasLlamada).toBe(0)
   })
@@ -144,7 +145,7 @@ describe('"ayuda" pregunta antes de llamar (S11/T12)', () => {
     const r1 = await flows.handle(TEL, 'ayuda')
     expect(texto(r1)).toBe(PREGUNTA_AYUDA)
     const r2 = await flows.handle(TEL, '0')
-    expect(texto(r2)).toContain('Selecciona el doctor')
+    expect(texto(r2)).toBe(PREGUNTA_DOCTOR)
     expect(store.get(TEL)?.step).toBe('orden-doctor')
     expect(api.llamadasLlamada).toBe(0)
   })
@@ -153,7 +154,7 @@ describe('"ayuda" pregunta antes de llamar (S11/T12)', () => {
     const api = apiFalso()
     const { flows, esc, store } = par(api)
     // Servicio y cantidad ya respondidos: quedan en el borrador.
-    for (const p of ['4', '1', '2', '1', '1', '3']) await esc.handle(TEL, p)
+    for (const p of ['4', 'Ana', 'Luis', 'Corona zirconio', '3']) await esc.handle(TEL, p)
     expect(store.get(TEL)?.step).toBe('orden-dientes')
     expect(store.get(TEL)?.fields.servicioNombre).toBe('Corona zirconio')
     expect(store.get(TEL)?.fields.cantidad).toBe('3')
@@ -167,7 +168,7 @@ describe('"ayuda" pregunta antes de llamar (S11/T12)', () => {
     expect(store.get(TEL)?.step).toBe('orden-dientes')
     expect(store.get(TEL)?.fields.servicioNombre).toBe('Corona zirconio')
     expect(store.get(TEL)?.fields.cantidad).toBe('3')
-    const r3 = await enviar(esc, ['26', 'A1', 'no', 'CONFIRMAR'])
+    const r3 = await enviar(esc, ['26', 'A1', 'CONFIRMAR'])
     const payload = api.crearOrdenLlamadas[0]!.payload as { detalles: Array<{ cantidad: number }> }
     expect(payload.detalles[0]!.cantidad).toBe(3)
     expect((r3 as unknown as Respuesta).text).toContain('Orden 1234')
@@ -203,10 +204,10 @@ describe('medios no legibles (S11/T12)', () => {
   it('audio en un paso de la orden repite la pregunta de ese paso, no el menú', async () => {
     const api = apiFalso()
     const { flows, esc, store } = par(api)
-    for (const p of ['4', '1', '1', '1']) await esc.handle(TEL, p)
+    for (const p of ['4', 'Ana', 'Luis', 'Corona zirconio']) await esc.handle(TEL, p)
     const r = await flows.media(TEL, true)
     expect(texto(r)).toContain(AVISO_AUDIO)
-    expect(texto(r)).toContain('¿Cuántas unidades?')
+    expect(texto(r)).toContain('¿Cuántas unidades')
     expect(texto(r)).not.toBe(buildMenu())
     expect(store.get(TEL)?.step).toBe('orden-cantidad')
   })
@@ -214,73 +215,51 @@ describe('medios no legibles (S11/T12)', () => {
   it('imagen en el paso de confirmación re-muestra el resumen (la pregunta del paso)', async () => {
     const api = apiFalso()
     const { flows, esc } = par(api)
-    for (const p of ['4', '1', '1', '1', '2', '26 27', 'A1', 'no']) await esc.handle(TEL, p)
+    for (const p of ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1']) await esc.handle(TEL, p)
     const r = await flows.media(TEL, false)
     expect(texto(r)).toContain(AVISO_MEDIA)
     expect(texto(r)).toContain('Servicio: Corona zirconio')
   })
 })
 
-describe('"Paso X de Y" (S11/T12)', () => {
-  it('sin doctor 1:1: siete preguntas, contadas de 1 a 7', async () => {
+describe('conversación sin pasos y sin listas (S7, S8)', () => {
+  const respuestas: string[] = []
+
+  it('la conversación pregunta por nombre, en una pregunta por turno, sin pasos ni listas', async () => {
     const api = apiFalso()
-    const { esc } = par(api)
-    // La pregunta del paso N es la respuesta al mensaje que lo antecede.
-    expect(texto(await esc.handle(TEL, '4'))).toContain('Paso 1 de 7.') // doctor
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 2 de 7.') // paciente
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 3 de 7.') // servicio
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 4 de 7.') // cantidad
-    expect(texto(await esc.handle(TEL, '2'))).toContain('Paso 5 de 7.') // dientes
-    expect(texto(await esc.handle(TEL, '26'))).toContain('Paso 6 de 7.') // color
-    expect(texto(await esc.handle(TEL, 'A1'))).toContain('Paso 7 de 7.') // observaciones
-    expect(texto(await esc.handle(TEL, 'no'))).not.toContain('Paso')
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Orden 1234')
+    const { esc, store } = par(api)
+    const pasos = ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26', 'A1', 'sí']
+    let r = { text: '' }
+    for (const p of pasos) {
+      r = { text: '' }
+      const out = await esc.handle(TEL, p)
+      respuestas.push((out as { text: string }).text)
+    }
+    void r; void store
+    const textos = respuestas.filter((t) => t !== '')
+    expect(textos[0]).toBe(PREGUNTA_DOCTOR)
+    expect(textos[1]).toBe('¿Cómo se llama el paciente?')
+    expect(textos[2]).toBe(PREGUNTA_SERVICIO)
+    expect(textos[3]).toBe(PREGUNTA_CANTIDAD)
+    expect(textos[4]).toContain('dientes')
+    expect(textos[5]).toContain('color')
+    expect(textos[6]).toContain('Nueva orden:')
+    expect(textos[6]).toContain(CONFIRMAR_PIE)
+    expect(textos[7]).toContain('Orden 1234')
+    for (const t of textos) {
+      expect(t).not.toMatch(/Paso \d/)
+      expect(t).not.toMatch(/^\s*\d+[.)]/m)
+      expect(t).not.toMatch(/escribe el número/i)
+      expect(t).not.toMatch(/selecciona/i)
+    }
   })
 
-  it('precarga aceptada (S12): Y baja a 4 y la numeración se recalcula', async () => {
-    const api = apiFalso()
-    ;(api as unknown as Record<string, unknown>).getOrdenes = async () => [
-      {
-        id: '99',
-        asignacion: { doctor: { id: 'doc-1' } },
-        detalles: [{ servicio: 'Corona zirconio', cantidad: 3, dientes: [16], colorDiente: 'A2' }],
-      },
-    ]
-    const { esc } = par(api)
-    expect(texto(await esc.handle(TEL, '4'))).toContain('Paso 1 de 7.') // doctor
-    expect(texto(await esc.handle(TEL, '1'))).toContain('¿Mismo trabajo y color')
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 2 de 4.') // paciente
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 3 de 4.') // dientes
-    expect(texto(await esc.handle(TEL, '26'))).toContain('Paso 4 de 4.') // observaciones
-  })
-
-  it('precarga aceptada con 1:1: Y baja a 3', async () => {
-    const api = apiFalso()
-    ;(api as unknown as Record<string, unknown>).getOrdenes = async () => [
-      {
-        id: '99',
-        asignacion: { doctor: { id: 'doc-1' } },
-        detalles: [{ servicio: 'Corona zirconio', cantidad: 3, dientes: [16], colorDiente: 'A2' }],
-      },
-    ]
-    const { esc } = par(api)
-    expect(texto(await esc.handle(TEL, '4', 'doc-1'))).toContain('¿Mismo trabajo y color')
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 1 de 3.') // paciente
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 2 de 3.') // dientes
-    expect(texto(await esc.handle(TEL, '26'))).toContain('Paso 3 de 3.') // observaciones
-  })
-
-  it('con doctor 1:1: seis preguntas, el paso del doctor desaparece', async () => {
+  it('con doctor 1:1 el doctor nunca se pregunta', async () => {
     const api = apiFalso()
     const { esc } = par(api)
-    expect(texto(await esc.handle(TEL, '4', 'doc-1'))).toContain('Paso 1 de 6.') // paciente
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 2 de 6.') // servicio
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Paso 3 de 6.') // cantidad
-    expect(texto(await esc.handle(TEL, '2'))).toContain('Paso 4 de 6.') // dientes
-    expect(texto(await esc.handle(TEL, '26'))).toContain('Paso 5 de 6.') // color
-    expect(texto(await esc.handle(TEL, 'A1'))).toContain('Paso 6 de 6.') // observaciones
-    expect(texto(await esc.handle(TEL, 'no'))).not.toContain('Paso')
-    expect(texto(await esc.handle(TEL, '1'))).toContain('Orden 1234')
+    const r = await esc.handle(TEL, '4', 'doc-1')
+    expect(r.text).not.toContain(PREGUNTA_DOCTOR)
+    expect(r.text).not.toMatch(/Paso \d/)
   })
 })
 
@@ -325,9 +304,8 @@ describe('dígitos dentro del texto (S11/T12)', () => {
   it('el color (texto libre) nunca extrae dígitos: A2 se guarda tal cual', async () => {
     const api = apiFalso()
     const { esc } = par(api)
-    for (const p of ['4', '1', '1', '1', '2', '26']) await esc.handle(TEL, p)
-    await esc.handle(TEL, 'A2')
-    const r = texto(await esc.handle(TEL, 'no'))
+    for (const p of ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26']) await esc.handle(TEL, p)
+    const r = texto(await esc.handle(TEL, 'A2'))
     expect(r).toContain('Color: A2')
   })
 })

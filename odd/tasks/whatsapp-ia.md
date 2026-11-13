@@ -28,6 +28,20 @@ La sesión contra la API, la vinculación por código, el resumen antes de escri
 Texto del usuario: "luego vamos a hacer un entrenamiento ajustando el arnés para intentando hacer sabotaje al bot".
 Cada herramienta y cada negativa se ataca con inyección de prompt, extracción de datos de pacientes, cruce de clínicas y contrabando de SQL. Los ataques que pasen se convierten en casos fijos del arnés; no se "entrena" el modelo, se endurece el código.
 
+**S7 — Ninguna lista numerada, nunca.**
+Texto del usuario: "Lo primero que te dije es que no íbamos a funcionar más con menús, y veo que lo estás haciendo" / "no vamos a tener cómo se llama esto: mostrar el catálogo, no, sino que se debe tener una conversación real, natural".
+Ninguna respuesta del bot enumera opciones con números ni pide "escribe el número". Si hay que elegir entre alternativas, se pregunta por el nombre en lenguaje llano ("¿con qué doctor es el trabajo?") y se acepta lo que la persona escriba, aunque venga con mayúsculas raras, apodos o el nombre a medias.
+
+**S8 — La máquina de pasos no se muestra.**
+Ninguna respuesta dice "Paso X de Y" ni expone cuántos pasos faltan. El orden interno puede existir; lo que se comunica es una conversación.
+
+**S9 — Lo que la persona ya dijo no se vuelve a preguntar.**
+Texto del usuario (hilo real): "nECESITO CREAR UNA ORDEN PARA el paciente sANTIAGO aRISTIZABAL, HAY QUE HACERLE UNAS PROTESIS DE LOS 14 Y 13, ES URGENTE PARA EL JUEVES, lo atendio el doctor nefario" → el bot respondió "Paso 1 de 7. Selecciona el doctor (escribe el número)".
+De ese texto hay que extraer paciente, servicio (protesis), dientes (14 y 13), urgencia y fecha (urgente para el jueves) y doctor (nefario). Lo extraído se confirma en una frase, no se vuelve a preguntar.
+
+**S10 — Solo se pregunta lo que falta y el dato exige.**
+Se pregunta únicamente lo que el modelo de datos necesita y no se pudo extraer (hoy: la cédula del paciente), una pregunta natural por turno, sin enumerar. La confirmación final es una sola frase con el resumen completo, y solo después se escribe.
+
 ## Tasks
 
 | ID | Tarea | Specs | Ruta |
@@ -36,6 +50,7 @@ Cada herramienta y cada negativa se ataca con inyección de prompt, extracción 
 | IA2 | Capa de datos del bot: pool con el rol restringido, `SET LOCAL app.clinica_id` por conversación y catálogo cerrado de herramientas como consultas parametrizadas | S2,S3 | worker |
 | IA3 | Cliente Groq con tool calling, esquema de validación de llamadas, timeout, tope de costo por conversación y caída al menú si falta la llave o falla el modelo | S3,S4 | worker |
 | IA4 | Prompt del sistema y política de negativas: qué puede contestar, qué no, cómo nombra datos de paciente y cuándo exige confirmación | S3,S5 | worker |
+| IA11 | Crear orden conversacional: extraer del texto libre lo que la persona ya dijo y preguntar solo lo que falta, sin listas numeradas y sin "Paso X de Y" | S7,S8,S9,S10 | worker |
 | IA5 | Ronda de sabotaje: inyección, extracción entre clínicas, SQL dentro de parámetros, PII en el prompt; los ataques exitosos quedan como casos fijos | S6 | worker |
 
 ## Constraints
@@ -65,3 +80,5 @@ Cada ataque se ejecuta contra el bot con un contacto verificado de la clínica A
 **L1 — pedido (textual):** "vamos a hacer otra modificación aquí con el bot, ya que no tiene sentido simplemente hacer todo un flujo de sí, no, sí, no. ¿Cuándo podemos simplemente integrar inteligencia artificial? Vamos a utilizar como provider a Grog. [...] Tú solamente dime qué nombre de variable de entorno necesitas que tenga [...] primero vas a crear en la base de datos un usuario exclusivamente para el bot y no va a tener más permisos más allá de los necesarios. Así que vamos a necesitar automatizar eso para el despliegue [...] También tenemos que hacerle un harness o un arnés a ese bot para que de ninguna manera responda haciendo consultas complejas de cosas que no debe en la base de datos. [...] Y luego vamos a hacer un entrenamiento ajustando el arnés para intentando hacer sabotaje al bot."
 
 **L2 — decisiones:** "Me refiero a un usuario de base de datos con permisos mínimos. Vamos a hacerle un tooling para que él tenga la capacidad de hacer consultas SQL con la base de datos. [...] que no pueda hacer deletes, truncates, [...] ni un pgdump [...] la autenticación [no pasa por la IA] [...] el bot no tiene por qué leer información de la tabla de usuarios." / "La IA usa herramientas (tool calling)".
+
+**L8 — corrección (textual):** "El bot está funcionando horrible. Lo primero que te dije es que no íbamos a funcionar más con menús, y veo que lo estás haciendo. Además, no vamos a tener cómo se llama esto: mostrar el catálogo, no, sino que se debe tener una conversación real, natural, porque mira lo que me está pasando." Hilo: "Vincular 447042" → bienvenida → "nECESITO CREAR UNA ORDEN PARA el paciente sANTIAGO aRISTIZABAL, HAY QUE HACERLE UNAS PROTESIS DE LOS 14 Y 13, ES URGENTE PARA EL JUEVES, lo atendio el doctor nefario" → "Paso 1 de 7. Selecciona el doctor (escribe el número): 1. Doctor Nefario 2. Jefferson Pinchao" → "1" → "¿Mismo trabajo y color que tu última orden (gsd, fgd)? 1 sí / 2 no" → "2" → "Paso 3 de 7. Selecciona el servicio (escribe el número)".

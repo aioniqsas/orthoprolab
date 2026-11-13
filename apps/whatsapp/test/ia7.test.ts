@@ -6,6 +6,7 @@ import { ConversationStore } from '../src/state.js'
 import { ReadFlows, type Respuesta } from '../src/flows.js'
 import { OrderFlows } from '../src/write-flows.js'
 import { ClienteGroq, type Ruta, StoreLlm } from '../src/llm.js'
+import { PREGUNTA_NOMBRE_PACIENTE } from '../src/write-flows.js'
 import { DatosBot, type ClientePg } from '../src/datos.js'
 
 const TEL = '+573001234567'
@@ -119,7 +120,7 @@ describe('el modelo enruta lo que la persona escribe (IA7/S13)', () => {
     ['la A', 'la A', 'ver_pedido', { tipo: 'ver_pedido' }],
     ['frase natural', 'quiero ver mi pedido', 'ver_pedido', { tipo: 'ver_pedido' }],
     ['cuenta con número', 'mándame la cuenta de la 1234', 'enviar_cuenta', { tipo: 'enviar_cuenta', numero: '1234' }],
-    ['pedido nuevo', 'hazme un pedido', 'nuevo_pedido', { tipo: 'nuevo_pedido' }],
+    ['pedido nuevo', 'hazme un pedido', 'nuevo_pedido', { tipo: 'nuevo_pedido', texto: 'hazme un pedido' }],
   ]
   for (const [nombre, mensaje, herramienta, ruta] of casos) {
     it(`${nombre} ("${mensaje}") → ruta ${herramienta}, cero consultas a la base`, async () => {
@@ -150,7 +151,7 @@ describe('el modelo enruta lo que la persona escribe (IA7/S13)', () => {
     const cliente = new ClienteGroq(CONFIG_LLM, fetchDoble as unknown as typeof fetch, () => {})
     const datos = new DatosBot(CONFIG, pool.pool)
     const r = await cliente.manejar('tel', 'hazme un pedido y dime de la 7', datos, '42', new StoreLlm())
-    expect(r).toEqual({ ruta: { tipo: 'nuevo_pedido' } })
+    expect(r).toEqual({ ruta: { tipo: 'nuevo_pedido', texto: 'hazme un pedido y dime de la 7' } })
     expect(pool.registros).toEqual([])
   })
 })
@@ -205,7 +206,7 @@ describe('el flujo determinista es el ejecutor de la ruta (IA7)', () => {
     const api = apiFalso()
     const { flows, store } = par(api)
     const r = await flows.atenderRuta(TEL, { tipo: 'nuevo_pedido' }, 'doc-1')
-    expect(texto(r)).toContain('Paciente de Ana Gómez')
+    expect(texto(r)).toBe(PREGUNTA_NOMBRE_PACIENTE)
     expect(store.get(TEL)?.step).toBe('orden-paciente')
     expect(api.crearOrdenLlamadas).toHaveLength(0)
   })
@@ -214,7 +215,7 @@ describe('el flujo determinista es el ejecutor de la ruta (IA7)', () => {
     const api = apiFalso()
     const { flows } = par(api)
     await flows.atenderRuta(TEL, { tipo: 'nuevo_pedido' }, 'doc-1')
-    for (const paso of ['1', '1', '1', '2', '26', 'A1', 'no']) await flows.handle(TEL, paso)
+    for (const paso of ['Luis', 'Corona zirconio', '1', '26', 'A1']) await flows.handle(TEL, paso)
     const r = await flows.handle(TEL, '1')
     expect(texto(r)).toContain('Orden 1234 creada.')
     expect(api.crearOrdenLlamadas).toHaveLength(1)

@@ -3,7 +3,20 @@ import { ApiError, type ApiClient, type DoctorApi, type ServicioApi } from '../s
 import { SALUDO } from '../src/menu.js'
 import { ConversationStore } from '../src/state.js'
 import { ReadFlows } from '../src/flows.js'
-import { OrderFlows } from '../src/write-flows.js'
+import { PREGUNTA_CONFIRMAR } from '../src/flows.js'
+import {
+  CONFIRMAR_PIE,
+  NO_ENCONTRADO_DOCTOR,
+  NO_ENCONTRADO_SERVICIO,
+  OrderFlows,
+  PREGUNTA_CANTIDAD,
+  PREGUNTA_COLOR,
+  PREGUNTA_CEDULA,
+  PREGUNTA_DIENTES,
+  PREGUNTA_DOCTOR,
+  PREGUNTA_NOMBRE_PACIENTE,
+  PREGUNTA_SERVICIO,
+} from '../src/write-flows.js'
 
 const TEL = '+573001234567'
 
@@ -51,7 +64,7 @@ function escritor(api: ApiClient, store = new ConversationStore()): OrderFlows {
 }
 
 async function enviar(esc: OrderFlows, textos: string[], doctorContacto?: string): Promise<{ text: string; kind: string }> {
-  let r: { kind: string; text: string } = { kind: 'text', text: '' }
+  let r: { text: string; kind: string } = { text: '', kind: 'text' }
   for (const t of textos) r = (await esc.handle(TEL, t, doctorContacto)) as { kind: string; text: string }
   return r
 }
@@ -61,12 +74,12 @@ function leerFlows(api: ApiClient, esc: OrderFlows): ReadFlows {
   return new ReadFlows(store, api, esc)
 }
 
-describe('flujo 4: crear orden (S5, S6)', () => {
-  it('feliz completo: menú → 4 → doctor → paciente → servicio → cantidad → dientes → color → observaciones → CONFIRMAR', async () => {
+describe('flujo 4: crear orden en conversación (S5, S6, S7–S10)', () => {
+  it('feliz completo: menú → doctor → paciente → servicio → cantidad → dientes → color → CONFIRMAR', async () => {
     const api = apiFalso()
     const store = new ConversationStore()
     const esc = escritor(api, store)
-    const r = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'urgente', 'CONFIRMAR'])
+    const r = await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1', 'CONFIRMAR'])
     expect(r.kind).toBe('text')
     expect(r.text).toContain('Orden 1234')
     expect(api.crearOrdenLlamadas).toHaveLength(1)
@@ -80,7 +93,6 @@ describe('flujo 4: crear orden (S5, S6)', () => {
           cantidad: 2,
           dientes: [26, 27],
           colorDiente: 'A1',
-          observaciones: 'urgente',
         },
       ],
     })
@@ -91,11 +103,11 @@ describe('flujo 4: crear orden (S5, S6)', () => {
   it('el payload coincide con lo que mostró el resumen', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    const resumen = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    const resumen = await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     expect(resumen.text).toContain('Doctor: Ana Gómez')
     // Entrada desconocida en el paso de confirmación: "No entendí" explícito.
     const r = await enviar(esc, ['__CONFIRMAR__'])
-    expect(r.text).toBe('No entendí. Escribe 1 para crear o 0 para cancelar')
+    expect(r.text).toBe(PREGUNTA_CONFIRMAR)
     const r2 = await enviar(esc, ['CONFIRMAR'])
     expect(r2.text).toContain('Orden 1234')
     expect(api.crearOrdenLlamadas[0]!.payload).toEqual({
@@ -108,15 +120,16 @@ describe('flujo 4: crear orden (S5, S6)', () => {
   it('doctor del contacto: se usa en silencio, sin preguntar', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    const r = await enviar(esc, ['4'], 'doc-1')
-    expect(r.text).toContain('Paciente de Ana Gómez')
-    expect(r.text).toContain('Luis Pérez')
+    const r = await enviar(esc, ['4', 'Luis', 'Corona zirconio', '1', '26', 'A1', 'CONFIRMAR'], 'doc-1')
+    expect(r.text).toContain('Orden 1234')
+    const payload = api.crearOrdenLlamadas[0]!.payload as { doctorId: string }
+    expect(payload.doctorId).toBe('doc-1')
   })
 
   it('el resumen nombra los dientes con la tabla compartida de @repo/api-client', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    const r = await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     expect(r.text).toContain('26 – primer molar superior izquierdo')
     expect(r.text).toContain('27 – segundo molar superior izquierdo')
   })
@@ -125,10 +138,10 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     for (const palabra of ['dale', 'ok']) {
       const api = apiFalso()
       const esc = escritor(api)
-      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+      await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
       const r = await enviar(esc, [palabra])
       expect(api.crearOrdenLlamadas).toHaveLength(0)
-      expect(r.text).toBe('No entendí. Escribe 1 para crear o 0 para cancelar')
+      expect(r.text).toBe(PREGUNTA_CONFIRMAR)
     }
   })
 
@@ -136,7 +149,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     for (const palabra of ['1', 'sí', 'si', 'SI', ' Confirmar ']) {
       const api = apiFalso()
       const esc = escritor(api)
-      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+      await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
       const r = await enviar(esc, [palabra])
       expect(r.text).toContain('Orden 1234')
       expect(api.crearOrdenLlamadas).toHaveLength(1)
@@ -144,7 +157,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     for (const palabra of ['0', 'cancelar']) {
       const api = apiFalso()
       const esc = escritor(api)
-      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+      await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
       const r = await enviar(esc, [palabra])
       expect(api.crearOrdenLlamadas).toHaveLength(0)
       // 0 siempre significa volver al menú (S11).
@@ -153,14 +166,14 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     for (const palabra of ['no', 'NO']) {
       const api = apiFalso()
       const esc = escritor(api)
-      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+      await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
       const r = await enviar(esc, [palabra])
       expect(api.crearOrdenLlamadas).toHaveLength(0)
       expect(r.text).toContain('Orden descartada')
     }
   })
 
-  it('cancelar en el paso del doctor (paso 1) vuelve al menú y borra el estado', async () => {
+  it('cancelar en el paso del doctor vuelve al menú y borra el estado', async () => {
     const api = apiFalso()
     const store = new ConversationStore()
     const esc = escritor(api, store)
@@ -171,8 +184,8 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     expect(store.get(TEL)).toBeUndefined()
   })
 
-  it('cancelar en el paso del paciente (paso 2) y en el de servicio (paso 3)', async () => {
-    for (const pasos of [['4', '1'], ['4', '1', '1']]) {
+  it('cancelar en el paso del paciente y en el de servicio', async () => {
+    for (const pasos of [['4', 'Ana'], ['4', 'Ana', 'Luis']]) {
       const api = apiFalso()
       const store = new ConversationStore()
       const esc = escritor(api, store)
@@ -184,39 +197,62 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     }
   })
 
-  it('cédula nueva crea el paciente y sigue el flujo', async () => {
+  it('cédula y nombre registran al paciente y siguen el flujo', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1', 'nuevo 8845 María Ruiz', '1', '1', '26', 'A2', 'no', 'CONFIRMAR'])
+    const r = await enviar(esc, ['4', 'Ana', '8845 María Ruiz', 'Corona zirconio', '1', '26', 'A2', 'CONFIRMAR'])
     expect(r.text).toContain('Orden 1234')
     const payload = api.crearOrdenLlamadas[0]!.payload as { pacienteId: number }
     expect(payload.pacienteId).toBe(9)
   })
 
-  it('cédula rechazada por la API: lo dice con palabras y ofrece la lista de nuevo', async () => {
+  it('cédula rechazada por la API: lo dice con palabras y vuelve a preguntar', async () => {
     const api = apiFalso()
     const esc = escritor(api)
     await esc.handle(TEL, '4')
-    await esc.handle(TEL, '1')
-    const r = await esc.handle(TEL, 'nuevo 1030 Alguien')
-    expect(r.text).toContain('No pude registrar ese paciente')
-    expect(r.text).toContain('Luis Pérez')
+    await esc.handle(TEL, 'Ana')
+    const r = await esc.handle(TEL, '1030 Alguien')
+    expect(r.text).toContain('No pude registrar a Alguien')
+    expect(r.text).toContain('cédula ya está registrada')
     // El paso sigue siendo el del paciente, sin reintento ciego.
-    const r2 = await esc.handle(TEL, '1')
-    expect(r2.text).toContain('Corona zirconio')
+    const r2 = await esc.handle(TEL, 'Luis')
+    expect(r2.text).toContain(PREGUNTA_SERVICIO)
+  })
+
+  it('cédula sola, con el nombre ya conocido, registra directo', async () => {
+    const api = apiFalso()
+    const esc = escritor(api)
+    // La frase inicial ya trae doctor, servicio, dientes y paciente (S9).
+    const r = await esc.handle(TEL, 'necesito orden para el paciente María Ruiz, corona del 26, la atendió la doctora Ana')
+    expect(r.text).toContain(PREGUNTA_CEDULA)
+    expect(r.text).toContain('María Ruiz')
+    expect(r.text).not.toContain(PREGUNTA_DOCTOR)
+    expect(r.text).not.toContain(PREGUNTA_SERVICIO)
+    expect(r.text).not.toContain(PREGUNTA_DIENTES)
+    const r2 = await esc.handle(TEL, '887744556')
+    expect(r2.text).toContain(PREGUNTA_CANTIDAD)
+    const r3 = await enviar(esc, ['1', 'A1', 'CONFIRMAR'])
+    expect(r3.text).toContain('Orden 1234')
+    const payload = api.crearOrdenLlamadas[0]!.payload as {
+      pacienteId: number
+      detalles: Array<{ dientes: number[]; servicio: string }>
+    }
+    expect(payload.pacienteId).toBe(9)
+    expect(payload.detalles[0]!.dientes).toEqual([26])
+    expect(payload.detalles[0]!.servicio).toBe('Corona zirconio')
   })
 
   it('diente inválido: nombra el código ofensor y vuelve a preguntar sin perder lo anterior', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1', '2'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2'])
     const r = await esc.handle(TEL, '26 99')
     expect(r.text).toContain('99')
     expect(r.text).toContain('diente')
     const r2 = await esc.handle(TEL, '26 27')
     // La respuesta ya no es el error de dientes sino el paso siguiente (color).
     expect(r2.text).toContain('color')
-    await enviar(esc, ['A1', 'no', 'CONFIRMAR'])
+    await enviar(esc, ['A1', 'CONFIRMAR'])
     const payload = api.crearOrdenLlamadas[0]!.payload as { detalles: Array<{ dientes: number[] }> }
     expect(payload.detalles[0]!.dientes).toEqual([26, 27])
   })
@@ -224,7 +260,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
   it('dientes repetidos se deduplican', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26, 26 27', 'A1', 'no', 'CONFIRMAR'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '1', '26, 26 27', 'A1', 'CONFIRMAR'])
     const payload = api.crearOrdenLlamadas[0]!.payload as { detalles: Array<{ dientes: number[] }> }
     expect(payload.detalles[0]!.dientes).toEqual([26, 27])
   })
@@ -232,12 +268,12 @@ describe('flujo 4: crear orden (S5, S6)', () => {
   it('cantidad inválida re-pregunta sin perder el servicio; válida sigue', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio'])
     const r = await esc.handle(TEL, 'dos')
-    expect(r.text).toContain('número entero')
+    expect(r.text).toContain('¿Cuántas unidades')
     const r2 = await esc.handle(TEL, '2')
     expect(r2.text).toContain('dientes')
-    await enviar(esc, ['26', 'A1', 'no', 'CONFIRMAR'])
+    await enviar(esc, ['26', 'A1', 'CONFIRMAR'])
     const payload = api.crearOrdenLlamadas[0]!.payload as { detalles: Array<{ cantidad: number; servicio: string }> }
     expect(payload.detalles[0]!.cantidad).toBe(2)
     expect(payload.detalles[0]!.servicio).toBe('Corona zirconio')
@@ -248,7 +284,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     const api = apiFalso({ crearOrdenError: new ApiError(400, 'boom') })
     const store = new ConversationStore()
     const esc = escritor(api, store)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     const r = await esc.handle(TEL, 'CONFIRMAR')
     expect(api.crearOrdenLlamadas).toHaveLength(1)
     expect(r.text).toContain('No pude crear la orden')
@@ -259,7 +295,7 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     const api = apiFalso({ crearOrdenError: new ApiError(500, 'boom') })
     const store = new ConversationStore()
     const esc = escritor(api, store)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     await esc.handle(TEL, 'CONFIRMAR')
     // La API se recupera.
     api.crearOrdenError = undefined
@@ -268,21 +304,22 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     expect(api.crearOrdenLlamadas).toHaveLength(2)
   })
 
-  it('cualquier otra entrada en el paso de confirmación pide 1 o 0, sin escribir', async () => {
+  it('cualquier otra entrada en el paso de confirmación pide sí o no, sin escribir', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     const r = await esc.handle(TEL, '¿listo?')
-    expect(r.text).toBe('No entendí. Escribe 1 para crear o 0 para cancelar')
+    expect(r.text).toBe(PREGUNTA_CONFIRMAR)
     expect(api.crearOrdenLlamadas).toHaveLength(0)
   })
 
-  it('el resumen obligatorio dice 1 crea y 0 cancela (S11)', async () => {
+  it('el resumen obligatorio pide sí para crear y no para cancelar (S11, S7)', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
-    expect(r.text).toContain('Escribe 1 para crear la orden, o 0 para cancelar.')
+    const r = await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
+    expect(r.text).toContain(CONFIRMAR_PIE)
     expect(r.text).toContain('Servicio: Corona zirconio')
+    expect(r.text).not.toMatch(/Escribe \d/)
   })
 
   it('ReadFlows delega la opción 4 al escritor', async () => {
@@ -298,6 +335,23 @@ describe('flujo 4: crear orden (S5, S6)', () => {
     const r = await flows.handle(TEL, '4')
     expect(r.text).toContain('todavía no está disponible')
   })
+
+  it('doctor desconocido y servicio desconocido se re-preguntan sin lista', async () => {
+    const api = apiFalso()
+    const esc = escritor(api)
+    const r = await esc.handle(TEL, '4')
+    expect(r.text).toBe(PREGUNTA_DOCTOR)
+    const r2 = await esc.handle(TEL, 'Doctor Nefario')
+    expect(r2.text).toBe(NO_ENCONTRADO_DOCTOR)
+    const r3 = await esc.handle(TEL, 'Ana')
+    expect(r3.text).toBe(PREGUNTA_NOMBRE_PACIENTE)
+    const r4 = await esc.handle(TEL, 'Luis')
+    expect(r4.text).toBe(PREGUNTA_SERVICIO)
+    const r5 = await esc.handle(TEL, 'Prótesis')
+    expect(r5.text).toBe(NO_ENCONTRADO_SERVICIO)
+    const r6 = await esc.handle(TEL, 'corona')
+    expect(r6.text).toBe(PREGUNTA_CANTIDAD)
+  })
 })
 
 describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
@@ -312,14 +366,14 @@ describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
   it('ofrece la precarga con la pregunta exacta y los valores citados', async () => {
     const api = apiFalso({ ordenes: [ULTIMA] })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1'])
-    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? 1 sí / 2 no')
+    const r = await enviar(esc, ['4', 'Ana'])
+    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? Responde sí o no.')
   })
 
-  it('1 copia servicio, cantidad y color y salta directo al paciente', async () => {
+  it('sí copia servicio, cantidad y color y salta directo al paciente', async () => {
     const api = apiFalso({ ordenes: [ULTIMA] })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1', '1', '1', '26 27', 'no'])
+    const r = await enviar(esc, ['4', 'Ana', 'sí', 'Luis', '26 27'])
     // El resumen muestra los valores precargados tal cual se envían.
     expect(r.text).toContain('Servicio: Corona zirconio')
     expect(r.text).toContain('Cantidad: 3')
@@ -332,12 +386,12 @@ describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
     expect(payload.detalles[0]).toEqual({ servicio: 'Corona zirconio', cantidad: 3, dientes: [26, 27], colorDiente: 'A2' })
   })
 
-  it('2 pregunta servicio, cantidad y color como siempre', async () => {
+  it('no pregunta servicio, cantidad y color como siempre', async () => {
     const api = apiFalso({ ordenes: [ULTIMA] })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1', '2'])
-    expect(r.text).toContain('Selecciona el servicio')
-    const r2 = await enviar(esc, ['1', '2', '26', 'A1', 'no', 'CONFIRMAR'])
+    const r = await enviar(esc, ['4', 'Ana', 'no'])
+    expect(r.text).toContain(PREGUNTA_NOMBRE_PACIENTE)
+    const r2 = await enviar(esc, ['Luis', 'Corona zirconio', '2', '26', 'A1', 'CONFIRMAR'])
     const payload = api.crearOrdenLlamadas[0]!.payload as {
       detalles: Array<{ servicio: string; cantidad: number; dientes: number[]; colorDiente: string }>
     }
@@ -347,7 +401,7 @@ describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
   it('respuesta desconocida en la precarga: "No entendí" y la pregunta otra vez', async () => {
     const api = apiFalso({ ordenes: [ULTIMA] })
     const esc = escritor(api)
-    await enviar(esc, ['4', '1'])
+    await enviar(esc, ['4', 'Ana'])
     const r = await esc.handle(TEL, 'dale')
     expect(r.text).toContain('No entendí')
     expect(r.text).toContain('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)?')
@@ -356,24 +410,24 @@ describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
   it('sin orden previa del doctor la pregunta no aparece', async () => {
     const api = apiFalso({ ordenes: [{ ...ULTIMA, asignacion: { ...ULTIMA.asignacion, doctor: { id: 'doc-otro' } } }] })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1'])
+    const r = await enviar(esc, ['4', 'Ana'])
     expect(r.text).not.toContain('última orden')
-    expect(r.text).toContain('Paciente')
+    expect(r.text).toBe(PREGUNTA_NOMBRE_PACIENTE)
   })
 
   it('sin detalles la pregunta no aparece', async () => {
     const api = apiFalso({ ordenes: [{ ...ULTIMA, detalles: [] }] })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1'])
+    const r = await enviar(esc, ['4', 'Ana'])
     expect(r.text).not.toContain('última orden')
   })
 
   it('fallo de GET /mi-clinica/ordenes: el flujo sigue normal en silencio', async () => {
     const api = apiFalso({ ordenes: [ULTIMA], getOrdenesError: new ApiError(503, 'caído') })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1'])
-    expect(r.text).toContain('Paciente de Ana Gómez')
-    const r2 = await enviar(esc, ['1', '1', '2', '26 27', 'A1', 'no', 'CONFIRMAR'])
+    const r = await enviar(esc, ['4', 'Ana'])
+    expect(r.text).toBe(PREGUNTA_NOMBRE_PACIENTE)
+    const r2 = await enviar(esc, ['Luis', 'Corona zirconio', '2', '26 27', 'A1', 'CONFIRMAR'])
     expect(r2.text).toContain('Orden 1234')
   })
 
@@ -381,26 +435,26 @@ describe('precarga del trabajo y color de la última orden (S12/T13)', () => {
     const cancelada = { ...ULTIMA, id: '100', estado: { codigo: 'cancelada', nombre: 'Cancelada' } }
     const api = apiFalso({ ordenes: [cancelada, ULTIMA] })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1'])
-    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? 1 sí / 2 no')
+    const r = await enviar(esc, ['4', 'Ana'])
+    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? Responde sí o no.')
   })
 
   it('todas las órdenes canceladas: la pregunta de precarga no aparece', async () => {
     const cancelada = { ...ULTIMA, id: '100', estado: { nombre: 'Cancelada' } }
     const api = apiFalso({ ordenes: [cancelada] })
     const esc = escritor(api)
-    const r = await enviar(esc, ['4', '1'])
+    const r = await enviar(esc, ['4', 'Ana'])
     expect(r.text).not.toContain('última orden')
-    expect(r.text).toContain('Paciente')
+    expect(r.text).toBe(PREGUNTA_NOMBRE_PACIENTE)
   })
 
   it('contacto 1:1: la precarga se ofrece igual', async () => {
     const api = apiFalso({ ordenes: [ULTIMA] })
     const esc = escritor(api)
     const r = await esc.handle(TEL, '4', 'doc-1')
-    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? 1 sí / 2 no')
-    const r2 = await esc.handle(TEL, '1')
-    expect(r2.text).toContain('Paciente de Ana Gómez')
+    expect(r.text).toBe('¿Mismo trabajo y color que tu última orden (Corona zirconio, A2)? Responde sí o no.')
+    const r2 = await esc.handle(TEL, 'sí')
+    expect(r2.text).toBe(PREGUNTA_NOMBRE_PACIENTE)
   })
 })
 
@@ -408,7 +462,7 @@ describe('idempotencia de la creación (ronda adversarial T6)', () => {
   it('la misma clave de idempotencia se reutiliza en los reintentos de una misma orden', async () => {
     const api = apiFalso({ crearOrdenError: new ApiError(500, 'boom') })
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no', 'CONFIRMAR'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1', 'CONFIRMAR'])
     api.crearOrdenError = undefined
     const r = await enviar(esc, ['CONFIRMAR'])
     expect(r.text).toContain('Orden 1234')
@@ -420,9 +474,9 @@ describe('idempotencia de la creación (ronda adversarial T6)', () => {
   it('cancelar y empezar una orden nueva produce una clave distinta', async () => {
     const api = apiFalso()
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no', 'CONFIRMAR'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1', 'CONFIRMAR'])
     const k1 = api.crearOrdenLlamadas[0]!.idempotencyKey
-    await enviar(esc, ['0', '4', '1', '1', '1', '2', '26 27', 'A1', 'no', 'CONFIRMAR'])
+    await enviar(esc, ['0', '4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1', 'CONFIRMAR'])
     expect(api.crearOrdenLlamadas).toHaveLength(2)
     expect(api.crearOrdenLlamadas[1]!.idempotencyKey).toBeTruthy()
     expect(api.crearOrdenLlamadas[1]!.idempotencyKey).not.toBe(k1)
@@ -432,26 +486,26 @@ describe('idempotencia de la creación (ronda adversarial T6)', () => {
     const api = apiFalso({ crearOrdenError: new Error('fetch failed') })
     const store = new ConversationStore()
     const esc = escritor(api, store)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     const r = await esc.handle(TEL, 'CONFIRMAR')
     expect(r.text).toContain('puede que se haya creado')
-    expect(r.text).toContain('opción 1')
+    expect(r.text).toContain('escribe 0')
     expect(store.get(TEL)?.step).toBe('orden-confirmar')
   })
 
   it('un 5xx también avisa que la orden puede que se haya creado', async () => {
     const api = apiFalso({ crearOrdenError: new ApiError(500, 'boom') })
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     const r = await esc.handle(TEL, 'CONFIRMAR')
     expect(r.text).toContain('puede que se haya creado')
-    expect(r.text).toContain('opción 1')
+    expect(r.text).toContain('escribe 0')
   })
 
   it('un 400 de validación mantiene el aviso de reintento seguro', async () => {
     const api = apiFalso({ crearOrdenError: new ApiError(400, 'malos datos') })
     const esc = escritor(api)
-    await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no'])
+    await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1'])
     const r = await esc.handle(TEL, 'CONFIRMAR')
     expect(r.text).toContain('No pude crear la orden')
     expect(r.text).not.toContain('puede que se haya creado')
@@ -471,7 +525,7 @@ describe('idempotencia de la creación (ronda adversarial T6)', () => {
     try {
       const api = apiFalso({ crearOrdenError: new Error('fetch failed') })
       const esc = escritor(api)
-      await enviar(esc, ['4', '1', '1', '1', '2', '26 27', 'A1', 'no', 'CONFIRMAR'])
+      await enviar(esc, ['4', 'Ana', 'Luis', 'Corona zirconio', '2', '26 27', 'A1', 'CONFIRMAR'])
       const clave = api.crearOrdenLlamadas[0]!.idempotencyKey as string
       expect(clave).toBeTruthy()
       for (const llamada of vistas) {

@@ -25,7 +25,7 @@ export const PREGUNTA_CONTROL =
 export const PREGUNTA_CUENTA =
   'Escribe el número de la cuenta de cobro para enviártela en PDF (o 0 para volver al menú).'
 export const PREGUNTA_AYUDA = '¿Quieres que el laboratorio te llame? 1 sí / 0 no'
-export const PREGUNTA_CONFIRMAR = 'No entendí. Escribe 1 para crear o 0 para cancelar'
+export const PREGUNTA_CONFIRMAR = 'No entendí. Responde sí para crear la orden o no para cancelar'
 export const AVISO_AUDIO = 'No puedo escuchar audios, escríbeme por favor'
 export const AVISO_MEDIA = 'No puedo abrir eso, escríbeme por favor'
 
@@ -246,7 +246,7 @@ export class ReadFlows {
     switch (ruta.tipo) {
       case 'nuevo_pedido':
         respuesta = this.escritor
-          ? await this.escritor.handle(telefono, '', doctorContacto)
+          ? await this.escritor.handle(telefono, ruta.texto ?? '', doctorContacto)
           : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
         break
       case 'pedir_llamada':
