@@ -41,3 +41,28 @@ export class ConversationStore {
     this.states.delete(senderId)
   }
 }
+
+/**
+ * La última orden que el bot le mostró a una persona. Sin esto, cambiar algo
+ * justo después de verlo obliga a repetir cuál orden era, que es justo lo que
+ * un humano no hace.
+ */
+export class UltimaOrdenVista {
+  private readonly vistas = new Map<string, { numero: string; expiresAt: number }>()
+
+  constructor(private readonly ttlMs = 15 * 60 * 1000) {}
+
+  recordar(senderId: string, numero: string, now = Date.now()): void {
+    this.vistas.set(senderId, { numero, expiresAt: now + this.ttlMs })
+  }
+
+  recordada(senderId: string, now = Date.now()): string | undefined {
+    const vista = this.vistas.get(senderId)
+    if (!vista) return undefined
+    if (vista.expiresAt <= now) {
+      this.vistas.delete(senderId)
+      return undefined
+    }
+    return vista.numero
+  }
+}

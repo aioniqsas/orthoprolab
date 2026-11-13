@@ -3,7 +3,7 @@ import { ApiError, type ApiClient, type DetalleOrdenApi, type OrdenApi } from '.
 import { formatoOrden } from './flows.js'
 import { SALUDO } from './menu.js'
 import { esPalabraNumerica, numeroEnPalabras } from './numeros.js'
-import type { ConversationStore } from './state.js'
+import { UltimaOrdenVista, type ConversationStore } from './state.js'
 import { entregaDeTexto, esDelDia, fechaCorta, fechaLarga, fechaLocal, resolverDiaReferencia } from './tiempo.js'
 import {
   CONFIRMAR_NO,
@@ -462,6 +462,7 @@ export class OrdenExistenteFlows {
     private readonly store: ConversationStore,
     private readonly api: ApiClient,
     private readonly ahora: () => Date = () => new Date(),
+    private readonly ultima = new UltimaOrdenVista(),
   ) {}
 
   /** Un turno de conversación sobre una orden que ya existe. */
@@ -481,6 +482,12 @@ export class OrdenExistenteFlows {
     }
 
     campos = fusionar(campos, interpretar(entrada, this.ahora()))
+    // Si acaba de ver una orden y no nombra otra, el cambio es sobre esa: un
+    // humano no repite el número de lo que acaba de mirar.
+    if (!enFlujo && !campos.numero && !campos.paciente && !campos.dia) {
+      const recordada = this.ultima.recordada(telefono)
+      if (recordada) campos = { ...campos, numero: recordada }
+    }
     // El borrador se guarda en cada turno: lo que ya se dijo no se vuelve a preguntar.
     this.store.set(telefono, PASO_CAMBIO, campos)
 
@@ -527,7 +534,12 @@ export class OrdenExistenteFlows {
 
     if (!hayCambios) {
       this.store.set(telefono, PASO_CAMBIO, base)
-      return { kind: 'text', text: `${formatoOrden(orden)}\n\n${AYUDA_CAMBIAR}`, intencion: 'estado' }
+      // Invitar a cambiar solo si de verdad se puede: una orden en otro estado
+      // no se edita por la API, y prometerlo sería mentirle a la persona.
+      const cierre = esEditable(orden)
+        ? AYUDA_CAMBIAR
+        : 'Si hay algo que corregir, el laboratorio lo cambia desde su lado: escríbeles y lo ajustan.'
+      return { kind: 'text', text: `${formatoOrden(orden)}\n\n${cierre}`, intencion: 'estado' }
     }
     if (!esEditable(orden)) {
       this.store.clear(telefono)
