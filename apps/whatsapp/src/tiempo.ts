@@ -76,6 +76,54 @@ export function resolverDiaReferencia(texto: string, ahora: Date): string | null
   return null
 }
 
+const DIA_PATRON = '(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)'
+/** "para el jueves", "entrega el viernes", "lo necesito el lunes": un día de ENTREGA. */
+const RE_ENTREGA_DIA = new RegExp(
+  `\\b(?:para|entrega(?:r(?:lo|la)?)?|necesito\\w*\\s+(?:que\\s+est[eé]\\s+)?|listo|lista)\\s+(?:el\\s+|este\\s+)?${DIA_PATRON}\\b`,
+  'i',
+)
+const RE_ENTREGA_RELATIVA = /\b(?:para|entrega(?:r(?:lo|la)?)?)\s+(?:pasado\s+ma[ñn]ana|ma[ñn]ana|hoy)\b/i
+const RE_URGENTE = /\b(?:urgent\w*|urge|urgencia|cuanto\s+antes|lo\s+antes\s+posible)\b/i
+
+export interface EntregaTexto {
+  /** Día de entrega pedido, resuelto hacia ADELANTE desde hoy; null si no se pidió. */
+  fecha: string | null
+  urgente: boolean
+  /** El texto sin el fragmento de entrega, para que "el jueves" no se confunda con el día de creación. */
+  resto: string
+}
+
+/**
+ * Entrega y urgencia dichas en la frase (S1/S4 de whatsapp-humano): "urgente
+ * para el jueves" se resuelve hacia adelante (el jueves que viene; hoy si es
+ * hoy), al contrario de resolverDiaReferencia, que identifica órdenes ya
+ * hechas y mira hacia atrás.
+ */
+export function entregaDeTexto(texto: string, ahora: Date): EntregaTexto {
+  let resto = texto
+  let fecha: string | null = null
+  const hoy = fechaLocal(ahora)
+  const porDia = RE_ENTREGA_DIA.exec(resto)
+  if (porDia?.[1]) {
+    const i = NOMBRES_DIA.indexOf(normalizar(porDia[1]))
+    if (i >= 0) {
+      // "para el viernes" dicho un viernes es el de la otra semana; hoy se dice "para hoy".
+      fecha = sumarDias(hoy, (i - diaSemana(hoy) + 7) % 7 || 7)
+      resto = resto.replace(RE_ENTREGA_DIA, ' ')
+    }
+  } else {
+    const relativa = RE_ENTREGA_RELATIVA.exec(resto)
+    if (relativa) {
+      const t = normalizar(relativa[0])
+      fecha = t.includes('pasado') ? sumarDias(hoy, 2) : t.includes('manana') ? sumarDias(hoy, 1) : hoy
+      resto = resto.replace(RE_ENTREGA_RELATIVA, ' ')
+    }
+  }
+  const urgente = RE_URGENTE.test(resto)
+  if (urgente) resto = resto.replace(RE_URGENTE, ' ')
+  return { fecha, urgente, resto }
+}
+
 /** ¿La fecha ISO (con hora) cae en ese día del laboratorio? */
 export function esDelDia(fecha: string | null | undefined, dia: string): boolean {
   if (!fecha) return false

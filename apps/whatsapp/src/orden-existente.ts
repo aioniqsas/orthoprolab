@@ -3,7 +3,7 @@ import { ApiError, type ApiClient, type DetalleOrdenApi, type OrdenApi } from '.
 import { formatoOrden } from './flows.js'
 import { SALUDO } from './menu.js'
 import type { ConversationStore } from './state.js'
-import { esDelDia, fechaCorta, fechaLarga, fechaLocal, resolverDiaReferencia } from './tiempo.js'
+import { entregaDeTexto, esDelDia, fechaCorta, fechaLarga, fechaLocal, resolverDiaReferencia } from './tiempo.js'
 import {
   CONFIRMAR_NO,
   CONFIRMAR_SI,
@@ -30,7 +30,7 @@ export const PASO_CAMBIO = 'cambio-orden'
 export const CONFIRMAR_CAMBIO = '¿Lo dejo así? Responde sí o no.'
 export const EJEMPLO_CAMBIO = 'Por ejemplo: «quita el 42 de la orden de Sara Jiménez».'
 export const AYUDA_CAMBIAR =
-  'Si quieres cambiar algo, dímelo con tus palabras: quitar o agregar dientes, la cantidad o el color.'
+  'Si quieres cambiar algo, dímelo con tus palabras: quitar o agregar dientes, la cantidad, el color o la fecha de entrega, o marcarla urgente.'
 export const SIN_DOCUMENTO =
   'Puedo buscar una orden por el nombre del paciente, por su número o por el día en que la hiciste.'
 
@@ -50,6 +50,9 @@ export interface Interpretacion {
   agregar: string[]
   color: string
   cantidad: string
+  /** Día de ENTREGA pedido ("para el viernes"), hacia adelante; distinto de `dia` (creación, hacia atrás). */
+  entrega: string | null
+  urgente: boolean
 }
 
 const RE_ORDEN_NUMERO = /\b(?:orden|pedido)\s*(?:n[uú]?m\.?\s*)?#?\s*(\d{1,9})\b/i
@@ -150,21 +153,26 @@ export function cambiosDeDientes(texto: string): { quitar: string[]; agregar: st
 
 /** Interpreta el mensaje completo, sin mirar el borrador. */
 export function interpretar(texto: string, ahora: Date): Interpretacion {
-  const numero = numeroDeOrden(texto)
-  let limpio = numero !== '' ? texto.replace(RE_ORDEN_NUMERO, ' ') : texto
+  // La entrega se saca primero y se trabaja con el resto (S4): "para el
+  // viernes" es entrega hacia adelante y no debe leerse como "la del viernes".
+  const e = entregaDeTexto(texto, ahora)
+  const numero = numeroDeOrden(e.resto)
+  let limpio = numero !== '' ? e.resto.replace(RE_ORDEN_NUMERO, ' ') : e.resto
   const cantidad = cantidadDeTexto(limpio)
   if (cantidad !== '') limpio = limpio.replace(RE_CANTIDAD, ' ')
   const color = colorDeTexto(limpio)
   if (color !== '') limpio = limpio.replace(RE_COLOR, ' ')
   const { quitar, agregar } = cambiosDeDientes(limpio)
   return {
-    pacienteTexto: pacienteDeOrden(texto),
+    pacienteTexto: pacienteDeOrden(e.resto),
     numero,
-    dia: resolverDiaReferencia(texto, ahora),
+    dia: resolverDiaReferencia(e.resto, ahora),
     quitar,
     agregar,
     color,
     cantidad,
+    entrega: e.fecha,
+    urgente: e.urgente,
   }
 }
 
@@ -189,6 +197,8 @@ export function fusionar(campos: Campos, i: Interpretacion): Campos {
   if (i.dia !== null) nuevo.dia = i.dia
   if (i.color !== '') nuevo.color = i.color
   if (i.cantidad !== '') nuevo.cantidad = i.cantidad
+  if (i.entrega !== null) nuevo.entrega = i.entrega
+  if (i.urgente) nuevo.urgente = '1'
   if (i.quitar.length > 0) {
     nuevo.quitar = unirDientes(nuevo.quitar, i.quitar)
     nuevo.agregar = sinDientes(nuevo.agregar, i.quitar)
@@ -233,10 +243,12 @@ export interface Cambios {
   agregar: string[]
   color?: string
   cantidad?: string
+  entrega?: string
+  urgente?: boolean
 }
 
 export type ResultadoCambio =
-  | { ok: true; despues: DetallePayload[]; avisos: string[] }
+  | { ok: true; despues: DetallePayload[]; avisos: string[]; entrega?: string; urgente?: boolean }
   | { ok: false; texto: string; esPregunta?: boolean }
 
 function renderLinea(detalle: DetallePayload): string {
@@ -307,6 +319,13 @@ export function aplicarCambios(orden: OrdenApi, cambios: Cambios): ResultadoCamb
     avisos.push(`la cantidad queda en ${cantidad}`)
   }
 
+  // Entrega y urgencia (S1, whatsapp-humano): van a nivel de orden, no de línea.
+  const entregaActual = orden.fechaEntrega ? fechaLocal(new Date(orden.fechaEntrega)) : null
+  const cambiaEntrega = Boolean(cambios.entrega) && cambios.entrega !== entregaActual
+  const cambiaUrgente = cambios.urgente === true && orden.urgente !== true
+  if (cambiaEntrega) avisos.push(`la entrega queda para el ${fechaLarga(cambios.entrega!)}`)
+  if (cambiaUrgente) avisos.push('la marco urgente')
+
   if (lineas.some((l) => l.colorDiente.trim() === '')) {
     return {
       ok: false,
@@ -317,8 +336,14 @@ export function aplicarCambios(orden: OrdenApi, cambios: Cambios): ResultadoCamb
 
   const antes = JSON.stringify((lineasIniciales(orden)).map(renderLinea))
   const despues = JSON.stringify(lineas.map(renderLinea))
-  if (antes === despues) return { ok: false, texto: `La orden ${orden.id} ya está así.` }
-  return { ok: true, despues: lineas, avisos }
+  if (antes === despues && !cambiaEntrega && !cambiaUrgente) return { ok: false, texto: `La orden ${orden.id} ya está así.` }
+  return {
+    ok: true,
+    despues: lineas,
+    avisos,
+    ...(cambiaEntrega ? { entrega: cambios.entrega! } : {}),
+    ...(cambiaUrgente ? { urgente: true } : {}),
+  }
 }
 
 /** Antes → después, una frase por lado, y el pedido de confirmación. */
@@ -478,7 +503,13 @@ export class OrdenExistenteFlows {
     const base: Campos = { ...campos, ordenId: orden.id }
     delete base.candidatas
     const paciente = nombrePaciente(orden)
-    const hayCambios = listaDe(campos.quitar).length > 0 || listaDe(campos.agregar).length > 0 || Boolean(campos.color) || Boolean(campos.cantidad)
+    const hayCambios =
+      listaDe(campos.quitar).length > 0 ||
+      listaDe(campos.agregar).length > 0 ||
+      Boolean(campos.color) ||
+      Boolean(campos.cantidad) ||
+      Boolean(campos.entrega) ||
+      Boolean(campos.urgente)
 
     if (!hayCambios) {
       this.store.set(telefono, PASO_CAMBIO, base)
@@ -499,6 +530,8 @@ export class OrdenExistenteFlows {
       agregar: listaDe(campos.agregar),
       ...(campos.color ? { color: campos.color } : {}),
       ...(campos.cantidad ? { cantidad: campos.cantidad } : {}),
+      ...(campos.entrega ? { entrega: campos.entrega } : {}),
+      ...(campos.urgente ? { urgente: true } : {}),
     })
     if (!resultado.ok) {
       this.store.set(telefono, PASO_CAMBIO, base)
@@ -515,11 +548,20 @@ export class OrdenExistenteFlows {
       return { kind: 'text', text: 'No pude identificar esa orden. Escríbele al laboratorio, por favor.' }
     }
     try {
-      await this.api.actualizarOrden(telefono, orden.id, { detalles: resultado.despues })
+      await this.api.actualizarOrden(telefono, orden.id, {
+        detalles: resultado.despues,
+        ...(resultado.entrega ? { fechaEntrega: resultado.entrega } : {}),
+        ...(resultado.urgente ? { urgente: true } : {}),
+      })
       this.store.clear(telefono)
       return {
         kind: 'text',
-        text: `Listo. La orden ${orden.id} de ${paciente} quedó así:\n${resultado.despues.map(renderLinea).join('\n')}`,
+        text: [
+          `Listo. La orden ${orden.id} de ${paciente} quedó así:`,
+          ...resultado.despues.map(renderLinea),
+          ...(resultado.entrega ? [`Entrega: ${fechaLarga(resultado.entrega)}${resultado.urgente || orden.urgente ? ' (urgente)' : ''}`] : []),
+          ...(!resultado.entrega && resultado.urgente ? ['Marcada urgente.'] : []),
+        ].join('\n'),
         // El catálogo de auditoría ya tiene 'orden_creada' para las escrituras de orden.
         intencion: 'orden_creada',
       }
