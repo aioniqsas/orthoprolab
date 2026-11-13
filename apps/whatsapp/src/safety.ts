@@ -22,6 +22,9 @@ export function motivoDescarte(senderId: string | undefined, fromMe: boolean): s
   if (senderId.endsWith('@broadcast')) return 'difusión'
   if (senderId.endsWith('@g.us')) return 'grupo'
   if (senderId.endsWith('@newsletter')) return 'canal'
+  // Un LID es una cuenta real en chat 1:1: WhatsApp la identifica con un
+  // número interno en vez del teléfono, no es un grupo ni un canal.
+  if (senderId.endsWith('@lid')) return null
   return senderId.endsWith('@s.whatsapp.net') ? null : 'no es un chat 1:1'
 }
 

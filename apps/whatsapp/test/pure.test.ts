@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'bun:test'
 import type { ApiClient } from '../src/api'
+import { telefonoDelRemitente } from '../src/lid'
 import { buildMenu } from '../src/menu'
 import { ReadFlows } from '../src/flows'
 import { ConversationStore } from '../src/state'
@@ -97,6 +98,49 @@ describe('senderFilter', () => {
     const oculto = etiquetaRemitente('573001234567:12@s.whatsapp.net', false)
     expect(oculto).toHaveLength(16)
     expect(oculto).not.toContain('573001234567')
+  })
+})
+
+describe('telefonoDelRemitente (LID)', () => {
+  const llamadas: string[] = []
+  const traductor = (respuesta: string | null | Error) => async (jid: string) => {
+    llamadas.push(jid)
+    if (respuesta instanceof Error) throw respuesta
+    return respuesta
+  }
+  const LID = '114800331895010@lid'
+  const PN = '573001234567@s.whatsapp.net'
+
+  it('un teléfono se usa tal cual, sin consultar el mapeo', async () => {
+    llamadas.length = 0
+    expect(await telefonoDelRemitente(PN, undefined, traductor(null))).toBe(PN)
+    expect(llamadas).toHaveLength(0)
+  })
+
+  it('usa el número que WhatsApp manda junto al LID', async () => {
+    llamadas.length = 0
+    expect(await telefonoDelRemitente(LID, PN, traductor(null))).toBe(PN)
+    expect(llamadas).toHaveLength(0)
+  })
+
+  it('traduce el LID con el mapeo guardado y le pasa el JID', async () => {
+    llamadas.length = 0
+    expect(await telefonoDelRemitente(LID, null, traductor(PN))).toBe(PN)
+    expect(llamadas).toEqual([LID])
+  })
+
+  it('no identifica a nadie si el LID no tiene traducción', async () => {
+    expect(await telefonoDelRemitente(LID, undefined, traductor(null))).toBeNull()
+  })
+
+  it('no identifica si la traducción falla', async () => {
+    expect(await telefonoDelRemitente(LID, undefined, traductor(new Error('boom')))).toBeNull()
+  })
+
+  it('un LID es un chat 1:1; grupos y difusiones siguen fuera', () => {
+    expect(motivoDescarte(LID, false)).toBeNull()
+    expect(motivoDescarte(LID, true)).toBe('propio')
+    expect(motivoDescarte('1203@g.us', false)).toBe('grupo')
   })
 })
 

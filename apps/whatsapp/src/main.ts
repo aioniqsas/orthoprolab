@@ -17,6 +17,7 @@ import { ConversationStore } from './state'
 import { OrderFlows } from './write-flows'
 import { canjearVinculacion, parseVincular, VINCULAR_FALLO, VINCULAR_OK, VINCULAR_YA } from './vinculacion'
 import { resolveIdentity } from './identity'
+import { telefonoDelRemitente } from './lid'
 import {
   INSTRUCCION_QR,
   iniciarSesion,
@@ -128,6 +129,12 @@ async function start(attempt = 1): Promise<void> {
     log: console.log,
   })
   sockRef = socket
+  // Baileys 7 guarda el mapeo LID → teléfono; no siempre está disponible.
+  const lidMapping = (
+    socket.signalRepository as unknown as {
+      lidMapping?: { getPNForLID?: (jid: string) => Promise<string | null | undefined> }
+    }
+  ).lidMapping
 
   socket.ev.on('creds.update', () => void saveCredsSecured(saveCreds, authDir))
   socket.ev.on('connection.update', ({ connection, lastDisconnect }) => {
@@ -153,13 +160,28 @@ async function start(attempt = 1): Promise<void> {
         console.log(`Mensaje descartado (${descarte ?? 'sin remitente'}) de ${desde}`)
         continue
       }
-      if (!limites.interaccion(senderId, Date.now())) {
+      // El teléfono manda, no el JID: la lista de autorizados guarda números y
+      // WhatsApp identifica cuentas nuevas con un LID.
+      const remitente = await telefonoDelRemitente(
+        senderId,
+        (message.key as { remoteJidAlt?: string | null }).remoteJidAlt,
+        async (jid) => (await lidMapping?.getPNForLID?.(jid)) ?? null,
+      )
+      if (!remitente) {
+        console.log(`Mensaje descartado (lid sin traducir) de ${desde}`)
+        await socket.sendMessage(senderId, { text: NO_HABILITADO })
+        continue
+      }
+      const quien = senderId.endsWith('@s.whatsapp.net')
+        ? desde
+        : `${etiquetaRemitente(remitente, MOSTRAR_NUMEROS)} (lid ${senderId.split('@')[0]})`
+      if (!limites.interaccion(remitente, Date.now())) {
         await socket.sendMessage(senderId, { text: MENSAJE_LIMITE })
         continue
       }
       const type = messageType(message)
       const state = conversations.get(senderId)
-      console.log(`Te escribieron desde ${desde} (${type}, paso ${state?.step ?? 'menu'})`)
+      console.log(`Te escribieron desde ${quien} (${type}, paso ${state?.step ?? 'menu'})`)
       const faltante = api.mensajeConfigFaltante()
       if (faltante) {
         await socket.sendMessage(senderId, { text: faltante })
@@ -171,16 +193,16 @@ async function start(attempt = 1): Promise<void> {
       if (codigoVincular) {
         // Un contacto ya verificado no canjea: el código se quemaría sin efecto
         // y la respuesta genérica confundiría. Se responde antes de canjear.
-        const previa = await resolveIdentity(senderId, api)
+        const previa = await resolveIdentity(remitente, api)
         if (previa.ok) {
           await socket.sendMessage(senderId, { text: VINCULAR_YA })
           continue
         }
-        const vinculado = await canjearVinculacion(api, senderId, codigoVincular)
+        const vinculado = await canjearVinculacion(api, remitente, codigoVincular)
         await socket.sendMessage(senderId, { text: vinculado ? VINCULAR_OK : VINCULAR_FALLO })
         continue
       }
-      const identidad = await resolveIdentity(senderId, api)
+      const identidad = await resolveIdentity(remitente, api)
       if (!identidad.ok) {
         // Misma respuesta corta para no registrado y bloqueado (S1).
         await socket.sendMessage(senderId, { text: identidad.reply })
