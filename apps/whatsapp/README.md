@@ -115,3 +115,9 @@ bun run dev
 bun run test
 bun run check-types
 ```
+
+## Ritmo de respuesta
+
+Nadie contesta en 200 ms. Antes de enviar, el bot calcula `0,3 s × caracteres`
+(topado en 20 s) y espera mostrando el estado "escribiendo", que refresca cada
+5 s para que no expire. Los valores viven en `src/ritmo.ts`.
