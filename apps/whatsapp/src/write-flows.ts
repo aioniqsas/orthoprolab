@@ -39,6 +39,9 @@ export const PREGUNTA_COLOR = '¿De qué color es el trabajo?'
 export const PREGUNTA_NOMBRE_PACIENTE = '¿Cómo se llama el paciente?'
 export const PREGUNTA_NOMBRE_TRAS_CEDULA = '¿Cuál es su nombre completo?'
 export const PREGUNTA_CEDULA = '¿Cuál es su cédula para registrarlo como paciente nuevo?'
+
+export const AYUDA_CONFIRMAR =
+  'Si quieres cambiar algo, dímelo con tus palabras: puedo agregar dientes, cambiar la cantidad o el color, o dejar una observación.'
 export const PREGUNTA_VARIOS_PACIENTES =
   'Encontré varios pacientes con ese nombre. Escribe el nombre completo, por favor.'
 export const CONFIRMAR_PIE = 'Responde sí para crear la orden o no para cancelar.'
@@ -607,12 +610,56 @@ export class OrderFlows {
    * escribir; 1, sí/si o confirmar crean, y 0, no o cancelar descartan. Otra
    * entrada recibe "No entendí" sin llamar a la API.
    */
+  /**
+   * Cambios que se dicen hablando en la confirmación: dientes nuevos, cantidad
+   * o color. Devuelve null si el texto no pide ningún cambio, para no inventar.
+   */
+  private aplicarCambio(campos: Campos, entrada: string): { campos: Campos; aviso: string } | null {
+    const avisos: string[] = []
+    let actualizados: Campos = { ...campos }
+    const previos = (campos.dientes ?? '').split(',').filter((d) => d !== '')
+    const nuevos = dientesDeTexto(entrada)
+      .split(',')
+      .filter((d) => d !== '' && !previos.includes(d))
+    if (nuevos.length > 0) {
+      const suma = /\b(otra|otro|adicional|adicionales|mas|más)\b/i.test(entrada) ? nuevos.length : 0
+      const cantidad = Number(campos.cantidad ?? 0)
+      actualizados = {
+        ...actualizados,
+        dientes: [...previos, ...nuevos].join(','),
+        ...(suma > 0 ? { cantidad: String(cantidad + suma) } : {}),
+      }
+      avisos.push(`Agregué el ${nuevos.join(' y el ')}`)
+    }
+    const color = /\bcolor\s*(?:a|en|:)?\s*([\p{L}0-9]{1,12})/iu.exec(entrada)
+    if (color?.[1]) {
+      actualizados = { ...actualizados, color: color[1] }
+      avisos.push(`Color: ${color[1]}`)
+    }
+    const cantidadPedida = /\bcantidad\s*(?:a|de|:)?\s*(\d{1,2})\b/i.exec(entrada)
+    if (cantidadPedida?.[1]) {
+      actualizados = { ...actualizados, cantidad: cantidadPedida[1] }
+      avisos.push(`Cantidad: ${cantidadPedida[1]}`)
+    }
+    return avisos.length > 0 ? { campos: actualizados, aviso: avisos.join('. ') } : null
+  }
+
   private async pasoConfirmar(telefono: string, campos: Campos, entrada: string): Promise<{ kind: 'text'; text: string; intencion?: string }> {
     if (CONFIRMAR_NO.test(entrada)) {
       this.store.clear(telefono)
       return { kind: 'text', text: `Orden descartada.\n\n${SALUDO}`, intencion: 'menu' }
     }
     if (!CONFIRMAR_SI.test(entrada)) {
+      // En la confirmación también se corrige la orden hablando: "añade otra
+      // prótesis para el 32" no es ni un sí, ni un no, ni una nota.
+      const cambio = this.aplicarCambio(campos, entrada)
+      if (cambio) {
+        this.store.set(telefono, 'orden-confirmar', cambio.campos)
+        return {
+          kind: 'text',
+          text: `${cambio.aviso}.\n\n${resumenOrden(cambio.campos)}\n\n${PREGUNTA_CONFIRMAR}`,
+        }
+      }
       // "Una observación: test" no es una confirmación, pero tampoco es ruido:
       // el resumen muestra "Observaciones: —", así que hay que poder llenarlo.
       const anotacion = entrada.trim().slice(0, 300)
@@ -625,7 +672,7 @@ export class OrderFlows {
           text: `Anoté: ${anotacion}\n\n${resumenOrden(actualizados)}\n\n${PREGUNTA_CONFIRMAR}`,
         }
       }
-      return { kind: 'text', text: PREGUNTA_CONFIRMAR }
+      return { kind: 'text', text: `No entendí. ${PREGUNTA_CONFIRMAR}\n\n${AYUDA_CONFIRMAR}` }
     }
     const observaciones = (campos.observaciones ?? '').slice(0, 500)
     const payload: NuevaOrdenPayload = {
