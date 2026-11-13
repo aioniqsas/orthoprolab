@@ -6,6 +6,7 @@ import type { Ruta } from './llm.js'
 import { MENSAJE_LIMITE_LLAMADA, RateLimiter } from './rate-limit.js'
 import type { ConversationStore } from './state.js'
 import { OrdenExistenteFlows, PASO_CAMBIO } from './orden-existente.js'
+import { UltimaOrdenVista } from './state.js'
 import type { OrderFlows } from './write-flows.js'
 
 /**
@@ -105,8 +106,9 @@ export class ReadFlows {
     private readonly escritor?: OrderFlows,
     private readonly limites: RateLimiter = new RateLimiter(),
     existente?: OrdenExistenteFlows,
+    private readonly ultima = new UltimaOrdenVista(),
   ) {
-    this.existente = existente ?? new OrdenExistenteFlows(store, api)
+    this.existente = existente ?? new OrdenExistenteFlows(store, api, () => new Date(), ultima)
   }
 
   /** Un turno de conversación para un contacto ya identificado. */
@@ -274,6 +276,9 @@ export class ReadFlows {
       case 'ver_pedido':
         if (ruta.numero) {
           this.store.clear(telefono)
+          // Queda recordada: lo siguiente que diga ("agrega el diente 34") es
+          // sobre esta orden, sin tener que repetir cuál era.
+          this.ultima.recordar(telefono, ruta.numero)
           respuesta = await this.pedido(telefono, ruta.numero)
         } else {
           this.store.set(telefono, 'pedido-numero', {})
