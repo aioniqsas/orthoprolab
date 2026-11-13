@@ -70,7 +70,7 @@ describe('prechequeo de intención: rutas comunes sin una sola llamada al modelo
     })
   }
 
-  it('una consulta de estado con número NO la secuestra: va por la herramienta', async () => {
+  it('una consulta de estado con número conserva el dato y no gasta modelo', async () => {
     let fetches = 0
     const fetchFake: FetchFalso = async () => {
       fetches++
@@ -81,8 +81,9 @@ describe('prechequeo de intención: rutas comunes sin una sola llamada al modelo
     }
     const { cliente, datos, store } = montar(fetchFake)
     const r = await cliente.manejar('tel', '¿cómo va la orden 1234?', datos, '42', store)
-    expect(r.ruta).toBeUndefined()
-    expect(fetches).toBe(1)
+    // La ruta determinista lleva el número: no se pierde y no hace falta el modelo.
+    expect(r.ruta).toEqual({ tipo: 'ver_pedido', numero: '1234' })
+    expect(fetches).toBe(0)
   })
 
   it('una cuenta con número NO la secuestra: conserva el dato y va por la herramienta', async () => {

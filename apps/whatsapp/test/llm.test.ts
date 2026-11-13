@@ -124,7 +124,7 @@ describe('llamada válida ejecuta la herramienta', () => {
       return fase === 1 ? respuestaHerramienta('estado_orden', '{"orden":"7"}') : respuestaGroq('La orden 7 está creada.')
     }
     const { cliente, datos, store, pool } = montar(fetchFake)
-    const r = await cliente.manejar('tel', '¿cómo va la orden 7?', datos, '42', store)
+    const r = await cliente.manejar('tel', 'dame el detalle de la orden 7', datos, '42', store)
     expect(r).toEqual({ texto: 'La orden 7 está creada.' })
     // La capa de datos sí fue consultada, con clínica verificada.
     expect(pool.registros.some((s) => s.includes('FROM orden'))).toBe(true)
