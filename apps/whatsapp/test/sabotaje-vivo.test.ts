@@ -42,11 +42,11 @@ function montar(fetchFn: FetchFalso) {
 
 describe('prechequeo de intención: rutas comunes sin una sola llamada al modelo', () => {
   const casos: Array<[string, Ruta]> = [
-    ['hazme un pedido', { tipo: 'nuevo_pedido' }],
-    ['Nuevo PEDIDO', { tipo: 'nuevo_pedido' }],
-    ['quiero pedir', { tipo: 'nuevo_pedido' }],
-    ['quisiera una corona', { tipo: 'nuevo_pedido' }],
-    ['NECESITO HACER UN PEDIDO', { tipo: 'nuevo_pedido' }],
+    ['hazme un pedido', { tipo: 'nuevo_pedido', texto: 'hazme un pedido' }],
+    ['Nuevo PEDIDO', { tipo: 'nuevo_pedido', texto: 'Nuevo PEDIDO' }],
+    ['quiero pedir', { tipo: 'nuevo_pedido', texto: 'quiero pedir' }],
+    ['quisiera una corona', { tipo: 'nuevo_pedido', texto: 'quisiera una corona' }],
+    ['NECESITO HACER UN PEDIDO', { tipo: 'nuevo_pedido', texto: 'NECESITO HACER UN PEDIDO' }],
     ['mándame el papel del trabajo', { tipo: 'enviar_control' }],
     ['el control de trabajos', { tipo: 'enviar_control' }],
     ['mándame la cuenta', { tipo: 'enviar_cuenta' }],

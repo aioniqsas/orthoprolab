@@ -84,6 +84,8 @@ const ES_INTENCION = new Set(['ver_pedido', 'nuevo_pedido', 'pedir_llamada', 'en
 export type Ruta = {
   tipo: 'ver_pedido' | 'enviar_control' | 'enviar_cuenta' | 'nuevo_pedido' | 'pedir_llamada'
   numero?: string
+  /** Texto original para `nuevo_pedido` (IA11/S9): el flujo lo interpreta antes de preguntar. */
+  texto?: string
 }
 
 /**
@@ -126,7 +128,7 @@ export function prechequeoRuta(texto: string): Ruta | null {
     /\b(nuevo|nueva)\s+(pedido|orden)\b/.test(t) ||
     /\b(quiero|quisiera|necesito)\s+(pedir|hacer|tomar)\b/.test(t) ||
     /\b(quiero|quisiera|necesito)\s+(una|un)\s+\w+/.test(t)
-  ) return { tipo: 'nuevo_pedido' }
+  ) return { tipo: 'nuevo_pedido', texto }
   return null
 }
 
@@ -489,7 +491,9 @@ export class ClienteGroq {
         historialNuevo.push({ role: 'assistant', content: `[ruta ${intencion.llamada.nombre}]` })
         store.set(telefono, { historial: historialNuevo.slice(-MAX_TURNOS_HISTORIAL * 2), tokens, expiresAt: ahora }, ahora)
         this.auditar({ intencion: intencion.llamada.nombre, herramienta: intencion.llamada.nombre, tokensEntrada: respuesta.uso.entrada, tokensSalida: respuesta.uso.salida, resultado: 'herramienta_ok' })
-        return { ruta: rutaDe(intencion.llamada) }
+        const ruta = rutaDe(intencion.llamada)
+        if (ruta.tipo === 'nuevo_pedido') ruta.texto = usuarioRedactado
+        return { ruta }
       }
       historialNuevo.push({ role: 'assistant', content: `[consultó ${nombrePrimera}]` })
       mensajes.push({ role: 'assistant', content: null, tool_calls: respuesta.llamadas })
