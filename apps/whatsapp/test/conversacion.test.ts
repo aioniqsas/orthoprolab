@@ -2,11 +2,11 @@ import { describe, expect, it } from 'bun:test'
 import type { ActualizarOrdenPayload, ApiClient, OrdenApi } from '../src/api.js'
 import { preguntaCual } from '../src/orden-existente.js'
 import { ReadFlows } from '../src/flows.js'
-import { ClienteGroq, StoreLlm, prechequeoRuta, type Ruta } from '../src/llm.js'
+import { ClienteGroq, StoreLlm } from '../src/llm.js'
 import { OrdenExistenteFlows, PASO_CAMBIO, CONFIRMAR_CAMBIO, sinAvance } from '../src/orden-existente.js'
 import { clasificarNegativa, construirPromptSistema } from '../src/prompt.js'
 import { HERRAMIENTAS } from '../src/herramientas.js'
-import { ConversationStore } from '../src/state.js'
+import { ConversationStore } from '../src/estado.js'
 import { resolverDiaReferencia } from '../src/tiempo.js'
 
 const TEL = '+573001234567'
@@ -69,10 +69,9 @@ function montar(ordenes: OrdenApi[], ahora = AHORA): Escenario {
   return { puts, flows, existente, store }
 }
 
-/** Un turno como en producción: prechequeo de ruta, y el flujo determinista ejecuta. */
+/** Un turno como en el agente: la intención de orden existente va al ejecutor. */
 async function turno(flows: ReadFlows, texto: string): Promise<string> {
-  const ruta: Ruta | null = prechequeoRuta(texto)
-  const respuesta = ruta ? await flows.atenderRuta(TEL, { ...ruta, texto }) : await flows.handle(TEL, texto)
+  const respuesta = await flows.atenderRuta(TEL, { tipo: 'editar_orden', texto })
   return respuesta.text
 }
 
@@ -86,9 +85,6 @@ describe('S2/S3 · la orden de un paciente se corrige hablando', () => {
   it('"en la orden de Sara Jimenez ya no vamos a hacer el diente 42" → antes→después, y escribe solo con el sí', async () => {
     const { flows, puts } = montar([SARA])
     const mensaje = 'en la orden de Sara Jimenez ya no vamos a hacer el diente 42'
-
-    // La ruta la elige el modelo; el prechequeo la reconoce sin una sola llamada.
-    expect(prechequeoRuta(mensaje)?.tipo).toBe('editar_orden')
 
     const [propuesta] = await conversar(flows, [mensaje])
     expect(propuesta).toContain('Orden 18')
@@ -175,7 +171,6 @@ describe('S2 · varias órdenes del mismo paciente', () => {
 describe('S3 · quitar un diente no es borrar la orden', () => {
   it('"elimina el diente" llega al cambio y "borra la orden" sigue siendo negativa', () => {
     expect(clasificarNegativa('elimina el diente 42 de la orden de Sara Jimenez')).toBeNull()
-    expect(prechequeoRuta('elimina el diente 42 de la orden de Sara Jimenez')?.tipo).toBe('editar_orden')
     expect(clasificarNegativa('borra la orden 1234')).toBe('escritura')
   })
 })

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { ApiError, type ApiClient, type CuentaCobroApi, type OrdenApi } from '../src/api.js'
-import { buildMenu, SALUDO } from '../src/menu.js'
-import { ConversationStore } from '../src/state.js'
+import { ConversationStore } from '../src/estado.js'
 import { formatoOrden, nombreArchivoSeguro, ReadFlows, type Respuesta } from '../src/flows.js'
 
 const TELEFONO = '+573001234567'
@@ -27,12 +26,6 @@ function flujos(api: ApiClient): ReadFlows {
   return new ReadFlows(new ConversationStore(), api)
 }
 
-async function enviar(flows: ReadFlows, textos: string[]): Promise<Respuesta> {
-  let r: Respuesta = { kind: 'text', text: '' }
-  for (const texto of textos) r = await flows.handle(TELEFONO, texto)
-  return r
-}
-
 describe('formato de orden', () => {
   it('líneas cortas, sin ids ni JSON', () => {
     const texto = formatoOrden(ORDEN)
@@ -53,32 +46,26 @@ describe('formato de orden', () => {
   })
 })
 
-describe('flujo 1: estado de pedido', () => {
-  it('feliz: menú → 1 → número → resumen', async () => {
+describe('ver pedido (ejecutor)', () => {
+  it('con número devuelve el resumen de la orden', async () => {
     const api = falsoApi({ getOrden: async () => ORDEN })
-    const r = await enviar(flujos(api), ['1', '1234'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'ver_pedido', numero: '1234' })
     expect(r.kind).toBe('text')
     expect((r as { text: string }).text).toContain('Estado: En producción')
   })
 
   it('404 de la API → palabras, no ids', async () => {
     const api = falsoApi({ getOrden: async () => { throw new ApiError(404, 'no') } })
-    const r = await enviar(flujos(api), ['1', '9999'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'ver_pedido', numero: '9999' })
     expect(r.kind).toBe('text')
     expect((r as { text: string }).text).toContain('No encontré esa orden')
   })
-
-  it('entrada no numérica vuelve a pedir el número', async () => {
-    const api = falsoApi({ getOrden: async () => ORDEN })
-    const r = await enviar(flujos(api), ['1', 'hola'])
-    expect((r as { text: string }).text).toContain('No entendí. Escribe el número de la orden')
-  })
 })
 
-describe('flujo 2: control de trabajos (PDF)', () => {
+describe('control de trabajos (PDF, ejecutor)', () => {
   it('feliz: envía documento con nombre control-<n>.pdf', async () => {
     const api = falsoApi({ pdfControlTrabajos: async () => Buffer.from('%PDF') })
-    const r = await enviar(flujos(api), ['2', '1234'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'enviar_control', numero: '1234' })
     expect(r.kind).toBe('document')
     const d = r as { filename: string; buffer: Buffer; text: string }
     expect(d.filename).toBe('control-1234.pdf')
@@ -88,7 +75,7 @@ describe('flujo 2: control de trabajos (PDF)', () => {
 
   it('404 en el PDF → palabras, nunca un documento vacío', async () => {
     const api = falsoApi({ pdfControlTrabajos: async () => { throw new ApiError(404, 'no') } })
-    const r = await enviar(flujos(api), ['2', '9999'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'enviar_control', numero: '9999' })
     expect(r.kind).toBe('text')
     expect((r as { text: string }).text).toContain('No encontré esa orden')
   })
@@ -101,7 +88,7 @@ describe('nombres de archivo seguros', () => {
       getCuentaCobro: async () => cuenta,
       descargarPdf: async () => Buffer.from('%PDF'),
     })
-    const r = await enviar(flujos(api), ['3', '42'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'enviar_cuenta', numero: '42' })
     expect(r.kind).toBe('document')
     const d = r as { filename: string }
     expect(d.filename).toBe('cuenta-....etcpasswdCC-2025-07.pdf')
@@ -110,7 +97,7 @@ describe('nombres de archivo seguros', () => {
     const largo200 = 'A'.repeat(100) + '/' + 'B'.repeat(100)
     const cuenta2: CuentaCobroApi = { numero: largo200, pdfUrl: 'https://pdf.test/cc.pdf' }
     const api2 = falsoApi({ getCuentaCobro: async () => cuenta2, descargarPdf: async () => Buffer.from('%PDF') })
-    const r2 = await enviar(flujos(api2), ['3', '42'])
+    const r2 = await flujos(api2).atenderRuta(TELEFONO, { tipo: 'enviar_cuenta', numero: '42' })
     expect((r2 as { filename: string }).filename.length).toBeLessThanOrEqual(60)
   })
 
@@ -123,7 +110,7 @@ describe('nombres de archivo seguros', () => {
   })
 })
 
-describe('flujo 3: cuenta de cobro (PDF)', () => {
+describe('cuenta de cobro (PDF, ejecutor)', () => {
   it('feliz: descarga el pdfUrl y lo envía como cuenta-<numero>.pdf', async () => {
     const cuenta: CuentaCobroApi = { numero: 'CC-2025-07', pdfUrl: 'https://pdf.test/cc.pdf' }
     const consultas: Array<[string, string]> = []
@@ -134,7 +121,7 @@ describe('flujo 3: cuenta de cobro (PDF)', () => {
       },
       descargarPdf: async () => Buffer.from('%PDF'),
     })
-    const r = await enviar(flujos(api), ['3', '07'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'enviar_cuenta', numero: '07' })
     expect(r.kind).toBe('document')
     const d = r as { filename: string; buffer: Buffer }
     expect(d.filename).toBe('cuenta-CC-2025-07.pdf')
@@ -148,7 +135,7 @@ describe('flujo 3: cuenta de cobro (PDF)', () => {
     const api = falsoApi({
       getCuentaCobro: async () => { llamadas += 1; throw new ApiError(404, 'no') },
     })
-    const r = await enviar(flujos(api), ['3', '07'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'enviar_cuenta', numero: '07' })
     expect(r.kind).toBe('text')
     expect((r as { text: string }).text).toContain('No encontré esa cuenta de cobro')
     expect(llamadas).toBe(1)
@@ -156,7 +143,7 @@ describe('flujo 3: cuenta de cobro (PDF)', () => {
 
   it('cuenta sin pdfUrl → palabras, no documento', async () => {
     const api = falsoApi({ getCuentaCobro: async () => ({ numero: 'CC-1', pdfUrl: null }) })
-    const r = await enviar(flujos(api), ['3', '1'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'enviar_cuenta', numero: '1' })
     expect(r.kind).toBe('text')
     expect((r as { text: string }).text).toContain('todavía no tiene el PDF')
   })
@@ -166,46 +153,8 @@ describe('flujo 3: cuenta de cobro (PDF)', () => {
       getCuentaCobro: async () => ({ numero: 'CC-1', pdfUrl: 'https://pdf.test/cc.pdf' }),
       descargarPdf: async () => { throw new ApiError(403, 'no') },
     })
-    const r = await enviar(flujos(api), ['3', '1'])
+    const r = await flujos(api).atenderRuta(TELEFONO, { tipo: 'enviar_cuenta', numero: '1' })
     expect(r.kind).toBe('text')
     expect((r as { text: string }).text).toContain('No encontré esa cuenta de cobro')
-  })
-})
-
-describe('cancelación y menú', () => {
-  it('"0" en un paso vuelve al saludo y borra el paso (IA7)', async () => {
-    const store = new ConversationStore()
-    const flows = new ReadFlows(store, falsoApi({}))
-    await flows.handle(TELEFONO, '1')
-    expect(store.get(TELEFONO)?.step).toBe('pedido-numero')
-    const r = await flows.handle(TELEFONO, '0')
-    expect((r as { text: string }).text).toContain(SALUDO)
-    expect(store.get(TELEFONO)).toBeUndefined()
-  })
-
-  it('"cancelar" también cancela, sin distinguir mayúsculas', async () => {
-    const store = new ConversationStore()
-    const flows = new ReadFlows(store, falsoApi({}))
-    await flows.handle(TELEFONO, '3')
-    const r = await flows.handle(TELEFONO, 'Cancelar')
-    expect((r as { text: string }).text).toBe(SALUDO)
-    expect(store.get(TELEFONO)).toBeUndefined()
-  })
-
-  it('tras un flujo exitoso vuelve al menú', async () => {
-    const store = new ConversationStore()
-    const flows = new ReadFlows(store, falsoApi({ getOrden: async () => ORDEN }))
-    await flows.handle(TELEFONO, '1')
-    await flows.handle(TELEFONO, '1234')
-    expect(store.get(TELEFONO)).toBeUndefined()
-    const r = await flows.handle(TELEFONO, 'texto suelto')
-    expect((r as { text: string }).text).toContain('No entendí')
-    expect((r as { text: string }).text).toContain(buildMenu())
-  })
-
-  it('la opción 4 (crear orden) todavía no está disponible', async () => {
-    const flows = flujos(falsoApi({}))
-    const r = await flows.handle(TELEFONO, '4')
-    expect((r as { text: string }).text).toContain('todavía no está disponible')
   })
 })

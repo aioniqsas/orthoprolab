@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { ApiError, type ActualizarOrdenPayload, type ApiClient, type OrdenApi } from '../src/api.js'
 import { AYUDA_CAMBIAR, OrdenExistenteFlows, esEditable } from '../src/orden-existente.js'
-import { ConversationStore } from '../src/state.js'
+import { ConversationStore } from '../src/estado.js'
 
 const TEL = '+573001234567'
 /** Miércoles 11 de junio de 2025, 10:00 en Bogotá. */

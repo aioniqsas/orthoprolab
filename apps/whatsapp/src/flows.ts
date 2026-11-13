@@ -1,19 +1,18 @@
 import type { ApiClient, OrdenApi } from './api.js'
 import { ApiError, UrlRechazadaError } from './api.js'
 import { extraerNumero } from './digitos.js'
-import { buildMenu, SALUDO } from './menu.js'
+import { SALUDO } from './mensajes.js'
 import type { Ruta } from './llm.js'
 import { MENSAJE_LIMITE_LLAMADA, RateLimiter } from './rate-limit.js'
-import type { ConversationStore } from './state.js'
+import { ConversationStore } from './estado.js'
 import { OrdenExistenteFlows, PASO_CAMBIO } from './orden-existente.js'
-import { UltimaOrdenVista } from './state.js'
+import { UltimaOrdenVista } from './estado.js'
 import type { OrderFlows } from './write-flows.js'
 
 /**
- * Flujos de lectura del menú (T5): estado de pedido (1), control de trabajos
- * (2, PDF) y cuenta de cobro (3, PDF). Cada paso es cancelable ("0" o
- * "cancelar") y vive en ConversationStore con su TTL. La clínica siempre sale
- * del contacto verificado, jamás del texto (S3, S4).
+ * Ejecución de rutas del agente y consultas/PDFs de lectura. Los ejecutores
+ * de escritura (OrderFlows/OrdenExistenteFlows) se invocan vía atenderRuta;
+ * la clínica siempre sale del contacto verificado, jamás del texto.
  */
 
 export type Respuesta =
@@ -21,11 +20,11 @@ export type Respuesta =
   | { kind: 'document'; text: string; filename: string; buffer: Buffer; intencion?: string; paso?: string }
 
 /** Preguntas fijas de los pasos de lectura, reutilizadas al repetir el paso. */
-export const PREGUNTA_PEDIDO = 'Escribe el número de la orden (o 0 para volver al menú).'
+export const PREGUNTA_PEDIDO = 'Escribe el número de la orden (o 0 para empezar de nuevo).'
 export const PREGUNTA_CONTROL =
-  'Escribe el número de la orden para enviarte el control de trabajos en PDF (o 0 para volver al menú).'
+  'Escribe el número de la orden para enviarte el control de trabajos en PDF (o 0 para empezar de nuevo).'
 export const PREGUNTA_CUENTA =
-  'Escribe el número de la cuenta de cobro para enviártela en PDF (o 0 para volver al menú).'
+  'Escribe el número de la cuenta de cobro para enviártela en PDF (o 0 para empezar de nuevo).'
 export const PREGUNTA_AYUDA = '¿Quieres que el laboratorio te llame? 1 sí / 0 no'
 export const PREGUNTA_CONFIRMAR = 'Responde sí para crear la orden o no para cancelar'
 export const AVISO_AUDIO = 'No puedo escuchar audios, escríbeme por favor'
@@ -36,27 +35,12 @@ export const LLAMADA_OK = 'Listo. Registramos tu solicitud: el laboratorio te ll
 export const LLAMADA_FALLO =
   'No pude registrar tu solicitud de llamada ahora mismo. Contacta al laboratorio directamente por el portal o por teléfono.'
 
-/** Intención de auditoría (S8) derivada del paso previo, sin el texto del mensaje. */
-export function intencionDe(step: string, texto: string): string {
-  // "ayuda" pregunta antes de llamar; la intención ya es de llamada (S11).
-  if (/^(ayuda|help)$/i.test(texto.trim())) return 'llamada'
-  if (step === 'menu' && texto.trim() === '5') return 'llamada'
-  if (step === PASO_CAMBIO) return 'estado'
-  if (step === 'pedido-numero') return 'estado'
-  if (step === 'control-numero') return 'control'
-  if (step === 'cuenta-numero') return 'cuenta'
-  if (step.startsWith('orden-')) return 'orden_creada'
-  return 'menu'
-}
 
 export const PEDIDO_NO_ENCONTRADO =
-  'No encontré esa orden. Revisa el número, por favor, o escribe 0 para volver al menú.'
+  'No encontré esa orden. Revisa el número, por favor, o escribe 0 para empezar de nuevo.'
 export const CUENTA_NO_ENCONTRADA =
-  'No encontré esa cuenta de cobro. Revisa el número, por favor, o escribe 0 para volver al menú.'
+  'No encontré esa cuenta de cobro. Revisa el número, por favor, o escribe 0 para empezar de nuevo.'
 
-// Escape con palabras naturales (IA7/S13): "0" sigue siendo el alias universal.
-const OPCION_CANCELAR = /^(0|cancelar|menú|menu|volver|inicio)$/i
-const PALABRA_AYUDA = /^(ayuda|help)$/i
 
 /**
  * Nombre de archivo seguro (T5, ronda adversarial): solo [A-Za-z0-9._-], sin
@@ -111,131 +95,10 @@ export class ReadFlows {
     this.existente = existente ?? new OrdenExistenteFlows(store, api, () => new Date(), ultima)
   }
 
-  /** Un turno de conversación para un contacto ya identificado. */
-  async handle(telefono: string, texto: string, doctorContacto?: string): Promise<Respuesta> {
-    const estado = this.store.get(telefono)
-    const paso = estado?.step ?? 'menu'
-    const respuesta = await this.handleInterno(telefono, texto, doctorContacto)
-    // Auditoría de intención (S8): etiqueta derivada del paso, sin el cuerpo
-    // del mensaje ni nombres. Falla en silencio; nunca retrasa la respuesta.
-    if (respuesta.intencion === undefined) {
-      respuesta.intencion = intencionDe(paso, texto)
-      respuesta.paso = paso
-    }
-    void this.api.registrarIntencion?.(telefono, respuesta.intencion!, paso).catch(() => {})
-    return respuesta
-  }
-
-  private async handleInterno(telefono: string, texto: string, doctorContacto?: string): Promise<Respuesta> {
-    const estado = this.store.get(telefono)
-    const step = estado?.step ?? 'menu'
-    const entrada = texto.trim()
-
-    // "ayuda" (S11): pregunta antes de actuar; jamás llama sin confirmar.
-    if (PALABRA_AYUDA.test(entrada)) {
-      this.store.set(telefono, 'ayuda', { ...(estado?.fields ?? {}), previo: step })
-      return { kind: 'text', text: PREGUNTA_AYUDA }
-    }
-    if (step === 'ayuda') {
-      const previo = estado?.fields.previo ?? 'menu'
-      if (entrada === '1') {
-        const respuesta = await this.llamada(telefono)
-        // Pedir ayuda no puede costar el trabajo a medias: se vuelve al paso
-        // donde estaba en vez de descartar lo que ya había respondido.
-        if (previo === 'menu') {
-          this.store.clear(telefono)
-          return respuesta
-        }
-        const campos = { ...estado?.fields }
-        delete campos.previo
-        this.store.set(telefono, previo, campos)
-        return {
-          kind: 'text',
-          text: `${respuesta.text}\n\nSigamos:\n${await this.preguntaDelPaso(telefono, previo)}`,
-        }
-      }
-      if (OPCION_CANCELAR.test(entrada)) {
-        const campos = { ...estado?.fields }
-        delete campos.previo
-        if (previo === 'menu') {
-          this.store.clear(telefono)
-          return { kind: 'text', text: SALUDO }
-        }
-        this.store.set(telefono, previo, campos)
-        return { kind: 'text', text: await this.preguntaDelPaso(telefono, previo) }
-      }
-      return { kind: 'text', text: `No entendí. ${PREGUNTA_AYUDA}` }
-    }
-
-    // Una conversación sobre una orden que ya existe (S2–S7): el borrador vive
-    // en ConversationStore y cada turno reinterpreta el mensaje completo.
-    if (step === PASO_CAMBIO) return this.existente.handle(telefono, texto)
-
-    // El flujo de escritura maneja sus propios pasos y su cancelación (T6).
-    if (step.startsWith('orden-')) {
-      return this.escritor
-        ? await this.escritor.handle(telefono, texto, doctorContacto)
-        : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
-    }
-
-    // Cancelable en cualquier paso del flujo; el escape vuelve al saludo (IA7).
-    if (step !== 'menu' && OPCION_CANCELAR.test(entrada)) {
-      this.store.clear(telefono)
-      return { kind: 'text', text: SALUDO }
-    }
-
-    if (step === 'pedido-numero') {
-      const numero = extraerNumero(entrada)
-      if (!numero || !/^\d{1,9}$/.test(numero)) {
-        return { kind: 'text', text: `No entendí. ${PREGUNTA_PEDIDO}` }
-      }
-      this.store.clear(telefono)
-      return this.pedido(telefono, numero)
-    }
-    if (step === 'control-numero') {
-      const numero = extraerNumero(entrada)
-      if (!numero || !/^\d{1,9}$/.test(numero)) {
-        return { kind: 'text', text: `No entendí. ${PREGUNTA_CONTROL}` }
-      }
-      this.store.clear(telefono)
-      return this.control(telefono, numero)
-    }
-    if (step === 'cuenta-numero') {
-      const numero = extraerNumero(entrada)
-      if (!numero || !/^\d{1,9}$/.test(numero)) {
-        return { kind: 'text', text: `No entendí. ${PREGUNTA_CUENTA}` }
-      }
-      this.store.clear(telefono)
-      return this.cuenta(telefono, numero)
-    }
-
-    // Menú. Con modelo, main enruta por el LLM antes de llegar aquí; sin
-    // modelo este menú numerado es la red de seguridad (IA7/S13). El escape
-    // con palabras naturales vuelve al saludo sin números.
-    if (OPCION_CANCELAR.test(entrada)) return { kind: 'text', text: SALUDO }
-    if (entrada === '1') {
-      this.store.set(telefono, 'pedido-numero', {})
-      return { kind: 'text', text: PREGUNTA_PEDIDO }
-    }
-    if (entrada === '2') {
-      this.store.set(telefono, 'control-numero', {})
-      return { kind: 'text', text: PREGUNTA_CONTROL }
-    }
-    if (entrada === '3') {
-      this.store.set(telefono, 'cuenta-numero', {})
-      return { kind: 'text', text: PREGUNTA_CUENTA }
-    }
-    if (entrada === '4') {
-      return this.escritor
-        ? await this.escritor.handle(telefono, texto, doctorContacto)
-        : { kind: 'text', text: 'La creación de órdenes por chat todavía no está disponible. Usa el portal de clínicas o escríbele al laboratorio.' }
-    }
-    // "0": volver al menú, siempre significa lo mismo (S11). La solicitud de
-    // llamada vive en la opción 5 y en "ayuda".
-    if (entrada === '0') return { kind: 'text', text: buildMenu() }
-    if (entrada === '5') return this.llamada(telefono)
-    // Texto desconocido en el menú: "No entendí" + el menú de nuevo.
-    return { kind: 'text', text: `No entendí.\n\n${buildMenu()}` }
+  /** Limpia confirmaciones pendientes de los ejecutores para este teléfono. */
+  limpiar(telefono: string): void {
+    this.escritor?.limpiar(telefono)
+    this.existente.limpiar(telefono)
   }
 
   /** La pregunta del paso actual, para repetirla tras un medio no legible o tras "ayuda → 0". */

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import * as wf from '../src/write-flows.js'
-import { prechequeoRuta } from '../src/llm.js'
 import { PREGUNTA_CONFIRMAR } from '../src/flows.js'
 import type { ApiClient, DoctorApi, ServicioApi } from '../src/api.js'
-import { ConversationStore } from '../src/state.js'
+import { ConversationStore } from '../src/estado.js'
 import { OrderFlows } from '../src/write-flows.js'
 
 const TEL = '+573001234567'
@@ -216,17 +215,6 @@ describe('nombrePresentable (S9)', () => {
   })
 })
 
-describe('un pedido con números no deja de ser un pedido (L8)', () => {
-  it('la frase real se enruta al flujo de orden sin depender del modelo', () => {
-    const ruta = prechequeoRuta(FRASE_REAL)
-    expect(ruta?.tipo).toBe('nuevo_pedido')
-  })
-
-  it('un número suelto sigue siendo una opción del menú de respaldo', () => {
-    expect(prechequeoRuta('1')).toBeNull()
-    expect(prechequeoRuta('0')).toBeNull()
-  })
-})
 
 describe('una anotación en la confirmación no se pierde (L8)', () => {
   it('guarda la observación, la muestra y solo crea tras el sí', async () => {

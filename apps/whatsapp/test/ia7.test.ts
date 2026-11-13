@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import type { ApiClient, DoctorApi, ServicioApi } from '../src/api.js'
 import { PREGUNTA_AYUDA, PREGUNTA_CUENTA, PREGUNTA_PEDIDO } from '../src/flows.js'
-import { SALUDO, PREGUNTA_ACLARAR, buildMenu } from '../src/menu.js'
-import { ConversationStore } from '../src/state.js'
+import { SALUDO, PREGUNTA_ACLARAR } from '../src/mensajes.js'
+import { ConversationStore } from '../src/estado.js'
 import { ReadFlows, type Respuesta } from '../src/flows.js'
 import { OrderFlows } from '../src/write-flows.js'
 import { ClienteGroq, type Ruta, StoreLlm } from '../src/llm.js'
@@ -66,9 +66,9 @@ function respuestaHerramienta(nombre: string, argumentos: string, id = 'call_1')
   )
 }
 
-function respuestaTexto(texto: string): Response {
+function respuestaTexto(t: string): Response {
   return new Response(
-    JSON.stringify({ choices: [{ message: { content: texto } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }),
+    JSON.stringify({ choices: [{ message: { content: t } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }),
     { status: 200, headers: { 'content-type': 'application/json' } },
   )
 }
@@ -94,7 +94,7 @@ function enrutadorCon(herramienta: string, argumentos: string) {
 }
 
 describe('saludo y aclaración (IA7/S13)', () => {
-  it('el saludo no tiene números ni numeración y nombra las cuatro capacidades', () => {
+  it('el saludo no tiene números ni numeración y nombra las capacidades', () => {
     expect(SALUDO).not.toMatch(/\d/)
     expect(SALUDO).toContain('cómo va un pedido')
     expect(SALUDO).toContain('papel del trabajo')
@@ -165,7 +165,7 @@ describe('mensajes sin acción: aclarar, no adivinar (IA7)', () => {
       const datos = new DatosBot(CONFIG, pool.pool)
       const store = new StoreLlm()
       // Ya hubo conversación: el mensaje no nombra acción y toca aclarar.
-      store.set('tel', { historial: [{ role: 'user', content: 'hola' }, { role: 'assistant', content: SALUDO }], tokens: 0, expiresAt: Date.now() + 60_000 })
+      await store.set('tel', { historial: [{ role: 'user', content: 'hola' }, { role: 'assistant', content: SALUDO }], tokens: 0, expiresAt: Date.now() + 60_000 })
       const r = await cliente.manejar('tel', mensaje, datos, '42', store)
       expect(r).toEqual({ texto: PREGUNTA_ACLARAR })
       expect(pool.registros).toEqual([])
@@ -173,36 +173,8 @@ describe('mensajes sin acción: aclarar, no adivinar (IA7)', () => {
   }
 })
 
-describe('sin modelo disponible: el menú numerado es la red de seguridad (IA7)', () => {
-  it('texto suelto en el saludo cae al menú determinista, nunca mudo', async () => {
-    const { flows } = par(apiFalso())
-    const r = await flows.handle(TEL, 'quiero algo')
-    expect(r.kind).toBe('text')
-    expect(texto(r)).toContain('No entendí')
-    expect(texto(r)).toContain(buildMenu())
-  })
-})
-
-describe('el escape vuelve al saludo desde cualquier paso (IA7)', () => {
-  for (const palabra of ['menú', 'menu', 'volver', 'inicio', '0']) {
-    it(`"${palabra}" en un paso de lectura y en un paso de la orden devuelve el saludo`, async () => {
-      const api = apiFalso()
-      const { flows, esc, store } = par(api)
-      await flows.handle(TEL, '1')
-      const r = await flows.handle(TEL, palabra)
-      expect(texto(r)).toBe(SALUDO)
-      expect(store.get(TEL)).toBeUndefined()
-      await esc.handle(TEL, '4')
-      await esc.handle(TEL, '1')
-      const r2 = await esc.handle(TEL, palabra)
-      expect(texto(r2)).toBe(SALUDO)
-      expect(store.get(TEL)).toBeUndefined()
-    })
-  }
-})
-
 describe('el flujo determinista es el ejecutor de la ruta (IA7)', () => {
-  it('nuevo_pedido arranca el flujo de orden igual que la opción 4', async () => {
+  it('nuevo_pedido arranca el flujo de orden igual que antes', async () => {
     const api = apiFalso()
     const { flows, store } = par(api)
     const r = await flows.atenderRuta(TEL, { tipo: 'nuevo_pedido' }, 'doc-1')
@@ -213,10 +185,10 @@ describe('el flujo determinista es el ejecutor de la ruta (IA7)', () => {
 
   it('el pedido nuevo termina en resumen + confirmación y crea una sola vez', async () => {
     const api = apiFalso()
-    const { flows } = par(api)
+    const { flows, esc } = par(api)
     await flows.atenderRuta(TEL, { tipo: 'nuevo_pedido' }, 'doc-1')
-    for (const paso of ['Luis', 'Corona zirconio', '1', '26', 'A1']) await flows.handle(TEL, paso)
-    const r = await flows.handle(TEL, '1')
+    for (const paso of ['Luis', 'Corona zirconio', '1', '26', 'A1']) await esc.handle(TEL, paso)
+    const r = await esc.handle(TEL, 'sí')
     expect(texto(r)).toContain('Orden 1234 creada.')
     expect(api.crearOrdenLlamadas).toHaveLength(1)
   })

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { entregaDeTexto } from '../src/tiempo'
 import { interpretar, aplicarCambios } from '../src/orden-existente'
 import { OrderFlows, resumenOrden, SIN_AVANCE_CONFIRMAR } from '../src/write-flows'
-import { ConversationStore } from '../src/state'
+import { ConversationStore } from '../src/estado'
 import type { ApiClient, OrdenApi, NuevaOrdenPayload } from '../src/api'
 
 // Viernes 13 de noviembre de 2026, mediodía en Bogotá.

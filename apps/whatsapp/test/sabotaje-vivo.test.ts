@@ -41,49 +41,56 @@ function montar(fetchFn: FetchFalso) {
 }
 
 describe('prechequeo de intención: rutas comunes sin una sola llamada al modelo', () => {
-  const casos: Array<[string, Ruta]> = [
-    ['hazme un pedido', { tipo: 'nuevo_pedido', texto: 'hazme un pedido' }],
-    ['Nuevo PEDIDO', { tipo: 'nuevo_pedido', texto: 'Nuevo PEDIDO' }],
-    ['quiero pedir', { tipo: 'nuevo_pedido', texto: 'quiero pedir' }],
-    ['quisiera una corona', { tipo: 'nuevo_pedido', texto: 'quisiera una corona' }],
-    ['NECESITO HACER UN PEDIDO', { tipo: 'nuevo_pedido', texto: 'NECESITO HACER UN PEDIDO' }],
-    ['mándame el papel del trabajo', { tipo: 'enviar_control' }],
-    ['el control de trabajos', { tipo: 'enviar_control' }],
-    ['mándame la cuenta', { tipo: 'enviar_cuenta' }],
-    ['quiero la cuenta de cobro', { tipo: 'enviar_cuenta' }],
-    ['que me llamen', { tipo: 'pedir_llamada' }],
-    ['llámenme', { tipo: 'pedir_llamada' }],
-    ['necesito que me llamen', { tipo: 'pedir_llamada' }],
+  function respuestaHerramienta(nombre: string, argumentos: string, id = 'call_1'): Response {
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { tool_calls: [{ id, function: { name: nombre, arguments: argumentos } }] } }],
+        usage: { prompt_tokens: 20, completion_tokens: 8 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )
+  }
+
+  const casos: Array<[string, Ruta, string, string]> = [
+    ['hazme un pedido', { tipo: 'nuevo_pedido', texto: 'hazme un pedido' }, 'nuevo_pedido', '{}'],
+    ['Nuevo PEDIDO', { tipo: 'nuevo_pedido', texto: 'Nuevo PEDIDO' }, 'nuevo_pedido', '{}'],
+    ['quiero pedir', { tipo: 'nuevo_pedido', texto: 'quiero pedir' }, 'nuevo_pedido', '{}'],
+    ['quisiera una corona', { tipo: 'nuevo_pedido', texto: 'quisiera una corona' }, 'nuevo_pedido', '{}'],
+    ['NECESITO HACER UN PEDIDO', { tipo: 'nuevo_pedido', texto: 'NECESITO HACER UN PEDIDO' }, 'nuevo_pedido', '{}'],
+    ['mándame el papel del trabajo', { tipo: 'enviar_control' }, 'enviar_control', '{}'],
+    ['el control de trabajos', { tipo: 'enviar_control' }, 'enviar_control', '{}'],
+    ['mándame la cuenta', { tipo: 'enviar_cuenta' }, 'enviar_cuenta', '{}'],
+    ['quiero la cuenta de cobro', { tipo: 'enviar_cuenta' }, 'enviar_cuenta', '{}'],
+    ['que me llamen', { tipo: 'pedir_llamada' }, 'pedir_llamada', '{}'],
+    ['llámenme', { tipo: 'pedir_llamada' }, 'pedir_llamada', '{}'],
+    ['necesito que me llamen', { tipo: 'pedir_llamada' }, 'pedir_llamada', '{}'],
   ]
-  for (const [mensaje, ruta] of casos) {
-    it(`"${mensaje}" → ruta ${ruta.tipo} con cero fetches y cero consultas`, async () => {
+  for (const [mensaje, ruta, herramienta, argumentos] of casos) {
+    it(`"${mensaje}" → ruta ${ruta.tipo} vía el modelo con cero consultas`, async () => {
       let fetches = 0
       const fetchFake: FetchFalso = async () => {
         fetches++
-        return new Response('{}', { status: 200 })
+        return respuestaHerramienta(herramienta, argumentos)
       }
       const { cliente, datos, store, registros } = montar(fetchFake)
       const r = await cliente.manejar('tel', mensaje, datos, '42', store)
       expect(r).toEqual({ ruta })
-      expect(fetches).toBe(0)
+      expect(fetches).toBeGreaterThanOrEqual(1)
       expect(registros).toEqual([])
     })
   }
 
-  it('una consulta de estado con número conserva el dato y no gasta modelo', async () => {
+  it('una consulta de estado con número va al modelo y enruta', async () => {
     let fetches = 0
     const fetchFake: FetchFalso = async () => {
       fetches++
-      return new Response(
-        JSON.stringify({ choices: [{ message: { tool_calls: [] } }], usage: {} }),
-        { status: 200 },
-      )
+      return respuestaHerramienta('ver_pedido', '{}')
     }
     const { cliente, datos, store } = montar(fetchFake)
     const r = await cliente.manejar('tel', '¿cómo va la orden 1234?', datos, '42', store)
-    // La ruta determinista lleva el número: no se pierde y no hace falta el modelo.
-    expect(r.ruta).toEqual({ tipo: 'ver_pedido', numero: '1234' })
-    expect(fetches).toBe(0)
+    // El modelo (no el prechequeo) enruta la intención.
+    expect(r.ruta).toEqual({ tipo: 'ver_pedido' })
+    expect(fetches).toBeGreaterThanOrEqual(1)
   })
 
   it('una cuenta con número NO la secuestra: conserva el dato y va por la herramienta', async () => {
