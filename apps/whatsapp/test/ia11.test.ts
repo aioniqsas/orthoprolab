@@ -96,11 +96,16 @@ describe('IA11/S7–S10: la frase completa toma la orden sin menús ni pasos', (
       doctorId: string
       pacienteId: number
       detalles: Array<{ servicio: string; cantidad: number; dientes: number[]; colorDiente: string }>
+      fechaEntrega?: string
+      urgente?: boolean
     }
+    // "es urgente para el jueves" (frase real) viaja a la API (whatsapp-humano S1).
     expect(payload).toEqual({
       doctorId: 'doc-1',
       pacienteId: 9,
       detalles: [{ servicio: 'Protesis', cantidad: 1, dientes: [14, 13], colorDiente: 'A2' }],
+      fechaEntrega: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      urgente: true,
     })
 
     // Ningún mensaje de toda la conversación enumera opciones ni habla de pasos.
@@ -129,7 +134,7 @@ describe('IA11/S7–S10: la frase completa toma la orden sin menús ni pasos', (
     expect(r3.text).toContain(wf.CONFIRMAR_PIE)
     // Solo tras el sí se escribe.
     const r4 = await esc.handle(TEL, 'dale')
-    expect(r4.text).toContain(PREGUNTA_CONFIRMAR)
+    expect(r4.text).toContain(wf.SIN_AVANCE_CONFIRMAR)
     const r5 = await esc.handle(TEL, 'confirmar')
     expect(r5.text).toContain('Orden 1234 creada.')
   })
@@ -276,7 +281,7 @@ describe('la orden se corrige hablando en la confirmación (L8)', () => {
     await esc.handle(TEL, '2')
     await esc.handle(TEL, 'Blanco')
     const r = await esc.handle(TEL, 'dale')
-    expect(r.text).toContain(PREGUNTA_CONFIRMAR)
+    expect(r.text).toContain(wf.SIN_AVANCE_CONFIRMAR)
     expect(r.text).toContain(wf.AYUDA_CONFIRMAR)
     expect(api.ordenesCreadas).toHaveLength(0)
   })

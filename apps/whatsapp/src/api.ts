@@ -91,6 +91,7 @@ export interface OrdenApi {
   estado?: { codigo?: string | null; nombre?: string } | null
   fechaCreacion?: string | null
   fechaEntrega: string | null
+  urgente?: boolean
   asignacion?: {
     doctor?: { id?: string; nombres?: string; apellidos?: string } | null
     paciente?: { nombre?: string } | null
@@ -515,6 +516,8 @@ export interface ServicioApi {
 export interface NuevaOrdenPayload {
   doctorId: string
   pacienteId?: number
+  fechaEntrega?: string
+  urgente?: boolean
   detalles: Array<{
     servicio: string
     cantidad: number
@@ -526,6 +529,8 @@ export interface NuevaOrdenPayload {
 
 /** Cuerpo de PUT /mi-clinica/ordenes/:id (UpdateOrdenDto de la API). */
 export interface ActualizarOrdenPayload {
+  fechaEntrega?: string
+  urgente?: boolean
   detalles: Array<{
     servicio: string
     cantidad: number

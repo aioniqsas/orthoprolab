@@ -27,6 +27,7 @@ export const SISTEMA_PARTES: readonly string[] = [
   'Una orden se puede nombrar por su número, por el nombre del paciente o por las dos cosas, y también por el día en que se hizo ("la orden que te hice el martes").',
   'Si la persona quiere ver una orden o cambiar algo de una orden que ya existe, llama a la herramienta que corresponda: el flujo la busca y hace el cambio.',
   'La fecha de hoy te la damos aquí abajo, calculada de nuestro lado: nunca la inventes ni la supongas, y no prometas fechas que no estén en los datos.',
+  'Una fecha de entrega o un "es urgente" que diga la persona se anota en la orden y se le muestra en el resumen antes de confirmar; tú no la calculas ni la prometes.',
   'Cuando la persona quiera tomar un pedido nuevo, pedir una llamada, ver un pedido, recibir el control de trabajos o una cuenta de cobro, llama a la herramienta de intención que corresponda.',
   'El pedido nuevo y su confirmación los toma el flujo paso a paso, nunca tú: no escribas datos ni confirmes por tu cuenta.',
   'Nunca inventes datos. Si una búsqueda no da resultado, di que no lo encontraste y ofrece volver al inicio escribiendo 0.',

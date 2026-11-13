@@ -3,8 +3,8 @@ import { esDienteValido, nombreDiente } from '@repo/api-client/dientes'
 import type { ApiClient, DoctorApi, NuevaOrdenPayload } from './api.js'
 import { ApiError } from './api.js'
 import { SALUDO } from './menu.js'
-import { PREGUNTA_CONFIRMAR } from './flows.js'
 import type { ConversationStore } from './state.js'
+import { entregaDeTexto, fechaLarga } from './tiempo.js'
 
 /**
  * Flujo de escritura conversacional (IA11, S7–S10). Una conversación real:
@@ -41,7 +41,10 @@ export const PREGUNTA_NOMBRE_TRAS_CEDULA = '¿Cuál es su nombre completo?'
 export const PREGUNTA_CEDULA = '¿Cuál es su cédula para registrarlo como paciente nuevo?'
 
 export const AYUDA_CONFIRMAR =
-  'Si quieres cambiar algo, dímelo con tus palabras: puedo agregar dientes, cambiar la cantidad o el color, o dejar una observación.'
+  'Si quieres cambiar algo, dímelo con tus palabras: puedo agregar dientes, cambiar la cantidad, el color o la fecha de entrega, marcarla urgente, o dejar una observación.'
+/** S3 (whatsapp-humano): la confirmación nunca dice "No entendí" a secas. */
+export const SIN_AVANCE_CONFIRMAR =
+  `Quedo pendiente de tu sí para crear la orden, o un no para descartarla. ${AYUDA_CONFIRMAR}`
 export const PREGUNTA_VARIOS_PACIENTES =
   'Encontré varios pacientes con ese nombre. Escribe el nombre completo, por favor.'
 export const CONFIRMAR_PIE = 'Responde sí para crear la orden o no para cancelar.'
@@ -83,9 +86,17 @@ function dientesConNombre(campos: Campos): string {
     .join(', ')
 }
 
+/** La línea de entrega del resumen (S2): fecha larga y "(urgente)" cuando aplica. */
+function lineaEntrega(campos: Campos): string | null {
+  if (campos.fechaEntrega) return `Entrega: ${fechaLarga(campos.fechaEntrega)}${campos.urgente ? ' (urgente)' : ''}`
+  if (campos.urgente) return 'Entrega: por definir (urgente)'
+  return null
+}
+
 /** Resumen completo exigido por S6, con los nombres del odontograma (S7: sin números de opción). */
 export function resumenOrden(campos: Campos): string {
   const observaciones = campos.observaciones ? campos.observaciones : '—'
+  const entrega = lineaEntrega(campos)
   return [
     'Nueva orden:',
     `Doctor: ${campos.doctorNombre ?? '—'}`,
@@ -94,6 +105,7 @@ export function resumenOrden(campos: Campos): string {
     `Cantidad: ${campos.cantidad ?? '—'}`,
     `Dientes: ${dientesConNombre(campos) || '—'}`,
     `Color: ${campos.color ?? '—'}`,
+    ...(entrega ? [entrega] : []),
     `Observaciones: ${observaciones}`,
     '',
     CONFIRMAR_PIE,
@@ -263,6 +275,11 @@ export class OrderFlows {
       // Con una frase completa la precarga del trabajo anterior sobra: ya dijo
       // (o no dijo) qué quiere, y ofrecer "¿mismo trabajo?" solo añade ruido.
       campos = { ...campos, prefillPreguntado: '1' }
+      // S1 (whatsapp-humano): "urgente para el jueves" se entiende desde el
+      // primer mensaje; la fecha se resuelve hacia adelante, en código.
+      const entrega = entregaDeTexto(entrada, new Date())
+      if (entrega.fecha) campos = { ...campos, fechaEntrega: entrega.fecha }
+      if (entrega.urgente) campos = { ...campos, urgente: '1' }
       const paciente = pacienteDeTexto(entrada)
       if (paciente !== '') campos = { ...campos, pacienteTexto: paciente }
       const dientes = dientesDeTexto(entrada)
@@ -617,6 +634,17 @@ export class OrderFlows {
   private aplicarCambio(campos: Campos, entrada: string): { campos: Campos; aviso: string } | null {
     const avisos: string[] = []
     let actualizados: Campos = { ...campos }
+    // Entrega y urgencia también se dicen en la confirmación (S1): "necesito
+    // que sea urgente para el jueves" cambia la orden, no es ruido.
+    const entrega = entregaDeTexto(entrada, new Date())
+    if (entrega.fecha) {
+      actualizados = { ...actualizados, fechaEntrega: entrega.fecha }
+      avisos.push(`Queda para el ${fechaLarga(entrega.fecha)}`)
+    }
+    if (entrega.urgente && !campos.urgente) {
+      actualizados = { ...actualizados, urgente: '1' }
+      avisos.push('La marqué urgente')
+    }
     const previos = (campos.dientes ?? '').split(',').filter((d) => d !== '')
     const nuevos = dientesDeTexto(entrada)
       .split(',')
@@ -655,9 +683,10 @@ export class OrderFlows {
       const cambio = this.aplicarCambio(campos, entrada)
       if (cambio) {
         this.store.set(telefono, 'orden-confirmar', cambio.campos)
+        // El resumen ya termina pidiendo el sí (S3): el pie no se repite.
         return {
           kind: 'text',
-          text: `${cambio.aviso}.\n\n${resumenOrden(cambio.campos)}\n\n${PREGUNTA_CONFIRMAR}`,
+          text: `${cambio.aviso}.\n\n${resumenOrden(cambio.campos)}`,
         }
       }
       // "Una observación: test" no es una confirmación, pero tampoco es ruido:
@@ -669,10 +698,10 @@ export class OrderFlows {
         this.store.set(telefono, 'orden-confirmar', actualizados)
         return {
           kind: 'text',
-          text: `Anoté: ${anotacion}\n\n${resumenOrden(actualizados)}\n\n${PREGUNTA_CONFIRMAR}`,
+          text: `Anoté: ${anotacion}\n\n${resumenOrden(actualizados)}`,
         }
       }
-      return { kind: 'text', text: `No entendí. ${PREGUNTA_CONFIRMAR}\n\n${AYUDA_CONFIRMAR}` }
+      return { kind: 'text', text: SIN_AVANCE_CONFIRMAR }
     }
     const observaciones = (campos.observaciones ?? '').slice(0, 500)
     const payload: NuevaOrdenPayload = {
@@ -687,6 +716,8 @@ export class OrderFlows {
         },
       ],
       ...(campos.pacienteId ? { pacienteId: Number(campos.pacienteId) } : {}),
+      ...(campos.fechaEntrega ? { fechaEntrega: campos.fechaEntrega } : {}),
+      ...(campos.urgente ? { urgente: true } : {}),
     }
     try {
       const orden = await this.api.crearOrden(telefono, payload, campos.idemKey)
