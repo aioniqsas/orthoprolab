@@ -1,6 +1,6 @@
-# Bot de WhatsApp (prototipo)
+# Bot de WhatsApp
 
-Proceso independiente (`apps/whatsapp`) que atiende a las clínicas por WhatsApp usando Baileys, más los endpoints internos que la API expone para él. La especificación y las decisiones de producto están en `odd/tasks/whatsapp-bot.md`; este documento describe lo que existe hoy.
+Proceso independiente (`apps/whatsapp`) que atiende a las clínicas por WhatsApp usando Baileys, más los endpoints internos que la API expone para él. La especificación y las decisiones de producto están en `odd/tasks/whatsapp-bot.md` y `odd/tasks/whatsapp-agente.md`; este documento describe lo que existe hoy.
 
 ## Identidad
 
@@ -43,13 +43,17 @@ El bot además limita por número (20 interacciones por minuto, 3 solicitudes de
 
 ## Variables de entorno
 
-En `apps/api`: `WHATSAPP_SERVICE_TOKEN`, `WHATSAPP_HMAC_SECRET`, `WHATSAPP_LAB_EMAIL` (opcional: sin ella la solicitud de llamada se registra sin notificar). En `apps/whatsapp`: `API_BASE_URL`, `WHATSAPP_SERVICE_TOKEN`, `WHATSAPP_HMAC_SECRET`, `WHATSAPP_AUTH_DIR` (sesión de Baileys, fuera del repositorio y en 0700), `WHATSAPP_PDF_HOSTS`.
+En `apps/api`: `WHATSAPP_SERVICE_TOKEN`, `WHATSAPP_HMAC_SECRET`, `WHATSAPP_LAB_EMAIL` (opcional: sin ella la solicitud de llamada se registra sin notificar). En `apps/whatsapp`: `API_BASE_URL`, `WHATSAPP_SERVICE_TOKEN`, `WHATSAPP_HMAC_SECRET`, `WHATSAPP_AUTH_DIR` (sesión de Baileys, fuera del repositorio y en 0700), `WHATSAPP_PDF_HOSTS`, `GROQ_API_KEY`, `WHATSAPP_LLM_MODEL`, `WHATSAPP_LLM_ENABLED` y las variables de Redis para memoria (`WHATSAPP_REDIS_URL`/`REDIS_URL` o `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`).
 
-## IA conversacional y rol de base de datos
+## Conversación como agente
 
-El menú numerado sigue siendo la base; encima hay una capa opcional con Groq (`GROQ_API_KEY`, `WHATSAPP_LLM_MODEL`, `WHATSAPP_LLM_ENABLED`). Si la bandera está apagada, falta la llave, el modelo tarda o responde mal, contesta el menú: la conversación nunca depende del proveedor.
+No hay menú numerado ni flujos guiados por pasos: el modelo es la única entrada de la conversación de texto y elige entre herramientas del catálogo cerrado, validadas antes de ejecutarse. Las herramientas llaman a la API o a ejecutores del bot; las reglas (permisos por clínica, campos obligatorios, ventana de edición) las aplica la API y el modelo explica la negativa con sus palabras.
 
-El modelo **no escribe SQL**. Elige entre un catálogo cerrado de herramientas de lectura, cada una parametrizada, y toda llamada se valida contra su esquema antes de ejecutarse: herramienta inexistente, tipo incorrecto, clave extra o un `clinica_id` inyectado se rechazan sin tocar la base. Las escrituras no pasan por el modelo: crear una orden sigue yendo por la API con su resumen y su confirmación.
+El modelo **no escribe SQL**. Toda llamada se valida contra su esquema antes de ejecutarse: herramienta inexistente, tipo incorrecto, clave extra o un `clinica_id` inyectado se rechazan sin tocar la base. Ninguna orden se crea ni se modifica sin confirmación explícita y verificable de la persona sobre el resumen, aplicada en código antes de ejecutar la escritura (la API no impone esa puerta).
+
+Las negativas de infraestructura, identidad y suplantación se responden antes del modelo. Si el modelo falla, tarda, responde mal o no está configurado, el bot responde un texto fijo que ofrece reintentar, sin caer a flujos ni a menú numerado.
+
+La memoria conversacional se guarda por número en Redis (últimos 10 intercambios, TTL deslizante de 24 h renovado en cada interacción, incluido lo atendido por ejecutores) y sobrevive reinicios; con Redis caído o con operaciones acotadas por tiempo el bot responde sin memoria y no se cae.
 
 Las lecturas usan el rol `whatsapp_bot` (`bun run db:bot-role`), de solo lectura, con `SELECT` sobre doce tablas de negocio (más `configuracion_bot`, su configuración) y RLS por clínica vía `app.clinica_id`, que el servidor fija por transacción desde el contacto verificado. Nunca accede a `usuario`, `sesion_refresco` ni a la allowlist del bot. Las columnas cifradas a nivel de aplicación (`paciente.nombre`, `paciente.cedula`, observaciones, referencias de pago) quedan **fuera de todo SQL**: los nombres de paciente se resuelven por la API, que es la que descifra.
 
@@ -78,7 +82,7 @@ SELECT valor FROM public.configuracion_bot WHERE clave = 'nombre';
 El bot lo lee dentro de la transacción con el GUC de clínica y lo cachea unos minutos en memoria (un renombre no exige reinicio, un mensaje no cuesta consulta). Si la fila falta o no se puede leer, el nombre es `Aioniq` (constante de respaldo documentada). El administrador consulta el valor actual con `GET /admin/configuracion/bot`. No se usa `FORCE ROW LEVEL SECURITY`: el usuario de la API es dueño de las tablas y sigue intacto.
 
 ```sh
-bun run db:bot-role            # crear/converger el rol
+bun run db:bot-role              # crear/converger el rol
 bun run db:bot-role -- --rotate  # además re-aplica la contraseña
 ```
 
@@ -92,4 +96,4 @@ El bot identifica una orden por número, por nombre de paciente o por ambos («l
 
 También resuelve referencias temporales («la orden que te hice el martes», «el pedido del miércoles»): el prompt del sistema lleva la fecha de hoy y la zona `America/Bogota` calculadas en código —nunca deducidas por el modelo— y las órdenes le llegan con su fecha de creación. Las órdenes de un mismo día se ofrecen una por línea.
 
-Para modificar, el allowlist del bot (`BOT_ROUTES` en `src/auth/jwt-auth.guard.ts`) incluye `PUT /mi-clinica/ordenes/:id`, y solo esa ruta además de las de lectura y `POST /mi-clinica/ordenes`. La regla de qué orden se puede editar vive solo en la API (`src/pedidos/ventana-edicion.ts` y `PedidosService.update`): `creada`, `recibida`, `devuelta_correccion`, y `en_proceso` dentro de las 5 horas siguientes a haber entrado a ese estado, contadas desde la última `historial_estado_orden.fecha_cambio` con estado nuevo `en_proceso` (no desde la creación). `en_entrega`, `terminada` y `cancelada` no se editan nunca. Las órdenes de `GET /mi-clinica/ordenes` y `GET /mi-clinica/ordenes/:id` llevan el veredicto en `editable: boolean` y `editableHasta: string | null` (ISO), y el bot lo lee: solo invita a cambiar cuando `editable` es verdadero; en cualquier otro caso dice en lenguaje llano que la corrección pasa por el laboratorio y no escribe. Todo cambio se muestra como antes → después y exige confirmación literal antes del `PUT`; un `403` o un `409` de la API se le informa a la persona como que la orden ya no admite cambios. El respaldo del bot por estado (`creada`) solo cubre una API que todavía no mande el campo.
+Para modificar, el allowlist del bot (`BOT_ROUTES` en `src/auth/jwt-auth.guard.ts`) incluye `PUT /mi-clinica/ordenes/:id`, y solo esa ruta además de las de lectura y `POST /mi-clinica/ordenes`. La regla de qué orden se puede editar vive solo en la API (`src/pedidos/ventana-edicion.ts` y `PedidosService.update`): `creada`, `recibida`, `devuelta_correccion`, y `en_proceso` dentro de las 5 horas siguientes a haber entrado a ese estado, contadas desde la última `historial_estado_orden.fecha_cambio` con estado nuevo `en_proceso` (no desde la creación). `en_entrega`, `terminada` y `cancelada` no se editan nunca. Las órdenes de `GET /mi-clinica/ordenes` y `GET /mi-clinica/ordenes/:id` llevan el veredicto en `editable: boolean` y `editableHasta: string | null` (ISO), y el bot lo lee. Todo cambio se muestra como antes → después y exige confirmación explícita y verificable antes del `PUT`; un `403` o un `409` de la API se le informa a la persona como que la orden ya no admite cambios.

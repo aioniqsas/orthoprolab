@@ -1,10 +1,10 @@
 # Bot de WhatsApp
 
-Proceso de Bun que conecta Baileys con WhatsApp y expone los flujos de lectura
-contra la API: estado de pedido, control de trabajos (PDF) y cuenta de cobro
-(PDF). Antes de crear el socket consulta con `fetchLatestBaileysVersion()` la
-versión vigente de WhatsApp Web y la pasa al socket; sin ella WhatsApp termina
-la conexión justo después del registro.
+Proceso de Bun que conecta Baileys con WhatsApp y atiende conversaciones de
+clínicas como agente: el modelo conduce la conversación con herramientas que
+llaman a la API. Antes de crear el socket consulta con
+`fetchLatestBaileysVersion()` la versión vigente de WhatsApp Web y la pasa al
+socket; sin ella WhatsApp termina la conexión justo después del registro.
 
 ## Emparejamiento (dos vías)
 
@@ -22,6 +22,33 @@ dígitos E.164 válidos, el bot sale con error antes de conectar.
 Al iniciar (una línea, no es dato sensible) se registra la versión resuelta:
 `Versión de WhatsApp Web: 2.3000.x.y`.
 
+## Conversación como agente
+
+No hay menú numerado ni flujos guiados por pasos. Cada mensaje de texto de un
+contacto verificado va al modelo, que elige entre un catálogo cerrado de
+herramientas validadas y las rutas que ejecutan la API o los ejecutores del
+bot (consultar estado, enviar control/cuenta en PDF, tomar o editar un pedido,
+pedir llamada). Las reglas de negocio (permisos por clínica, campos
+obligatorios, ventana de edición) las aplica la API.
+
+Crear o editar una orden exige confirmación explícita y verificable de la
+persona sobre el resumen, en un turno previo, antes de ejecutar la escritura.
+Las negativas de infraestructura, identidad y suplantación se responden antes
+del modelo.
+
+Si el modelo falla, tarda, responde mal o no está configurado (`GROQ_API_KEY`
+ausente o `WHATSAPP_LLM_ENABLED=false`), el bot responde un texto fijo que
+ofrece reintentar; no cae a flujos ni a menú numerado.
+
+## Memoria en Redis
+
+Cada mensaje del usuario y cada respuesta del bot se registran por número en
+Redis (incluidos turnos atendidos por ejecutores). La memoria conserva los
+últimos 10 intercambios y usa un TTL deslizante de 24 h que se renueva en cada
+interacción; sobrevive a un reinicio del bot. Si Redis no está disponible o
+una operación excede el plazo acotado, el bot responde sin memoria y no se cae
+(las escrituras de memoria pueden perderse).
+
 ## Variables
 
 - `API_BASE_URL`: base de la API; por defecto `http://localhost:3003`.
@@ -35,13 +62,19 @@ Al iniciar (una línea, no es dato sensible) se registra la versión resuelta:
   `~/.orthopro-lab/whatsapp/auth_info`.
 - `WHATSAPP_AUTH_DIR` nunca debe apuntar al repositorio.
 - `WHATSAPP_LAB_EMAIL`: dirección del laboratorio para las notificaciones de
-  la opción 0 (solicitud de llamada). Es una variable de la API
-  (`apps/api`): si falta, `POST /internal/whatsapp/llamada` responde 503 y el
-  bot ofrece la vía directa.
+  solicitud de llamada. Es una variable de la API (`apps/api`): si falta,
+  `POST /internal/whatsapp/llamada` responde 503 y el bot ofrece la vía directa.
 - `WHATSAPP_PDF_HOSTS`: hosts (separados por comas) de los que el bot puede
   descargar un PDF de cuenta de cobro. Por defecto `res.cloudinary.com`.
   Solo se aceptan URLs `https:` de esos hosts; cualquier otra URL se rechaza
   con un mensaje en palabras, y los hosts privados o internos nunca pasan.
+- `GROQ_API_KEY`: llave de Groq. Si falta, el bot responde con el mensaje
+  fijo de reintento.
+- `WHATSAPP_LLM_MODEL`: modelo de Groq; por defecto `openai/gpt-oss-20b`.
+- `WHATSAPP_LLM_ENABLED`: por defecto `true`; con `false` el bot responde con
+  el mensaje fijo de reintento.
+- `WHATSAPP_REDIS_URL`/`REDIS_URL` o `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`:
+  Redis para la memoria conversacional (mismas variables que la API).
 
 Si falta `WHATSAPP_SERVICE_TOKEN` o `WHATSAPP_HMAC_SECRET`, el bot responde a
 cada mensaje que no está configurado y no crashea.
@@ -54,45 +87,23 @@ Cada cierre registra el código de estado de Baileys (`lastDisconnect.error
 bot pide eliminar el directorio de sesión (`WHATSAPP_AUTH_DIR`) y volver a
 iniciar para emparejar de nuevo.
 
-## Inteligencia con Groq (IA3, IA7)
-
-La entrada no es un menú numerado: el bot saluda con una frase fija que nombra
-sus capacidades (IA7). En el saludo, todo lo que la persona escriba («1», «la
-A», «quiero ver mi pedido», «mándame la cuenta de la 1234», «hazme un pedido»)
-lo enruta el modelo con herramientas de intención (`ver_pedido`,
-`nuevo_pedido`, `pedir_llamada`, `enviar_control`, `enviar_cuenta`); los flujos
-deterministas siguen siendo los ejecutores y el modelo nunca escribe ni
-confirma. El escape es con palabras naturales (`menú`, `volver`, `inicio` y
-`0`); un mensaje sin acción recibe una sola pregunta de aclaración. Sin modelo
-disponible (sin llave, bandera apagada, timeout, HTTP != 200 o respuesta
-malformada) el menú numerado responde como red de seguridad: el bot nunca
-queda mudo. La sesión y las escrituras siguen siendo deterministas; el modelo
-también elige entre las herramientas de lectura del catálogo cerrado
-(`src/herramientas.ts`). El nombre con el que el bot responde quién es viene de
-la base (`configuracion_bot`, `clave='nombre'`), leído dentro de la transacción
-con el GUC de clínica y cacheado unos minutos; si falta o falla la lectura, cae
-a `Aioniq` (IA8).
-
-- `GROQ_API_KEY`: llave de Groq. Si falta, el bot vuelve al menú
-  determinista sin anunciar nada.
-- `WHATSAPP_LLM_MODEL`: modelo de Groq; por defecto
-  `openai/gpt-oss-20b`.
-- `WHATSAPP_LLM_ENABLED`: por defecto `true`; con `false` el bot vuelve al
-  menú sin desplegar.
+## Modelo y herramientas
 
 El cliente (`src/llm.ts`) usa `fetch` contra
 `https://api.groq.com/openai/v1/chat/completions`, con timeout configurable
-(12 s) y máximo un reintento ante error de red. Ante timeout, HTTP != 200 o
-respuesta malformada, el mensaje lo atiende el menú determinista igual que
-con la IA apagada: el bot nunca queda fuera de servicio por Groq.
+(12 s) y máximo un reintento ante error de red. Cada llamada del modelo se
+valida contra el catálogo cerrado antes de ejecutarse (herramienta existente,
+argumentos exactos y tipados, sin `clinica_id`: la clínica sale siempre del
+contacto verificado). El bucle es de máximo 2 rondas por mensaje, el consumo de
+tokens se acumula por conversación con un tope cortés, el historial enviado al
+modelo se recorta y los teléfonos, tokens y DSN se redactan antes de salir del
+bot. Por mensaje al modelo se audita intención, herramienta, tokens y
+desenlace, jamás el cuerpo.
 
-Cada llamada del modelo se valida contra el catálogo antes de ejecutarse
-(herramienta existente, argumentos exactos y tipados, sin `clinica_id`: la
-clínica sale siempre del contacto verificado). El bucle es de máximo 2
-rondas por mensaje, el consumo de tokens se acumula por conversación con un
-tope cortés, el historial enviado al modelo se recorta y los teléfonos,
-tokens y DSN se redactan antes de salir del bot. Por mensaje al modelo se
-audita intención, herramienta, tokens y desenlace, jamás el cuerpo.
+El nombre con el que el bot responde quién es viene de la base
+(`configuracion_bot`, `clave='nombre'`), leído dentro de la transacción con el
+GUC de clínica y cacheado unos minutos; si falta o falla la lectura, cae a
+`Aioniq`.
 
 ## Vinculación por código (T8)
 
@@ -101,9 +112,7 @@ el bot lo canjea en `POST /internal/whatsapp/vincular` con las mismas cuatro
 cabeceras de firma del resto de endpoints internos. El código lo genera la
 clínica desde su portal (`POST /mi-clinica/whatsapp/codigo`) y vive solo en
 Redis de la API: vence a los 10 minutos, sirve una sola vez y un puñado de
-intentos errados por teléfono lo bloquea. **No hay variables de entorno
-nuevas** para esta función: usa el mismo Redis y los mismos dos secretos que
-ya tenía el bot.
+intentos errados por teléfono lo bloquea.
 
 La sesión contiene credenciales de WhatsApp y queda fuera del repositorio por
 configuración. No se debe copiar ni compartir.
