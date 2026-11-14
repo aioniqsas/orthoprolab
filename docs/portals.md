@@ -2,10 +2,10 @@
 
 Two Next.js apps share the auth API (`apps/api`) and the UI packages.
 
-| App | Port | Audience | Routes |
-|---|---|---|---|
-| `apps/admin` | 3002 | administrators | `/login`, `/ordenes` (+ `/[id]`), `/clinicas` (+ `/[id]`), `/usuarios` (+ `/[id]`), `/catalogo` (+ `/[id]`), `/cms`; `/` redirects to `/ordenes` |
-| `apps/clientes` | 3001 | dentists and assistants | `/login`, `/registro`, `/` (placeholder home) |
+| App             | Port | Audience                | Routes                                                                                                                                           |
+| --------------- | ---- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/admin`    | 3002 | administrators          | `/login`, `/ordenes` (+ `/[id]`), `/clinicas` (+ `/[id]`), `/usuarios` (+ `/[id]`), `/catalogo` (+ `/[id]`), `/cms`; `/` redirects to `/ordenes` |
+| `apps/clientes` | 3001 | dentists and assistants | `/login`, `/registro`, `/` (placeholder home)                                                                                                    |
 
 The API listens on 3003. Copy `apps/<app>/.env.example` to `.env`; the only variable is `NEXT_PUBLIC_API_URL` (default `http://localhost:3003`).
 
@@ -37,15 +37,26 @@ Una orden final no se reabre: el API responde 403 al cambiar de estado desde `ca
 
 En la lista, la columna Estado del Administrador muestra un distintivo en las órdenes finales y un selector solo en las que admiten cambio; el selector no ofrece `cancelada` y revierte al estado real si el API rechaza el cambio.
 
-### Filtros por grupo
+### Listings: server-side search, filters, sorting and pagination
 
-Las dos listas filtran por tres grupos definidos en `@repo/api-client` (`GRUPOS_ORDEN` / `grupoDeEstado`): **Activas** (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`), **Terminadas** (`terminada`) y **Canceladas** (`cancelada`), más la opción que desactiva el filtro. Ambos portales abren en **Activas**; los contadores por estado del Administrador siguen contando todas las órdenes. El valor inicial se declara con `initialFilterValues` en `DataTable` (`@repo/ui`).
+Every list in both portals loads ONE page from the API and keeps its whole state in the URL (`?q=&page=&size=&sort=&order=&<filters>`), so a view can be linked, reloaded and reached with the browser's back button. Defaults: 10 rows per page (options 10/25/50); the server caps the size at 100. The row counter shows the server `total`, not the size of the loaded page.
+
+- Search is submitted to the server (`Buscar` or Enter); nothing is filtered in the browser. Changing the term goes back to page 1, while changing page keeps it.
+- Filters are server-side too: order state group and urgency (both order lists), account group (both billing lists), active flag (users and catalog services). Their values travel as query params and the API validates them — an unknown value is a 400.
+- Column sorting is server-side through `sort`/`order`; each endpoint has a whitelist (see [`apps/api/docs/listados.md`](../apps/api/docs/listados.md)). Columns the database cannot order (patient name and cedula, encrypted at rest) or values computed after pagination (clinic doctor count) have no sort control.
+- `DataTable` (`@repo/ui`) runs in `serverPagination` mode: it renders the page it receives, wires its filters and header sorting to the URL, and never filters or sorts a single page locally.
+
+Order groups come from `@repo/api-client` (`GRUPOS_ORDEN` / `grupoDeEstado`) and the API mirrors them in `apps/api/src/pedidos/orden-grupo.ts`: **Activas** (`creada`, `recibida`, `en_proceso`, `en_entrega`, `devuelta_correccion`), **Terminadas** (`terminada`), **Canceladas** (`cancelada`), plus the "all" option. Both portals open on **Activas**; the admin state counters still count every order.
 
 ## Cuentas de cobro: tiempo real, grupos y paginación
 
-Las dos listas usan `DataTable` (`@repo/ui`) con **un** filtro agrupado, definido en `@repo/api-client` (`GRUPOS_CUENTA` / `grupoDeCuenta`): **Pendientes** (`borrador`, `emitida`, `pagada_parcial`), **Pagadas** (`pagada`) y **Canceladas** (`anulada`), más la opción sin filtro. Ambos portales abren en **Pendientes**. Un borrador todavía no se emitió y un pago parcial todavía debe dinero, así que los dos son trabajo pendiente. La clínica nunca recibe `borrador`: `GET /mi-clinica/cuentas-cobro` lo excluye. Paginación y búsqueda son de cliente; el endpoint devuelve la lista completa.
+Both billing lists use the shared server-side table with one grouped filter from `@repo/api-client` (`GRUPOS_CUENTA` / `grupoDeCuenta`): **Pendientes** (`borrador`, `emitida`, `pagada_parcial`), **Pagadas** (`pagada`), **Canceladas** (`anulada`), plus the "all" option. Both portals open on **Pendientes**. A draft has not been issued and a partial payment still owes money, so both are pending work. The clinic never receives `borrador`: `GET /mi-clinica/cuentas-cobro` excludes it. Search, filter, sort and pagination run on the server (see "Listings" above and [`apps/api/docs/listados.md`](../apps/api/docs/listados.md)).
 
 Al adjuntar órdenes, `GET /cuentas-cobro/:id/ordenes-disponibles` devuelve solo las que no pertenecen a ninguna cuenta activa —incluida la cuenta abierta—, así que una orden ya adjunta no vuelve a ofrecerse; una cuenta `anulada` sí las libera. El formulario tiene un checkbox para seleccionar todas las órdenes de la clínica de una vez; el valor de cada una se sigue escribiendo a mano porque el total lo decide el administrador.
+
+### Sending a billing account by email
+
+`POST /cuentas-cobro/:id/enviar` queues a job that carries only the account id (`attachmentSource: { kind: "cuenta-cobro", cuentaCobroId }`), never the PDF bytes. The mail worker builds the attachments at send time: the account PDF from its stored Cloudinary URL (generated in place when the row has none) and one work-control PDF per attached order, one at a time. Retrying the same job rebuilds the same attachments from the database, so nothing is duplicated or lost, and a control that fails is skipped without blocking the account email. Subject, body and recipients are unchanged.
 
 `CuentasCobroEventosService` avisa cuando una cuenta cambia (creada, actualizada, pago registrado o anulado, PDF, envío) y dos streams SSE protegidos por el guard de sesión lo publican: `GET /cuentas-cobro/eventos` (administrador, con `tipo` y `cuentaId`) y `GET /mi-clinica/cuentas-cobro/eventos` (clínica, solo con `tipo`, para no filtrar ids de otras clínicas). Cada portal expone un puente en `app/api/cuentas-cobro/eventos/route.ts` que reenvía la cookie de sesión y un componente `cuentas-live.tsx` que llama `router.refresh()` al recibir el evento `cuenta-cobro`. Mismo patrón que el catálogo del sitio público, con su misma limitación: el bus es en memoria, así que con varias réplicas del API hace falta Redis pub/sub.
 
@@ -79,7 +90,19 @@ El formato y los días se resuelven con `@repo/api-client` (`src/fechas.ts`): `f
 El portal Admin registra **una línea JSON por evento** en `logs/admin.log` (`apps/admin/lib/logger.ts`). Se escribe con `appendFileSync` antes de responder: si el proceso muere en la línea siguiente, el evento ya está en disco. La terminal recibe el mismo JSON como espejo, no como fuente de verdad.
 
 ```json
-{"ts":"...","nivel":"warn","ambito":"cuentas-cobro.enviarEmail","ref":"ab12cd34","mensaje":"respuesta-no-ok","datos":{"ruta":"/cuentas-cobro/3/enviar","status":400,"duracionMs":812,"cuerpo":"..."}}
+{
+  "ts": "...",
+  "nivel": "warn",
+  "ambito": "cuentas-cobro.enviarEmail",
+  "ref": "ab12cd34",
+  "mensaje": "respuesta-no-ok",
+  "datos": {
+    "ruta": "/cuentas-cobro/3/enviar",
+    "status": 400,
+    "duracionMs": 812,
+    "cuerpo": "..."
+  }
+}
 ```
 
 - Rotación a los 5 MB, conservando los 5 archivos rotados; `LOG_DIR` mueve el directorio (por ejemplo a un volumen persistente). `logs/` está en `.gitignore`.
