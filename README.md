@@ -6,16 +6,16 @@ Turborepo with Bun workspaces. Requires Node >= 24 and Bun 1.4.2.
 
 ## Apps and packages
 
-| Path | What it is |
-|---|---|
-| `apps/web` | Public marketing site (Next.js, Tailwind v4, shadcn/ui). Pages: landing, nosotros, catálogo (one route per service), pagos. |
-| `apps/admin` | Admin portal (Next.js): login, orders, clinics, users, catalog, CMS. Catalog and CMS are backed by the API; the other sections still run on sample data, see `docs/portals.md`. |
-| `apps/api` | NestJS backend API (port 3003). |
-| `apps/clientes` | Client portal (Next.js): login and registration, placeholder home. See `docs/portals.md`. |
-| `packages/api-client` | `@repo/api-client`: typed client for the API (auth, refresh, schemas). |
-| `packages/theme` | `@repo/theme`: shared Tailwind v4 tokens and the shadcn semantic variables (`theme.css`). |
-| `packages/ui` | `@repo/ui`: shadcn/ui components shared across apps (`@repo/ui/components/*`, `@repo/ui/lib/utils`). |
-| `packages/eslint-config`, `packages/typescript-config` | Shared lint and TypeScript configs. |
+| Path                                                   | What it is                                                                                                                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`                                             | Public marketing site (Next.js, Tailwind v4, shadcn/ui). Pages: landing, nosotros, catálogo (one route per service), pagos.                                                     |
+| `apps/admin`                                           | Admin portal (Next.js): login, orders, clinics, users, catalog, CMS. Catalog and CMS are backed by the API; the other sections still run on sample data, see `docs/portals.md`. |
+| `apps/api`                                             | NestJS backend API (port 3003).                                                                                                                                                 |
+| `apps/clientes`                                        | Client portal (Next.js): login and registration, placeholder home. See `docs/portals.md`.                                                                                       |
+| `packages/api-client`                                  | `@repo/api-client`: typed client for the API (auth, refresh, schemas).                                                                                                          |
+| `packages/theme`                                       | `@repo/theme`: shared Tailwind v4 tokens and the shadcn semantic variables (`theme.css`).                                                                                       |
+| `packages/ui`                                          | `@repo/ui`: shadcn/ui components shared across apps (`@repo/ui/components/*`, `@repo/ui/lib/utils`).                                                                            |
+| `packages/eslint-config`, `packages/typescript-config` | Shared lint and TypeScript configs.                                                                                                                                             |
 
 ## Getting started
 
@@ -49,20 +49,21 @@ bun run dev --filter=api               # or: bunx turbo run dev --filter=api
 curl localhost:3003/health             # database and redis checks
 ```
 
-Service catalog: public `GET /catalogo/servicios[/:slug]` (no prices), a public SSE stream at `GET /catalogo/eventos`, the generated `GET /catalogo/pdf`, and admin CRUD at `/admin/catalogo/servicios` (role `administrador`, image upload at `POST /admin/catalogo/servicios/:id/imagen`). Uploads go to Cloudinary and need `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` (all three or none, optional `CLOUDINARY_FOLDER`) in `apps/api/.env`; without them the upload answers 503. Full reference, including how to test a real upload: [`apps/api/docs/catalogo.md`](apps/api/docs/catalogo.md).
+Service catalog: public `GET /catalogo/servicios[/:slug]` (no prices, paginated list), a public SSE stream at `GET /catalogo/eventos`, the generated `GET /catalogo/pdf`, and admin CRUD at `/admin/catalogo/servicios` (role `administrador`, image upload at `POST /admin/catalogo/servicios/:id/imagen`). Uploads go to Cloudinary and need `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` (all three or none, optional `CLOUDINARY_FOLDER`) in `apps/api/.env`; without them the upload answers 503. Full reference, including how to test a real upload: [`apps/api/docs/catalogo.md`](apps/api/docs/catalogo.md).
 
 Both `.env` files are git-ignored; keep the same database password in each.
 
-| Task | Command (from `apps/api`) |
-|---|---|
-| Unit tests | `bun run test` |
-| Integration tests (needs `infra:up`) | `bun run test:e2e` |
-| First administrator | `bun run admin:create -- --correo <email> --cedula <digits> --nombres <text> --apellidos <text>` (hidden password prompt) |
-| Migrations | `bun run migration:generate -- src/database/migrations/<Name>`, `migration:run`, `migration:revert`, `migration:show` |
+| Task                                 | Command (from `apps/api`)                                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Unit tests                           | `bun run test`                                                                                                            |
+| Integration tests (needs `infra:up`) | `bun run test:e2e`                                                                                                        |
+| First administrator                  | `bun run admin:create -- --correo <email> --cedula <digits> --nombres <text> --apellidos <text>` (hidden password prompt) |
+| Migrations                           | `bun run migration:generate -- src/database/migrations/<Name>`, `migration:run`, `migration:revert`, `migration:show`     |
 
 - TypeORM never synchronizes the schema (`synchronize: false`); every change goes through a migration. `src/database/data-source.ts` feeds the TypeORM CLI.
 - Queues use BullMQ with the `orthopro` prefix. The `system` queue and its `ping` processor exist to prove the wiring; add real queues as modules under `src/queues`.
 - `GET /health` returns 503 when the database or Redis is unreachable.
+- List endpoints are paginated on the server: `page`/`size` (10 by default, capped at 100) and a `{ data, total, page, size }` response, with server-side search (`q`), filters and a per-endpoint `sort` whitelist. Reference: [`apps/api/docs/listados.md`](apps/api/docs/listados.md).
 - Relative imports need the `.js` extension (ESM).
 - Auth: JWT in httpOnly cookies (`auth_token` 15 min, `refresh_token` 7 days with rotation and reuse detection), every route protected unless `@Public()`, per-email lockout (3 failures, 5 minutes), per-endpoint rate limits, helmet, CORS allow-list and Origin check. Requires `JWT_SECRET` in `apps/api/.env`. The first administrator is created with `bun run admin:create` (never over HTTP): the password is prompted twice with hidden input, or piped as one line with `--password-stdin` for automation. Full reference (flows, cookies, env variables, threat notes, follow-ups): [`apps/api/docs/auth.md`](apps/api/docs/auth.md).
 - Database model: ERD, data dictionary, integrity rules and data-protection notes in [`apps/api/docs/database-model.md`](apps/api/docs/database-model.md); generated DDL in `apps/api/docs/schema.sql` (`bun run db:schema` from `apps/api`, needs `infra:up`).

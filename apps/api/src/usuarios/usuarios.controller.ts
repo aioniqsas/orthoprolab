@@ -8,11 +8,13 @@ import {
   Patch,
   Post,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
+import { ListUsuariosQueryDto } from './dto/list-usuarios-query.dto.js';
 import { UsuariosService } from './usuarios.service.js';
 
 @Controller('usuarios')
@@ -22,8 +24,12 @@ export class UsuariosController {
   constructor(private readonly usuarios: UsuariosService) {}
 
   @Get()
-  findAll() {
-    return this.usuarios.findAll();
+  findAll(@Query() query: ListUsuariosQueryDto) {
+    return this.usuarios.findAll(query.q, query.page, query.size, {
+      activo: query.activo,
+      sort: query.sort,
+      order: query.order,
+    });
   }
 
   @Post()

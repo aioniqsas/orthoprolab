@@ -7,6 +7,7 @@ import {
   Sse,
   StreamableFile,
   type MessageEvent,
+  Query,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
@@ -47,8 +48,11 @@ export class CatalogoPublicoController {
 
   @Get('servicios')
   @Header('Cache-Control', PUBLIC_CACHE)
-  list(): Promise<ServicioPublico[]> {
-    return this.servicios.listPublic();
+  list(
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.servicios.listPublic(page, size);
   }
 
   @Get('servicios/:slug')

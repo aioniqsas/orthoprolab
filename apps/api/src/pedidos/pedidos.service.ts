@@ -1,3 +1,4 @@
+import { aplicarBusquedaOrdenes } from './orden-busqueda.js';
 import {
   BadRequestException,
   ForbiddenException,
@@ -7,6 +8,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
+import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import { orderByWhitelist, type SortOrder } from '../common/list-query.js';
+import { ESTADOS_POR_GRUPO, ORDEN_ORDER_COLUMNS } from './orden-grupo.js';
+import type { OrdenGroup } from './dto/list-ordenes-query.dto.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { Paciente } from '../pacientes/paciente.entity.js';
@@ -41,24 +50,51 @@ export class PedidosService {
   async findAll(filters?: {
     estadoId?: number;
     urgente?: boolean;
-  }): Promise<Orden[]> {
-    const where: FindOptionsWhere<Orden> = {};
+    grupo?: OrdenGroup;
+    q?: string;
+    page?: string | number;
+    size?: string | number;
+    sort?: string;
+    order?: SortOrder;
+  }): Promise<PaginatedResult<Orden>> {
+    // The patient part of the search: ids from the blind index, then SQL.
+    const pacienteIds = await this.pacientesService.buscarIds(filters?.q);
+    const { page, size, skip } = normalizePagination(filters?.page, filters?.size);
+    const qb = this.ordenRepo
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.estado', 'estado')
+      .leftJoinAndSelect('o.asignacion', 'asignacion')
+      .leftJoinAndSelect('asignacion.doctor', 'doctor')
+      .leftJoinAndSelect('asignacion.paciente', 'paciente');
+    // Filters run in SQL, before paginating: `total` counts the filtered set.
+    qb.orderBy(
+      orderByWhitelist(
+        ORDEN_ORDER_COLUMNS,
+        'o.id',
+        { sort: filters?.sort, order: filters?.order },
+        'creada',
+        'DESC',
+      ),
+    );
     if (filters?.estadoId !== undefined) {
-      where.estadoId = String(filters.estadoId);
+      qb.andWhere('o.estadoId = :estadoId', { estadoId: String(filters.estadoId) });
+    }
+    if (filters?.grupo !== undefined) {
+      qb.andWhere('estado.codigo IN (:...codigos)', {
+        codigos: ESTADOS_POR_GRUPO[filters.grupo],
+      });
     }
     if (filters?.urgente !== undefined) {
-      where.urgente = filters.urgente;
+      qb.andWhere('o.urgente = :urgente', { urgente: filters.urgente });
     }
-    return this.ordenRepo.find({
-      where,
-      relations: {
-        estado: true,
-        asignacion: { doctor: true, paciente: true },
-        detalles: true,
-        historial: { estadoAnterior: true, estadoNuevo: true, usuario: true },
-      },
-      order: { fechaCreacion: 'DESC' },
-    });
+    aplicarBusquedaOrdenes(qb, filters?.q, pacienteIds, { conEstado: false });
+
+    const total = await qb.getCount();
+    if (skip >= total) {
+      return paginatedResult([], total, page, size);
+    }
+    const data = await qb.skip(skip).take(size).getMany();
+    return paginatedResult(data, total, page, size);
   }
 
   /** Returns the order with full nested relations needed by the detail view. */

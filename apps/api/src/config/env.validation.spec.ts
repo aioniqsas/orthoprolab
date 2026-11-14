@@ -20,8 +20,10 @@ describe('validateEnv', () => {
       DATABASE_USER: 'orthopro',
       DATABASE_PASSWORD: 'secret',
       DATABASE_NAME: 'orthopro',
+      DATABASE_SSL: false,
       REDIS_HOST: 'localhost',
       REDIS_PORT: 6380,
+      REDIS_TLS: false,
       ENCRYPTION_KEY,
       BLIND_INDEX_KEY,
       CLOUDINARY_FOLDER: 'orthopro/catalogo',
@@ -43,6 +45,8 @@ describe('validateEnv', () => {
       LOGIN_MAX_ATTEMPTS: 3,
       LOGIN_LOCK_SECONDS: 300,
       REFRESH_REUSE_GRACE_SECONDS: 10,
+      SMTP_PORT: 587,
+      ADMIN_URL: 'http://localhost:3002',
     });
   });
 
@@ -144,11 +148,14 @@ describe('validateEnv', () => {
       );
     });
 
-    it('accepts strict|lax for COOKIE_SAMESITE only', () => {
+    it('accepts strict|lax|none for COOKIE_SAMESITE', () => {
       expect(
         validateEnv({ ...base, COOKIE_SAMESITE: 'lax' }).COOKIE_SAMESITE,
       ).toBe('lax');
-      expect(() => validateEnv({ ...base, COOKIE_SAMESITE: 'none' })).toThrow(
+      expect(
+        validateEnv({ ...base, COOKIE_SAMESITE: 'none' }).COOKIE_SAMESITE,
+      ).toBe('none');
+      expect(() => validateEnv({ ...base, COOKIE_SAMESITE: 'bogus' })).toThrow(
         /COOKIE_SAMESITE/,
       );
     });

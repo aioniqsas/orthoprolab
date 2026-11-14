@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { filterRows, paginate } from "./data-table"
+import { filterRows, paginate, serverPageWindow } from "./data-table"
 import type { DataTableColumn, DataTableFilter } from "./data-table"
 
 type Row = { id: string; nombre: string; activo: boolean }
@@ -69,5 +69,43 @@ describe("paginate", () => {
     const page = paginate([], 0, 10)
     expect(page.pageCount).toBe(1)
     expect(page.visible).toEqual([])
+  })
+})
+
+describe("serverPageWindow", () => {
+  it("counts the pages from the server total, not from the loaded rows", () => {
+    expect(serverPageWindow(2, 10, 35)).toEqual({
+      currentPage: 2,
+      pageCount: 4,
+      first: 11,
+      last: 20,
+    })
+  })
+
+  it("shows the last partial page", () => {
+    expect(serverPageWindow(4, 10, 35)).toEqual({
+      currentPage: 4,
+      pageCount: 4,
+      first: 31,
+      last: 35,
+    })
+  })
+
+  it("reports no rows when the server total is zero", () => {
+    expect(serverPageWindow(1, 10, 0)).toEqual({
+      currentPage: 1,
+      pageCount: 1,
+      first: 0,
+      last: 0,
+    })
+  })
+
+  it("keeps a page beyond the end as requested, with the total as the counter", () => {
+    expect(serverPageWindow(9, 10, 35)).toEqual({
+      currentPage: 9,
+      pageCount: 4,
+      first: 35,
+      last: 35,
+    })
   })
 })

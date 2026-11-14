@@ -148,3 +148,22 @@ describe('PdfService.fetchServiceImage', () => {
     expect(result === null || result instanceof Buffer).toBe(true);
   });
 });
+
+describe('PdfService.getCatalogPdf single-flight (P3)', () => {
+  it('renders once for concurrent requests on a cold cache', async () => {
+    const { service, redis } = buildService({ cached: null });
+    const generate = vi
+      .spyOn(service as unknown as { generate: () => Promise<Buffer> }, 'generate')
+      .mockResolvedValue(Buffer.from('%PDF-1.4 fake'));
+
+    const resultados = await Promise.all([
+      service.getCatalogPdf(),
+      service.getCatalogPdf(),
+      service.getCatalogPdf(),
+    ]);
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(resultados.every((r) => r.equals(Buffer.from('%PDF-1.4 fake')))).toBe(true);
+    expect(redis.set).toHaveBeenCalledTimes(1);
+  });
+});

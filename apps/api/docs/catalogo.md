@@ -5,7 +5,7 @@ Referencia del módulo de catálogo de `apps/api` (`src/catalogo`) y de su consu
 ## 1. Resumen
 
 - Un servicio tiene `nombre`, `slug`, `descripcion`, `precio` (nunca se expone en las rutas públicas), `activo` e `imagenUrl`/`imagenPublicId` de Cloudinary.
-- El sitio público (`apps/web`) lee `GET /catalogo/servicios` y cachea la respuesta con el tag `catalog`.
+- El sitio público (`apps/web`) lee `GET /catalogo/servicios`, que responde paginado, y cachea la respuesta con el tag `catalog`. El sitio recorre todas las páginas porque esa lista alimenta también las rutas estáticas (ver `listados.md` §5).
 - El panel (`apps/admin`) usa las rutas de administración con la cookie `auth_token`.
 - Cada mutación emite un evento por SSE; `apps/web` invalida el tag y refresca la página.
 - El PDF se genera en el backend a partir de los servicios activos y se cachea en Redis.
@@ -14,28 +14,28 @@ Referencia del módulo de catálogo de `apps/api` (`src/catalogo`) y de su consu
 
 Tabla `servicio` (ver `database-model.md`):
 
-| Columna | Tipo | Notas |
-|---|---|---|
-| `id` | bigint | string numérica en la API, hasta 18 dígitos |
-| `slug` | text único | generado del nombre al crear; no cambia al renombrar |
-| `nombre` | text | 2–120 caracteres, único |
-| `descripcion` | text null | hasta 2000 caracteres |
-| `precio` | numeric(12,2) | string con 2 decimales en la API; solo admin y PDF |
-| `activo` | boolean | los inactivos no aparecen en el sitio ni en el PDF |
-| `imagen_url` | text null | siempre `https://res.cloudinary.com/...` |
-| `imagen_public_id` | text null | necesario para reemplazar/borrar el asset |
-| `fecha_creacion`, `fecha_actualizacion` | timestamptz | |
+| Columna                                 | Tipo          | Notas                                                |
+| --------------------------------------- | ------------- | ---------------------------------------------------- |
+| `id`                                    | bigint        | string numérica en la API, hasta 18 dígitos          |
+| `slug`                                  | text único    | generado del nombre al crear; no cambia al renombrar |
+| `nombre`                                | text          | 2–120 caracteres, único                              |
+| `descripcion`                           | text null     | hasta 2000 caracteres                                |
+| `precio`                                | numeric(12,2) | string con 2 decimales en la API; solo admin y PDF   |
+| `activo`                                | boolean       | los inactivos no aparecen en el sitio ni en el PDF   |
+| `imagen_url`                            | text null     | siempre `https://res.cloudinary.com/...`             |
+| `imagen_public_id`                      | text null     | necesario para reemplazar/borrar el asset            |
+| `fecha_creacion`, `fecha_actualizacion` | timestamptz   |                                                      |
 
 ## 3. Rutas públicas
 
 Prefijo `GET /catalogo`, todas `@Public()`. Devuelven solo `{ id, slug, nombre, descripcion, imagenUrl }` y nunca `precio`.
 
-| Ruta | Respuesta |
-|---|---|
-| `GET /catalogo/servicios` | Servicios activos, ordenados por nombre. `Cache-Control: public, max-age=60, stale-while-revalidate=300` |
-| `GET /catalogo/servicios/:slug` | Un servicio activo o 404 |
-| `GET /catalogo/pdf` | PDF (`application/pdf`, `attachment; filename="catalogo-orthopro-lab.pdf"`), throttle 5/min, `no-store` |
-| `GET /catalogo/eventos` | Stream SSE de cambios (sección 4) |
+| Ruta                            | Respuesta                                                                                                                                                                                                             |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /catalogo/servicios`       | Página de servicios activos: `{ data, total, page, size }`, `page`/`size` desde 1 y 10 por defecto (tope 100), orden por nombre con desempate por id. `Cache-Control: public, max-age=60, stale-while-revalidate=300` |
+| `GET /catalogo/servicios/:slug` | Un servicio activo o 404                                                                                                                                                                                              |
+| `GET /catalogo/pdf`             | PDF (`application/pdf`, `attachment; filename="catalogo-orthopro-lab.pdf"`), throttle 5/min, `no-store`                                                                                                               |
+| `GET /catalogo/eventos`         | Stream SSE de cambios (sección 4)                                                                                                                                                                                     |
 
 ## 4. Eventos en tiempo real (SSE)
 
@@ -74,17 +74,18 @@ sequenceDiagram
 
 Prefijo `/admin/catalogo/servicios`, rol `administrador` (cookie `auth_token`) y `Cache-Control: no-store`.
 
-| Ruta | Cuerpo / respuesta |
-|---|---|
-| `GET /` | Lista completa (incluye `precio`, `activo` y fechas) |
-| `POST /` | `{ nombre, descripcion?, precio, activo? }` → 201 con el servicio |
-| `GET /:id` | Servicio o 404 |
-| `PATCH /:id` | Cualquier subconjunto de los campos anteriores |
-| `DELETE /:id` | 204 si se borró; 200 con el servicio desactivado si tiene órdenes |
-| `POST /:id/imagen` | `multipart/form-data`, un archivo en el campo `imagen` |
+| Ruta               | Cuerpo / respuesta                                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`            | Página de servicios con `precio`, `activo` y fechas: `{ data, total, page, size }`. Acepta `q` (nombre o descripción), `activo=true | false`y`sort`de la lista`nombre`, `precio`, `activo`, `creado`con`order=asc | desc` |
+| `POST /`           | `{ nombre, descripcion?, precio, activo? }` → 201 con el servicio                                                                   |
+| `GET /:id`         | Servicio o 404                                                                                                                      |
+| `PATCH /:id`       | Cualquier subconjunto de los campos anteriores                                                                                      |
+| `DELETE /:id`      | 204 si se borró; 200 con el servicio desactivado si tiene órdenes                                                                   |
+| `POST /:id/imagen` | `multipart/form-data`, un archivo en el campo `imagen`                                                                              |
 
 Reglas:
 
+- La lista de administración pagina y filtra en el servidor como el resto de listados; la referencia completa del contrato (parámetros, 400 ante un `sort` desconocido, tope de 100) está en `listados.md`.
 - `precio` es un string (`^\d{1,10}(\.\d{1,2})?$`); se normaliza a 2 decimales. Nunca es un número JS.
 - `nombre` es único; un duplicado responde 409.
 - **Borrado:** si alguna fila de `detalle_orden` referencia el servicio, solo se pone `activo = false` (se conserva la historia). Si no, se borra la fila y se elimina la imagen de Cloudinary (best effort, se registra si falla).
@@ -94,12 +95,12 @@ Reglas:
 
 Las cargas usan el SDK oficial detrás del puerto `ImageStorage`.
 
-| Variable | Obligatoria | Notas |
-|---|---|---|
-| `CLOUDINARY_CLOUD_NAME` | sí, junto con las otras dos | |
-| `CLOUDINARY_API_KEY` | sí, junto con las otras dos | |
-| `CLOUDINARY_API_SECRET` | sí, junto con las otras dos | |
-| `CLOUDINARY_FOLDER` | no | por defecto `orthopro/catalogo` |
+| Variable                | Obligatoria                 | Notas                           |
+| ----------------------- | --------------------------- | ------------------------------- |
+| `CLOUDINARY_CLOUD_NAME` | sí, junto con las otras dos |                                 |
+| `CLOUDINARY_API_KEY`    | sí, junto con las otras dos |                                 |
+| `CLOUDINARY_API_SECRET` | sí, junto con las otras dos |                                 |
+| `CLOUDINARY_FOLDER`     | no                          | por defecto `orthopro/catalogo` |
 
 Las tres credenciales son todo-o-nada: si falta una, la API no arranca. Si no se configura ninguna, el resto del catálogo funciona y `POST /:id/imagen` responde 503 con un mensaje claro.
 
