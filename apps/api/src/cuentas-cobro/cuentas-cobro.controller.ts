@@ -25,6 +25,7 @@ import { AdjuntarOrdenesDto } from './dto/adjuntar-ordenes.dto.js';
 import { EnviarCuentaCobroDto } from './dto/enviar-cuenta-cobro.dto.js';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto.js';
 import { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
+import { ListCuentasQueryDto } from './dto/list-cuentas-query.dto.js';
 
 @Controller('cuentas-cobro')
 @UseGuards(RolesGuard)
@@ -36,8 +37,14 @@ export class CuentasCobroController {
   ) {}
 
   @Get()
-  findAll(@Query('doctorId') doctorId?: string, @Query('q') q?: string) {
-    return this.service.findAll(doctorId, q);
+  findAll(@Query() query: ListCuentasQueryDto) {
+    return this.service.findAll(
+      query.doctorId,
+      query.q,
+      query.page,
+      query.size,
+      { grupo: query.grupo, sort: query.sort, order: query.order },
+    );
   }
 
   /** Change trigger for the admin portal: any billing account changed. */

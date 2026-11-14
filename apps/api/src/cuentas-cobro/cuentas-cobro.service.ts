@@ -1,13 +1,12 @@
 import {
   BadRequestException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { Brackets, DataSource, In } from 'typeorm';
+import { Brackets, DataSource } from 'typeorm';
 import { CuentaCobro } from './cuenta-cobro.entity.js';
 import { CuentaCobroOrden } from './cuenta-cobro-orden.entity.js';
 import { EnvioCuentaCobro } from './envio-cuenta-cobro.entity.js';
@@ -19,7 +18,6 @@ import { ComprobanteStorageService } from './comprobante-storage.service.js';
 import { CuentasCobroEventosService } from './cuentas-cobro-eventos.service.js';
 import { detectComprobanteType } from './comprobante-upload.interceptor.js';
 import { Orden } from '../pedidos/orden.entity.js';
-import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { Usuario } from '../usuarios/usuario.entity.js';
 import type { CreateCuentaCobroDto } from './dto/create-cuenta-cobro.dto.js';
 import type { AdjuntarOrdenesDto } from './dto/adjuntar-ordenes.dto.js';
@@ -28,6 +26,17 @@ import type { RegistrarPagoDto } from './dto/registrar-pago.dto.js';
 import type { RegistrarComprobanteDto } from './dto/registrar-comprobante.dto.js';
 import type { UpdateCuentaCobroDto } from './dto/update-cuenta-cobro.dto.js';
 import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
+import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import { orderByWhitelist, type SortOrder } from '../common/list-query.js';
+import {
+  CUENTA_ORDER_COLUMNS,
+  ESTADOS_POR_GRUPO_CUENTA,
+} from './cuenta-grupo.js';
+import type { CuentaGroup } from './dto/list-cuentas-query.dto.js';
 
 @Injectable()
 export class CuentasCobroService {
@@ -52,18 +61,40 @@ export class CuentasCobroService {
     private readonly pdfService: PdfCuentaCobroService,
     private readonly mailerService: MailerCuentaCobroService,
     private readonly comprobanteStorage: ComprobanteStorageService,
-    private readonly pdfControlTrabajos: PdfControlTrabajosService,
     private readonly eventos: CuentasCobroEventosService,
   ) {}
 
-  async findAll(clinicaId?: string, q?: string): Promise<CuentaCobro[]> {
+  async findAll(
+    clinicaId?: string,
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+    opts?: { grupo?: CuentaGroup; sort?: string; order?: SortOrder },
+  ): Promise<PaginatedResult<CuentaCobro>> {
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
     const qb = this.cuentaCobroRepo
       .createQueryBuilder('cc')
-      .leftJoinAndSelect('cc.clinica', 'clinica')
-      .orderBy('cc.createdAt', 'DESC');
+      .leftJoinAndSelect('cc.clinica', 'clinica');
+    qb.orderBy(
+      orderByWhitelist(
+        CUENTA_ORDER_COLUMNS,
+        'cc.id',
+        { sort: opts?.sort, order: opts?.order },
+        'fecha',
+        'DESC',
+      ),
+    );
 
     if (clinicaId) {
       qb.where('cc.clinicaId = :clinicaId', { clinicaId });
+    }
+    if (opts?.grupo !== undefined) {
+      qb.andWhere('cc.estado IN (:...estados)', {
+        estados: ESTADOS_POR_GRUPO_CUENTA[opts.grupo],
+      });
     }
     // Searched in the database: number, clinic name and clinic email.
     const patron = patronBusqueda(q);
@@ -76,7 +107,10 @@ export class CuentasCobroService {
         }),
       );
     }
-    return qb.getMany();
+    const total = await qb.getCount();
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    const data = await qb.skip(skip).take(currentSize).getMany();
+    return paginatedResult(data, total, currentPage, currentSize);
   }
 
   findOne(id: string): Promise<CuentaCobro | null> {
@@ -527,53 +561,9 @@ export class CuentasCobroService {
       cuenta = await this.generarYGuardarPdf(id);
     }
 
-    const pdfUrl = cuenta.pdfUrl;
-    if (!pdfUrl) {
-      throw new InternalServerErrorException('PDF URL unavailable after generation.');
-    }
-
-    const pdfRes = await fetch(pdfUrl);
-    if (!pdfRes.ok) {
-      throw new InternalServerErrorException('Could not fetch PDF for email attachment.');
-    }
-    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
-
-    // Cada orden incluida viaja con su control de trabajos: la clínica recibe
-    // en un solo correo la cuenta y el respaldo del trabajo cobrado.
-    const adjuntas = await this.cuentaCobroOrdenRepo.find({
-      where: { cuentaCobroId: cuenta.id },
-    });
-    const ordenes = adjuntas.length
-      ? await this.ordenRepo.find({
-          where: { id: In(adjuntas.map((a) => a.ordenId)) },
-          relations: {
-            estado: true,
-            asignacion: { doctor: true, paciente: true },
-            detalles: true,
-            historial: { estadoNuevo: true },
-          },
-          order: { id: 'ASC' },
-        })
-      : [];
-
-    const controles: { filename: string; buffer: Buffer }[] = [];
-    for (const orden of ordenes) {
-      try {
-        controles.push({
-          filename: `control-de-trabajos-orden-${orden.id}.pdf`,
-          buffer: await this.pdfControlTrabajos.generate(orden),
-        });
-      } catch (err) {
-        // Un control que falla no debe impedir el envío de la cuenta.
-        this.logger.warn(
-          `Control de trabajos omitido para la orden ${orden.id}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
-
-    const result = await this.mailerService.sendCuentaCobro(cuenta, pdfBuffer, dto.email, controles);
+    // S3: the job carries the account id; the worker builds the PDFs when it
+    // sends the message, so no base64 reaches Redis and retries rebuild them.
+    const result = await this.mailerService.sendCuentaCobro(cuenta, dto.email);
 
     this.eventos.emitir('enviada', cuenta.id);
 

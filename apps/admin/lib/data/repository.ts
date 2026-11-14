@@ -13,7 +13,8 @@ import { coincideTexto } from "@/lib/busqueda";
 import "server-only";
 import { cookies } from "next/headers";
 import { SAMPLE_ORDENES } from "./sample";
-import { listCatalogoServicios, getCatalogoServicio } from "../catalogo-api";
+import type { ListaOpciones, ListaPagina } from "../lista-params";
+import { listCatalogoServiciosPage, getCatalogoServicio } from "../catalogo-api";
 import { API_URL } from "../api";
 import type {
   Clinica,
@@ -156,29 +157,84 @@ function mapOrden(raw: RawOrden): Orden {
 // Public API — Orders
 // ---------------------------------------------------------------------------
 
-function consultaBusqueda(q?: string): string {
-  return q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+interface PaginatedResponse<T> extends ListaPagina<T> {
+  page: number;
+  size: number;
 }
 
-export async function listOrdenes(q?: string): Promise<Orden[]> {
-  // The search runs on the server; sample data mirrors it locally.
-  if (SAMPLE_DATA) {
-    return [...SAMPLE_ORDENES]
-      .filter((o) => coincideTexto(q, [`#${o.id}`, fullName(o.doctor), o.paciente.nombre]))
-      .sort((a, b) => b.fechaCreacion.localeCompare(a.fechaCreacion));
-  }
+function listaParams(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): string {
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set("q", q.trim());
+  params.set("page", String(page));
+  params.set("size", String(size));
+  if (opts.grupo) params.set("grupo", opts.grupo);
+  if (opts.urgente !== undefined) params.set("urgente", String(opts.urgente));
+  if (opts.activo !== undefined) params.set("activo", String(opts.activo));
+  if (opts.sort) params.set("sort", opts.sort);
+  if (opts.order) params.set("order", opts.order);
+  return params.toString();
+}
+
+/** ONE page of a list endpoint; the table gets its counters from `total`. */
+async function fetchPage<T>(path: string): Promise<ListaPagina<T>> {
   try {
-    const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
-    const res = await fetch(`${API_URL}/ordenes${qs}`, {
+    const res = await fetch(`${API_URL}${path}`, {
       headers: await authHeader(),
       cache: "no-store",
     });
-    if (!res.ok) return [];
-    const raw = (await res.json()) as RawOrden[];
-    return raw.map(mapOrden);
+    if (!res.ok) return { data: [], total: 0 };
+    const body = (await res.json()) as PaginatedResponse<T>;
+    return { data: body.data, total: body.total };
   } catch {
-    return [];
+    return { data: [], total: 0 };
   }
+}
+
+/**
+ * Reads every page of a paginated endpoint as one array. Only for reference
+ * data consumed whole (clinics in a form, a detail lookup) — never for a table.
+ */
+async function fetchAllPages<T>(path: string): Promise<T[]> {
+  const sep = path.includes("?") ? "&" : "?";
+  const data: T[] = [];
+  let page = 1;
+  let total = Infinity;
+  while (data.length < total) {
+    const res = await fetch(`${API_URL}${path}${sep}page=${page}&size=100`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return data;
+    const body = (await res.json()) as PaginatedResponse<T>;
+    data.push(...body.data);
+    total = body.total;
+    if (body.data.length === 0) break;
+    page += 1;
+  }
+  return data;
+}
+
+export async function listOrdenesPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): Promise<ListaPagina<Orden>> {
+  // The search runs on the server; sample data mirrors it locally.
+  if (SAMPLE_DATA) {
+    const rows = [...SAMPLE_ORDENES]
+      .filter((o) => coincideTexto(q, [`#${o.id}`, fullName(o.doctor), o.paciente.nombre]))
+      .sort((a, b) => b.fechaCreacion.localeCompare(a.fechaCreacion));
+    const start = (page - 1) * size;
+    return { data: rows.slice(start, start + size), total: rows.length };
+  }
+  const pagina = await fetchPage<RawOrden>(`/ordenes?${listaParams(q, page, size, opts)}`);
+  return { data: pagina.data.map(mapOrden), total: pagina.total };
 }
 
 export async function getOrden(id: number): Promise<Orden | null> {
@@ -319,25 +375,33 @@ interface RawUsuarioItem {
 // Public API — Clinics
 // ---------------------------------------------------------------------------
 
-export async function listClinicas(q?: string): Promise<Clinica[]> {
-  try {
-    const res = await fetch(`${API_URL}/clinicas${consultaBusqueda(q)}`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const raw = (await res.json()) as RawClinicaListItem[];
-    return raw.map((c) => ({
-      id: Number(c.id),
-      nombre: c.nombre,
-      correo: c.correo,
-      direccion: c.direccion,
-      doctores: [],
-      doctorCount: c.doctorCount,
-    }));
-  } catch {
-    return [];
-  }
+function mapClinica(c: RawClinicaListItem): Clinica {
+  return {
+    id: Number(c.id),
+    nombre: c.nombre,
+    correo: c.correo,
+    direccion: c.direccion,
+    doctores: [],
+    doctorCount: c.doctorCount,
+  };
+}
+
+/** Every clinic: reference data for forms and lookups, never a table. */
+export async function listClinicas(): Promise<Clinica[]> {
+  const raw = await fetchAllPages<RawClinicaListItem>("/clinicas");
+  return raw.map(mapClinica);
+}
+
+export async function listClinicasPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): Promise<ListaPagina<Clinica>> {
+  const pagina = await fetchPage<RawClinicaListItem>(
+    `/clinicas?${listaParams(q, page, size, opts)}`,
+  );
+  return { data: pagina.data.map(mapClinica), total: pagina.total };
 }
 
 export async function getClinica(id: number | string): Promise<ClinicaDetalle | null> {
@@ -373,26 +437,28 @@ export async function getClinica(id: number | string): Promise<ClinicaDetalle | 
 // Public API — Users
 // ---------------------------------------------------------------------------
 
-export async function listUsuarios(q?: string): Promise<Usuario[]> {
-  try {
-    const res = await fetch(`${API_URL}/usuarios${consultaBusqueda(q)}`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const raw = (await res.json()) as RawUsuarioItem[];
-    return raw.map((u) => ({
-      id: u.id,
-      nombres: u.nombres,
-      apellidos: u.apellidos,
-      correo: u.correo,
-      rol: u.rol.nombre as RolNombre,
-      activo: u.activo,
-      cedulaEnmascarada: u.cedulaEnmascarada ?? "",
-    }));
-  } catch {
-    return [];
-  }
+function mapUsuario(u: RawUsuarioItem): Usuario {
+  return {
+    id: u.id,
+    nombres: u.nombres,
+    apellidos: u.apellidos,
+    correo: u.correo,
+    rol: u.rol.nombre as RolNombre,
+    activo: u.activo,
+    cedulaEnmascarada: u.cedulaEnmascarada ?? "",
+  };
+}
+
+export async function listUsuariosPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): Promise<ListaPagina<Usuario>> {
+  const pagina = await fetchPage<RawUsuarioItem>(
+    `/usuarios?${listaParams(q, page, size, opts)}`,
+  );
+  return { data: pagina.data.map(mapUsuario), total: pagina.total };
 }
 
 export async function getUsuario(id: string): Promise<UsuarioDetalle | null> {
@@ -426,8 +492,13 @@ export async function getUsuario(id: string): Promise<UsuarioDetalle | null> {
 // Public API — Catalog (delegates to catalogo-api.ts)
 // ---------------------------------------------------------------------------
 
-export async function listServicios(q?: string): Promise<Servicio[]> {
-  return listCatalogoServicios(q);
+export async function listServiciosPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): Promise<ListaPagina<Servicio>> {
+  return listCatalogoServiciosPage(q, page, size, opts);
 }
 
 export async function getServicio(id: string): Promise<Servicio | null> {
@@ -548,18 +619,16 @@ function mapCuentaCobro(raw: RawCuentaCobro): CuentaCobro {
 // Public API — Cuentas de cobro
 // ---------------------------------------------------------------------------
 
-export async function listCuentasCobro(q?: string): Promise<CuentaCobro[]> {
-  try {
-    const res = await fetch(`${API_URL}/cuentas-cobro${consultaBusqueda(q)}`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const raw = (await res.json()) as RawCuentaCobro[];
-    return raw.map(mapCuentaCobro);
-  } catch {
-    return [];
-  }
+export async function listCuentasCobroPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): Promise<ListaPagina<CuentaCobro>> {
+  const pagina = await fetchPage<RawCuentaCobro>(
+    `/cuentas-cobro?${listaParams(q, page, size, opts)}`,
+  );
+  return { data: pagina.data.map(mapCuentaCobro), total: pagina.total };
 }
 
 export async function getCuentaCobro(id: string): Promise<CuentaCobro | null> {

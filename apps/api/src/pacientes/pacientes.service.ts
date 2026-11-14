@@ -5,6 +5,11 @@ import { cedulaHashOrNull } from '../crypto/cedula.js';
 import { getCrypto } from '../crypto/crypto.registry.js';
 import { normalizarBusqueda } from '../common/busqueda.js';
 import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import {
   digitosDe,
   nombreBuscable,
   palabrasNormalizadas,
@@ -54,32 +59,42 @@ export class PacientesService {
   async listForClinica(
     clinicaId: string,
     q?: string,
-  ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {
+    page?: string | number,
+    size?: string | number,
+  ): Promise<PaginatedResult<{ id: string; nombre: string; cedula: string | null }>> {
     const ids = await this.buscarIds(q);
-    if (ids && ids.length === 0) return [];
-    const qb = this.pacienteDoctorRepo
-      .createQueryBuilder('pd')
-      .innerJoin('pd.doctor', 'doctor')
-      .innerJoinAndSelect('pd.paciente', 'paciente')
-      .where('doctor.clinicaId = :clinicaId', { clinicaId })
-      .orderBy('paciente.nombre', 'ASC');
-    if (ids) qb.andWhere('paciente.id IN (:...ids)', { ids });
-    const links = await qb.getMany();
-
-    const seen = new Set<string>();
-    const result: Array<{ id: string; nombre: string; cedula: string | null }> =
-      [];
-    for (const link of links) {
-      if (!seen.has(link.pacienteId)) {
-        seen.add(link.pacienteId);
-        result.push({
-          id: link.pacienteId,
-          nombre: link.paciente.nombre,
-          cedula: enmascararCedula(link.paciente.cedula),
-        });
-      }
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    if (ids && ids.length === 0) {
+      return paginatedResult([], 0, currentPage, currentSize);
     }
-    return result;
+    // One row per patient even when several doctors of the clinic follow them.
+    const qb = this.pacienteRepo
+      .createQueryBuilder('paciente')
+      .where(
+        `paciente.id IN (SELECT pd.paciente_id FROM paciente_doctor pd
+           INNER JOIN doctor d ON d.id = pd.doctor_id
+           WHERE d.clinica_id = :clinicaId)`,
+        { clinicaId },
+      )
+      .orderBy('paciente.nombre', 'ASC')
+      .addOrderBy('paciente.id', 'ASC')
+      .skip(skip)
+      .take(currentSize);
+    if (ids) qb.andWhere('paciente.id IN (:...ids)', { ids });
+    const [pacientes, total] = await qb.getManyAndCount();
+    return paginatedResult(
+      pacientes.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        cedula: enmascararCedula(p.cedula),
+      })),
+      total,
+      currentPage,
+      currentSize,
+    );
   }
 
   async updateNombre(

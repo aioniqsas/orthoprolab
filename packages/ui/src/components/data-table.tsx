@@ -23,6 +23,8 @@ export type DataTableColumn<T> = {
   searchValue?: (row: T) => string
   /** Return a string or number to enable click-to-sort on this column. */
   sortValue?: (row: T) => string | number
+  /** Whitelisted `sort` value of the server for this column (server mode). */
+  sortKey?: string
   align?: "left" | "right"
   /** Cell classes; the header keeps its own typography. */
   className?: string
@@ -35,6 +37,42 @@ export type DataTableFilter<T> = {
   allLabel?: string
   options: readonly { value: string; label: string }[]
   match: (row: T, value: string) => boolean
+}
+
+/**
+ * Server pagination: the caller loads ONE page and the table only navigates.
+ * Rows are rendered as they arrive; the counters and the page count come from
+ * the server `total`, never from the size of the loaded page.
+ *
+ * Client-side filters and column sorting are disabled in this mode: filtering
+ * or sorting a single page would silently give wrong results.
+ */
+/** A filter applied by the server: the table only renders the control. */
+export type DataTableServerFilter = {
+  id: string
+  label: string
+  allLabel?: string
+  options: readonly { value: string; label: string }[]
+  /** Current value; "all" means no filter. */
+  value: string
+  onChange: (value: string) => void
+}
+
+/** Server-side column sorting: one whitelisted `sort` key at a time. */
+export type DataTableServerSort = {
+  sort?: string
+  order?: "asc" | "desc"
+  onSort: (key: string) => void
+}
+
+export type DataTableServerPagination = {
+  /** 1-based page currently shown. */
+  page: number
+  size: number
+  total: number
+  onPage: (page: number) => void
+  onSize: (size: number) => void
+  pageSizeOptions?: readonly number[]
 }
 
 export type DataTableProps<T> = {
@@ -64,6 +102,12 @@ export type DataTableProps<T> = {
   initialSort?: { id: string; dir: "asc" | "desc" }
   /** Filter values applied on first render, e.g. `{ grupo: "activas" }`. */
   initialFilterValues?: Record<string, string>
+  /** Paginate on the server: one page per request, counters from `total`. */
+  serverPagination?: DataTableServerPagination
+  /** Filters applied by the server (only used with `serverPagination`). */
+  serverFilters?: readonly DataTableServerFilter[]
+  /** Column sorting applied by the server (only with `serverPagination`). */
+  serverSort?: DataTableServerSort
 }
 
 const selectClass =
@@ -102,6 +146,19 @@ export function filterRows<T>(
   })
 }
 
+/**
+ * Counters of one server page: 1-based current page, page count from the
+ * server total and the 1-based range of rows being shown.
+ */
+export function serverPageWindow(page: number, size: number, total: number) {
+  const safeSize = size > 0 ? size : 1
+  const pageCount = Math.max(1, Math.ceil(total / safeSize))
+  const currentPage = Math.max(1, Math.trunc(page))
+  const first = total === 0 ? 0 : Math.min((currentPage - 1) * safeSize + 1, total)
+  const last = total === 0 ? 0 : Math.min(currentPage * safeSize, total)
+  return { currentPage, pageCount, first, last }
+}
+
 /** Page slice, clamped to the available range. */
 export function paginate<T>(rows: readonly T[], page: number, pageSize: number) {
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
@@ -128,7 +185,13 @@ function DataTable<T>({
   initialPageSize = 10,
   initialSort,
   initialFilterValues,
+  serverPagination,
+  serverFilters = [],
+  serverSort,
 }: DataTableProps<T>) {
+  const server = serverPagination
+  const serverPageSize = server?.size ?? initialPageSize
+  const sizeOptions = server?.pageSizeOptions ?? pageSizeOptions
   const [query, setQuery] = React.useState("")
   const [filterValues, setFilterValues] = React.useState<Record<string, string>>(
     initialFilterValues ?? {},
@@ -171,7 +234,19 @@ function DataTable<T>({
     })
   }, [filtered, sort, columns])
 
-  const { visible, pageCount, currentPage, first } = paginate(sorted, page, pageSize)
+  const localPage = paginate(sorted, page, pageSize)
+  const serverWindow = server
+    ? serverPageWindow(server.page, server.size, server.total)
+    : null
+  // A server page is rendered exactly as it arrived.
+  const visible = server ? rows : localPage.visible
+  const pageCount = serverWindow?.pageCount ?? localPage.pageCount
+  const currentPage = serverWindow ? serverWindow.currentPage - 1 : localPage.currentPage
+  const first = serverWindow ? serverWindow.first - 1 : localPage.first
+  const totalRows = server ? server.total : filtered.length
+  const lastRow = serverWindow
+    ? serverWindow.last
+    : Math.min(first + pageSize, filtered.length)
 
   const hasFilters =
     normalize(busqueda).length > 0 ||
@@ -237,7 +312,26 @@ function DataTable<T>({
           </div>
           )
         ) : null}
-        {filters.map((filter) => (
+        {server
+          ? serverFilters.map((filter) => (
+              <label key={filter.id} className="flex items-center gap-2 text-sm">
+                {filter.label}
+                <select
+                  aria-label={filter.label}
+                  value={filter.value}
+                  onChange={(event) => filter.onChange(event.target.value)}
+                  className={selectClass}
+                >
+                  <option value="all">{filter.allLabel ?? "Todos"}</option>
+                  {filter.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))
+          : filters.map((filter) => (
           <label key={filter.id} className="flex items-center gap-2 text-sm">
             {filter.label}
             <select
@@ -258,14 +352,14 @@ function DataTable<T>({
             </select>
           </label>
         ))}
-        {hasFilters ? (
+        {!server && hasFilters ? (
           <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
             Limpiar filtros
           </Button>
         ) : null}
       </div>
 
-      {filtered.length === 0 ? (
+      {(server ? server.total === 0 : filtered.length === 0) ? (
         empty ?? null
       ) : (
         <>
@@ -274,9 +368,13 @@ function DataTable<T>({
               <TableHeader>
                 <TableRow>
                   {columns.map((column) => {
-                    const isSorted = sort?.id === column.id
+                    const serverSorted = server
+                      ? serverSort?.sort === column.sortKey
+                      : false
+                    const isSorted = server ? serverSorted : sort?.id === column.id
+                    const direction = server ? serverSort?.order : sort?.dir
                     const SortIcon = isSorted
-                      ? sort!.dir === "asc"
+                      ? direction === "asc"
                         ? ChevronUpIcon
                         : ChevronDownIcon
                       : ChevronsUpDownIcon
@@ -285,10 +383,14 @@ function DataTable<T>({
                         key={column.id}
                         className={cn(column.align === "right" && "text-end")}
                       >
-                        {column.sortValue ? (
+                        {(server ? column.sortKey : column.sortValue) ? (
                           <button
                             type="button"
-                            onClick={() => toggleSort(column.id)}
+                            onClick={() =>
+                              server
+                                ? serverSort?.onSort(column.sortKey as string)
+                                : toggleSort(column.id)
+                            }
                             className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
                           >
                             {column.header}
@@ -331,23 +433,28 @@ function DataTable<T>({
         </>
       )}
 
-      {filtered.length > 0 ? (
+      {(server ? server.total > 0 : filtered.length > 0) ? (
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <p role="status">
-            Mostrando {first + 1}–{Math.min(first + pageSize, filtered.length)} de {filtered.length}
+            Mostrando {first + 1}–{lastRow} de {totalRows}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2">
               Filas por página
               <select
-                value={pageSize}
+                value={serverPageSize}
                 onChange={(event) => {
-                  setPageSize(Number(event.target.value))
+                  const next = Number(event.target.value)
+                  if (server) {
+                    server.onSize(next)
+                    return
+                  }
+                  setPageSize(next)
                   setPage(0)
                 }}
                 className={selectClass}
               >
-                {pageSizeOptions.map((option) => (
+                {sizeOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -359,7 +466,9 @@ function DataTable<T>({
               variant="outline"
               size="sm"
               disabled={currentPage === 0}
-              onClick={() => setPage(currentPage - 1)}
+              onClick={() =>
+                server ? server.onPage(currentPage) : setPage(currentPage - 1)
+              }
             >
               <ChevronLeftIcon aria-hidden /> Anterior
             </Button>
@@ -371,7 +480,9 @@ function DataTable<T>({
               variant="outline"
               size="sm"
               disabled={currentPage >= pageCount - 1}
-              onClick={() => setPage(currentPage + 1)}
+              onClick={() =>
+                server ? server.onPage(currentPage + 2) : setPage(currentPage + 1)
+              }
             >
               Siguiente <ChevronRightIcon aria-hidden />
             </Button>

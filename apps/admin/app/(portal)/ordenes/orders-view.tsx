@@ -1,5 +1,12 @@
 import { isAdmin } from "@/lib/auth-guard";
-import { getEstadosOrden, getOrdenesStats, listOrdenes } from "@/lib/data/repository";
+import { getEstadosOrden, getOrdenesStats, listOrdenesPage } from "@/lib/data/repository";
+import {
+  listaBooleano,
+  listaOpcion,
+  listaOrden,
+  listaPagina,
+  listaTamano,
+} from "@/lib/lista-params";
 import { ESTADOS_ORDEN } from "@/lib/data/types";
 import { esEstadoFinal, estadoLabel } from "@/lib/data/helpers";
 import { OrdersTable } from "./orders-table";
@@ -42,14 +49,62 @@ function OrdersStats({ stats }: { stats: Record<string, number> }) {
   );
 }
 
-export async function OrdersView({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+const GRUPOS = ["activas", "terminadas", "canceladas"] as const;
+const SORTS = ["orden", "creada", "entrega", "total", "doctor"] as const;
+
+export async function OrdersView({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    size?: string;
+    grupo?: string;
+    urgente?: string;
+    sort?: string;
+    order?: string;
+  }>;
+}) {
   if (!(await isAdmin())) return null;
-  const { q } = await searchParams;
-  const [ordenes, stats, estados] = await Promise.all([listOrdenes(q), getOrdenesStats(), getEstadosOrden()]);
+  const {
+    q,
+    page: pageParam,
+    size: sizeParam,
+    grupo,
+    urgente,
+    sort,
+    order,
+  } = await searchParams;
+  const page = listaPagina(pageParam);
+  const size = listaTamano(sizeParam);
+  const filtros = {
+    grupo: listaOpcion(grupo, GRUPOS),
+    urgente: listaBooleano(urgente),
+    sort: listaOpcion(sort, SORTS),
+    order: listaOrden(order),
+  };
+  const [paginaOrdenes, stats, estados] = await Promise.all([
+    listOrdenesPage(q, page, size, filtros),
+    getOrdenesStats(),
+    getEstadosOrden(),
+  ]);
   return (
     <div className="flex flex-col gap-6">
       <OrdersStats stats={stats} />
-      <OrdersTable ordenes={ordenes} estados={estados} busquedaInicial={q ?? ""} />
+      <OrdersTable
+        ordenes={paginaOrdenes.data}
+        total={paginaOrdenes.total}
+        page={page}
+        size={size}
+        estados={estados}
+        busquedaInicial={q ?? ""}
+        filtros={{
+          grupo: filtros.grupo,
+          urgente: filtros.urgente,
+          sort: filtros.sort,
+          order: filtros.order,
+        }}
+      />
     </div>
   );
 }

@@ -50,7 +50,6 @@ function montar(estadoCodigo: string) {
     {} as never,
     {} as never,
     {} as never,
-    { generate: vi.fn(async () => Buffer.from('pdf')) } as never,
     { emitir: vi.fn() } as never,
   );
 
@@ -126,7 +125,6 @@ function montarDisponibles() {
     { createQueryBuilder: () => subBuilder } as never,
     {} as never,
     { createQueryBuilder: () => outerBuilder } as never,
-    {} as never,
     {} as never,
     {} as never,
     {} as never,

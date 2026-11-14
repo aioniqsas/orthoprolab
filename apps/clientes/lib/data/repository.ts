@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { API_URL } from "@/lib/api";
+import type { ListaOpciones, ListaPagina } from "@/lib/lista-params";
 import type {
   CuentaCobro,
   CuentaCobroDetalle,
@@ -18,8 +19,64 @@ async function authHeader(): Promise<HeadersInit> {
 
 // ─── Doctores ───────────────────────────────────────────────────────────────
 
-function consultaBusqueda(q?: string): string {
-  return q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+interface PaginatedResponse<T> extends ListaPagina<T> {
+  page: number;
+  size: number;
+}
+
+function listaParams(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): string {
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set("q", q.trim());
+  params.set("page", String(page));
+  params.set("size", String(size));
+  if (opts.grupo) params.set("grupo", opts.grupo);
+  if (opts.sort) params.set("sort", opts.sort);
+  if (opts.order) params.set("order", opts.order);
+  return params.toString();
+}
+
+/** ONE page of a list endpoint; the table gets its counters from `total`. */
+async function fetchPage<T>(path: string): Promise<ListaPagina<T>> {
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return { data: [], total: 0 };
+    const body = (await res.json()) as PaginatedResponse<T>;
+    return { data: body.data, total: body.total };
+  } catch {
+    return { data: [], total: 0 };
+  }
+}
+
+/**
+ * Reads every page of a paginated endpoint as one array. Only for reference
+ * data consumed whole (a patient detail lookup) — never for a table.
+ */
+async function fetchAllPages<T>(path: string): Promise<T[]> {
+  const sep = path.includes("?") ? "&" : "?";
+  const data: T[] = [];
+  let page = 1;
+  let total = Infinity;
+  while (data.length < total) {
+    const res = await fetch(`${API_URL}${path}${sep}page=${page}&size=100`, {
+      headers: await authHeader(),
+      cache: "no-store",
+    });
+    if (!res.ok) return data;
+    const body = (await res.json()) as PaginatedResponse<T>;
+    data.push(...body.data);
+    total = body.total;
+    if (body.data.length === 0) break;
+    page += 1;
+  }
+  return data;
 }
 
 export async function listDoctores(includeInactive = false): Promise<Doctor[]> {
@@ -53,18 +110,13 @@ export async function getDoctor(id: string): Promise<Doctor | null> {
 
 // ─── Órdenes ────────────────────────────────────────────────────────────────
 
-export async function listOrdenes(q?: string): Promise<Orden[]> {
-  try {
-    const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
-    const res = await fetch(`${API_URL}/mi-clinica/ordenes${qs}`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return res.json() as Promise<Orden[]>;
-  } catch {
-    return [];
-  }
+export async function listOrdenesPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): Promise<ListaPagina<Orden>> {
+  return fetchPage<Orden>(`/mi-clinica/ordenes?${listaParams(q, page, size, opts)}`);
 }
 
 export async function getOrden(id: string): Promise<Orden | null> {
@@ -84,12 +136,9 @@ export async function getOrden(id: string): Promise<Orden | null> {
 
 export async function listPacientesDelDoctor(doctorId: string): Promise<PacienteDoctor[]> {
   try {
-    const res = await fetch(`${API_URL}/mi-clinica/pacientes?doctorId=${encodeURIComponent(doctorId)}`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return res.json() as Promise<PacienteDoctor[]>;
+    return await fetchAllPages<PacienteDoctor>(
+      `/mi-clinica/pacientes?doctorId=${encodeURIComponent(doctorId)}`,
+    );
   } catch {
     return [];
   }
@@ -97,22 +146,20 @@ export async function listPacientesDelDoctor(doctorId: string): Promise<Paciente
 
 // ─── Pacientes (all in clinic) ──────────────────────────────────────────────
 
-export async function listPacientes(q?: string): Promise<PacienteConCedula[]> {
-  try {
-    const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
-    const res = await fetch(`${API_URL}/mi-clinica/pacientes${qs}`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return res.json() as Promise<PacienteConCedula[]>;
-  } catch {
-    return [];
-  }
+export async function listPacientesPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+): Promise<ListaPagina<PacienteConCedula>> {
+  return fetchPage<PacienteConCedula>(
+    `/mi-clinica/pacientes?${listaParams(q, page, size)}`,
+  );
 }
 
+// shortcut: the API has no patient-by-id route, so the detail lookup reads the
+// pages until it finds the patient; add GET /mi-clinica/pacientes/:id to drop it.
 export async function getPaciente(id: string): Promise<PacienteConCedula | null> {
-  const all = await listPacientes();
+  const all = await fetchAllPages<PacienteConCedula>("/mi-clinica/pacientes");
   return all.find((p) => p.id === id) ?? null;
 }
 
@@ -143,17 +190,15 @@ export async function actualizarPaciente(
 
 // ─── Cuentas de cobro ───────────────────────────────────────────────────────
 
-export async function listCuentasCobro(q?: string): Promise<CuentaCobro[]> {
-  try {
-    const res = await fetch(`${API_URL}/mi-clinica/cuentas-cobro${consultaBusqueda(q)}`, {
-      headers: await authHeader(),
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return res.json() as Promise<CuentaCobro[]>;
-  } catch {
-    return [];
-  }
+export async function listCuentasCobroPage(
+  q: string | undefined,
+  page: number,
+  size: number,
+  opts: ListaOpciones = {},
+): Promise<ListaPagina<CuentaCobro>> {
+  return fetchPage<CuentaCobro>(
+    `/mi-clinica/cuentas-cobro?${listaParams(q, page, size, opts)}`,
+  );
 }
 
 export async function getCuentaCobro(id: string): Promise<CuentaCobroDetalle | null> {

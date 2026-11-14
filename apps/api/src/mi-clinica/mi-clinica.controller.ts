@@ -28,6 +28,9 @@ import { CuentasCobroEventosService } from '../cuentas-cobro/cuentas-cobro-event
 import { RegistrarComprobanteDto } from '../cuentas-cobro/dto/registrar-comprobante.dto.js';
 import { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
+import { ListPacientesQueryDto } from './dto/list-pacientes-query.dto.js';
+import { ListOrdenesQueryDto } from '../pedidos/dto/list-ordenes-query.dto.js';
+import { ListCuentasQueryDto } from '../cuentas-cobro/dto/list-cuentas-query.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
 import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
@@ -99,13 +102,23 @@ export class MiClinicaController {
   @Get('pacientes')
   listPacientes(
     @Req() req: AuthenticatedRequest,
-    @Query('doctorId') doctorId?: string,
-    @Query('q') q?: string,
+    @Query() query: ListPacientesQueryDto,
   ) {
-    if (doctorId) {
-      return this.miClinica.listPacientesDelDoctor(req.user.id, doctorId, q);
+    if (query.doctorId) {
+      return this.miClinica.listPacientesDelDoctor(
+        req.user.id,
+        query.doctorId,
+        query.q,
+        query.page,
+        query.size,
+      );
     }
-    return this.miClinica.listAllPacientes(req.user.id, q);
+    return this.miClinica.listAllPacientes(
+      req.user.id,
+      query.q,
+      query.page,
+      query.size,
+    );
   }
 
   @Post('pacientes')
@@ -127,13 +140,25 @@ export class MiClinicaController {
   }
 
   @Get('servicios')
-  listServicios() {
-    return this.miClinica.listServicios();
+  listServicios(
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.miClinica.listServicios(page, size);
   }
 
   @Get('ordenes')
-  listOrdenes(@Req() req: AuthenticatedRequest, @Query('q') q?: string) {
-    return this.miClinica.listOrdenes(req.user.id, q);
+  listOrdenes(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ListOrdenesQueryDto,
+  ) {
+    return this.miClinica.listOrdenes(
+      req.user.id,
+      query.q,
+      query.page,
+      query.size,
+      { grupo: query.grupo, sort: query.sort, order: query.order },
+    );
   }
 
   @Post('ordenes')
@@ -222,8 +247,17 @@ export class MiClinicaController {
   }
 
   @Get('cuentas-cobro')
-  listCuentasCobro(@Req() req: AuthenticatedRequest, @Query('q') q?: string) {
-    return this.miClinica.listCuentasCobro(req.user.id, q);
+  listCuentasCobro(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ListCuentasQueryDto,
+  ) {
+    return this.miClinica.listCuentasCobro(
+      req.user.id,
+      query.q,
+      query.page,
+      query.size,
+      { grupo: query.grupo, sort: query.sort, order: query.order },
+    );
   }
 
   /** Change trigger for the client portal: the clinic refreshes its own list. */

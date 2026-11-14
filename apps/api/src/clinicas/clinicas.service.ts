@@ -9,6 +9,18 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, Repository } from 'typeorm';
 import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
+import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import { orderByWhitelist, type SortOrder } from '../common/list-query.js';
+
+/** Whitelisted `sort` keys of `/clinicas`, mapped to their SQL column. */
+const CLINICA_ORDER_COLUMNS: Record<string, string> = {
+  nombre: 'c.nombre',
+  creado: 'c.fechaCreacion',
+};
 import { MailerAuthService } from '../auth/mailer-auth.service.js';
 import { cedulaHash } from '../crypto/cedula.js';
 import { PasswordService } from '../crypto/password.service.js';
@@ -59,9 +71,27 @@ export class ClinicasService {
     private readonly mailerAuth: MailerAuthService,
   ) {}
 
-  async findAll(q?: string): Promise<ClinicaWithCount[]> {
+  async findAll(
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+    opts?: { sort?: string; order?: SortOrder },
+  ): Promise<PaginatedResult<ClinicaWithCount>> {
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
     const patron = patronBusqueda(q);
-    const clinicasQb = this.clinicaRepo.createQueryBuilder('c').orderBy('c.nombre', 'ASC');
+    const clinicasQb = this.clinicaRepo.createQueryBuilder('c');
+    clinicasQb.orderBy(
+      orderByWhitelist(
+        CLINICA_ORDER_COLUMNS,
+        'c.id',
+        { sort: opts?.sort, order: opts?.order },
+        'nombre',
+        'ASC',
+      ),
+    );
     if (patron) {
       clinicasQb.andWhere(
         new Brackets((w) => {
@@ -75,21 +105,25 @@ export class ClinicasService {
         }),
       );
     }
-    const [clinicas, counts] = await Promise.all([
-      clinicasQb.getMany(),
-      this.doctorRepo
-        .createQueryBuilder('d')
-        .select('d.clinicaId', 'clinicaId')
-        .addSelect('COUNT(*)', 'count')
-        .where('d.clinicaId IS NOT NULL')
-        .groupBy('d.clinicaId')
-        .getRawMany<{ clinicaId: string; count: string }>(),
-    ]);
+    const total = await clinicasQb.getCount();
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    const clinicas = await clinicasQb.skip(skip).take(currentSize).getMany();
+    const ids = clinicas.map((c) => c.id);
+    const counts = ids.length
+      ? await this.doctorRepo
+          .createQueryBuilder('d')
+          .select('d.clinicaId', 'clinicaId')
+          .addSelect('COUNT(*)', 'count')
+          .where('d.clinicaId IN (:...ids)', { ids })
+          .groupBy('d.clinicaId')
+          .getRawMany<{ clinicaId: string; count: string }>()
+      : [];
     const countMap = new Map(counts.map((r) => [r.clinicaId, Number(r.count)]));
-    return clinicas.map((c) => ({
+    const data = clinicas.map((c) => ({
       ...c,
       doctorCount: countMap.get(c.id) ?? 0,
     }));
+    return paginatedResult(data, total, currentPage, currentSize);
   }
 
   async findOne(id: string): Promise<ClinicaDetail> {

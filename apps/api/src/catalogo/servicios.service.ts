@@ -27,6 +27,20 @@ import { Servicio } from './servicio.entity.js';
 import { slugify, uniqueSlug } from './slug.js';
 import { PDF_REDIS, invalidatePdfCache } from './pdf-cache.js';
 import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
+import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import { orderByWhitelist, type SortOrder } from '../common/list-query.js';
+
+/** Whitelisted `sort` keys of `/admin/catalogo/servicios`. */
+const SERVICIO_ORDER_COLUMNS: Record<string, string> = {
+  nombre: 's.nombre',
+  precio: 's.precio',
+  activo: 's.activo',
+  creado: 's.fechaCreacion',
+};
 
 /** The ONLY fields the public catalog exposes: never price, state or internals. */
 export interface ServicioPublico {
@@ -91,12 +105,22 @@ export class ServiciosService {
 
   // --- public ---------------------------------------------------------------
 
-  async listPublic(): Promise<ServicioPublico[]> {
-    const rows = await this.servicios.find({
+  async listPublic(
+    page?: string | number,
+    size?: string | number,
+  ): Promise<PaginatedResult<ServicioPublico>> {
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    const [rows, total] = await this.servicios.findAndCount({
       where: { activo: true },
-      order: { nombre: 'ASC' },
+      order: { nombre: 'ASC', id: 'ASC' },
+      skip,
+      take: currentSize,
     });
-    return rows.map(toPublico);
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    return paginatedResult(rows.map(toPublico), total, currentPage, currentSize);
   }
 
   async findPublicBySlug(slug: string): Promise<ServicioPublico> {
@@ -116,8 +140,29 @@ export class ServiciosService {
 
   // --- admin ----------------------------------------------------------------
 
-  async listAdmin(q?: string): Promise<ServicioAdmin[]> {
-    const qb = this.servicios.createQueryBuilder('s').orderBy('s.nombre', 'ASC');
+  async listAdmin(
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+    opts?: { activo?: boolean; sort?: string; order?: SortOrder },
+  ): Promise<PaginatedResult<ServicioAdmin>> {
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    const qb = this.servicios.createQueryBuilder('s');
+    qb.orderBy(
+      orderByWhitelist(
+        SERVICIO_ORDER_COLUMNS,
+        's.id',
+        { sort: opts?.sort, order: opts?.order },
+        'nombre',
+        'ASC',
+      ),
+    );
+    if (opts?.activo !== undefined) {
+      qb.andWhere('s.activo = :activo', { activo: opts.activo });
+    }
     const patron = patronBusqueda(q);
     if (patron) {
       qb.andWhere(
@@ -125,8 +170,10 @@ export class ServiciosService {
         { patron },
       );
     }
-    const rows = await qb.getMany();
-    return rows.map(toAdmin);
+    const total = await qb.getCount();
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    const rows = await qb.skip(skip).take(currentSize).getMany();
+    return paginatedResult(rows.map(toAdmin), total, currentPage, currentSize);
   }
 
   async getAdmin(id: string): Promise<ServicioAdmin> {

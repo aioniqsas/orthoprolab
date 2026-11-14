@@ -3,23 +3,60 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
-import { listOrdenes } from "@/lib/data/repository";
+import { listOrdenesPage } from "@/lib/data/repository";
+import {
+  listaOpcion,
+  listaOrden,
+  listaPagina,
+  listaTamano,
+} from "@/lib/lista-params";
 import { OrdenesTable } from "./ordenes-table";
 import { OrdenesLive } from "./ordenes-live";
 
 export const metadata: Metadata = { title: "Órdenes" };
 
-async function OrdenesList({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams;
+const GRUPOS_ORDEN = ["activas", "terminadas", "canceladas"] as const;
+const SORTS_ORDEN = ["orden", "creada", "entrega", "total", "doctor"] as const;
+
+async function OrdenesList({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    size?: string;
+    grupo?: string;
+    sort?: string;
+    order?: string;
+  }>;
+}) {
+  const { q, page: pageParam, size: sizeParam, grupo, sort, order } =
+    await searchParams;
+  const page = listaPagina(pageParam);
+  const size = listaTamano(sizeParam);
+  const filtros = {
+    grupo: listaOpcion(grupo, GRUPOS_ORDEN),
+    sort: listaOpcion(sort, SORTS_ORDEN),
+    order: listaOrden(order),
+  };
   // The search runs on the server (patient names are encrypted at rest).
-  const ordenes = await listOrdenes(q);
-  return <OrdenesTable ordenes={ordenes} busquedaInicial={q ?? ""} />;
+  const ordenes = await listOrdenesPage(q, page, size, filtros);
+  return (
+    <OrdenesTable
+      ordenes={ordenes.data}
+      total={ordenes.total}
+      page={page}
+      size={size}
+      busquedaInicial={q ?? ""}
+      filtros={filtros}
+    />
+  );
 }
 
 export default function OrdenesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; size?: string }>;
 }) {
   return (
     <section className="flex flex-col gap-6">

@@ -4,7 +4,14 @@ import Link from "next/link";
 import { Eye, Plus } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
 import { isAdmin } from "@/lib/auth-guard";
-import { listServicios } from "@/lib/data/repository";
+import { listServiciosPage } from "@/lib/data/repository";
+import {
+  listaBooleano,
+  listaOpcion,
+  listaOrden,
+  listaPagina,
+  listaTamano,
+} from "@/lib/lista-params";
 import { ListSkeleton } from "../../_components/list-skeleton";
 import { PageHeader } from "../../_components/page-header";
 import { ServiciosTable } from "./servicios-table";
@@ -14,7 +21,14 @@ export const metadata: Metadata = { title: "Catálogo y aranceles" };
 export default function CatalogoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    size?: string;
+    activo?: string;
+    sort?: string;
+    order?: string;
+  }>;
 }) {
   return (
     <section className="flex flex-col gap-6">
@@ -42,9 +56,39 @@ export default function CatalogoPage({
   );
 }
 
-async function CatalogoView({ searchParams }: { searchParams: Promise<{ q?: string }>; }) {
-  const { q } = await searchParams;
+const SORTS_SERVICIO = ["nombre", "precio", "activo", "creado"] as const;
+
+async function CatalogoView({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    size?: string;
+    activo?: string;
+    sort?: string;
+    order?: string;
+  }>;
+}) {
+  const { q, page: pageParam, size: sizeParam, activo, sort, order } =
+    await searchParams;
   if (!(await isAdmin())) return null;
-  const servicios = await listServicios(q);
-  return <ServiciosTable servicios={servicios} busquedaInicial={q ?? ""} />;
+  const page = listaPagina(pageParam);
+  const size = listaTamano(sizeParam);
+  const filtros = {
+    activo: listaBooleano(activo),
+    sort: listaOpcion(sort, SORTS_SERVICIO),
+    order: listaOrden(order),
+  };
+  const servicios = await listServiciosPage(q, page, size, filtros);
+  return (
+    <ServiciosTable
+      servicios={servicios.data}
+      total={servicios.total}
+      page={page}
+      size={size}
+      busquedaInicial={q ?? ""}
+      filtros={filtros}
+    />
+  );
 }

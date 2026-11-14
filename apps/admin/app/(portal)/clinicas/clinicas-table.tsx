@@ -5,12 +5,14 @@ import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn } from "@repo/ui/components/data-table";
 import { fullName } from "@/lib/data/helpers";
 import type { Clinica } from "@/lib/data/types";
-import { useBusquedaUrl } from "@/lib/busqueda-url";
+import { useListaUrl } from "@/lib/lista-url";
+import { LISTA_TAMANOS } from "@/lib/lista-params";
 
 const columns: DataTableColumn<Clinica>[] = [
   {
     id: "clinica",
     header: "Clínica",
+    sortKey: "nombre",
     sortValue: (c) => c.nombre,
     render: (c) => (
       <Link
@@ -37,18 +39,39 @@ const columns: DataTableColumn<Clinica>[] = [
 
 export function ClinicasTable({
   clinicas,
+  total,
+  page,
+  size,
   busquedaInicial,
+  filtros,
 }: {
   clinicas: Clinica[];
+  total: number;
+  page: number;
+  size: number;
   busquedaInicial: string;
+  filtros?: { sort?: string; order?: "asc" | "desc" };
 }) {
-  const busqueda = useBusquedaUrl(busquedaInicial);
+  const lista = useListaUrl({
+    q: busquedaInicial,
+    sort: filtros?.sort,
+    order: filtros?.order,
+  });
   return (
     <DataTable
       rows={clinicas}
       columns={columns}
       rowKey={(c) => String(c.id)}
-      serverSearch={busqueda}
+      serverSearch={{ value: lista.value, onSearch: lista.onSearch }}
+      serverSort={{ sort: lista.sort, order: lista.order, onSort: lista.onSort }}
+      serverPagination={{
+        page,
+        size,
+        total,
+        onPage: lista.onPage,
+        onSize: lista.onSize,
+        pageSizeOptions: LISTA_TAMANOS,
+      }}
       search={{
         placeholder: "Buscar por clínica, dirección o doctor",
         label: "Buscar por clínica, dirección o doctor",

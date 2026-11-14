@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageIcon } from "lucide-react";
 import { DataTable } from "@repo/ui/components/data-table";
-import type { DataTableColumn, DataTableFilter } from "@repo/ui/components/data-table";
+import type { DataTableColumn } from "@repo/ui/components/data-table";
+import { useListaUrl } from "@/lib/lista-url";
+import { LISTA_TAMANOS } from "@/lib/lista-params";
 import { formatCop } from "@/lib/data/helpers";
 import type { Servicio } from "@/lib/data/types";
 import { ActivoBadge } from "../../_components/status-badges";
-import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 function Thumb({ src, nombre }: { src: string | null | undefined; nombre: string }) {
   if (!src) {
@@ -39,6 +40,7 @@ const columns: DataTableColumn<Servicio>[] = [
   {
     id: "servicio",
     header: "Servicio",
+    sortKey: "nombre",
     sortValue: (s) => s.nombre,
     render: (s) => (
       <Link
@@ -59,48 +61,71 @@ const columns: DataTableColumn<Servicio>[] = [
     id: "precio",
     header: "Precio (COP)",
     align: "right",
+    sortKey: "precio",
     sortValue: (s) => Number(s.precio),
     render: (s) => formatCop(s.precio),
   },
   {
     id: "estado",
     header: "Estado",
+    sortKey: "activo",
     render: (s) => <ActivoBadge activo={s.activo} />,
-  },
-];
-
-const filters: DataTableFilter<Servicio>[] = [
-  {
-    id: "estado",
-    label: "Estado",
-    allLabel: "Todos los estados",
-    options: [
-      { value: "1", label: "Activos" },
-      { value: "0", label: "Inactivos" },
-    ],
-    match: (s, value) => s.activo === (value === "1"),
   },
 ];
 
 export function ServiciosTable({
   servicios,
+  total,
+  page,
+  size,
   busquedaInicial,
+  filtros,
 }: {
   servicios: Servicio[];
+  total: number;
+  page: number;
+  size: number;
   busquedaInicial: string;
+  filtros?: { activo?: boolean; sort?: string; order?: "asc" | "desc" };
 }) {
-  const busqueda = useBusquedaUrl(busquedaInicial);
+  const lista = useListaUrl({
+    q: busquedaInicial,
+    sort: filtros?.sort,
+    order: filtros?.order,
+    filterIds: ["activo"],
+  });
   return (
     <DataTable
       rows={servicios}
       columns={columns}
       rowKey={(s) => s.id}
-      serverSearch={busqueda}
+      serverSearch={{ value: lista.value, onSearch: lista.onSearch }}
+      serverFilters={[
+        {
+          id: "activo",
+          label: "Estado",
+          allLabel: "Todos",
+          options: [
+            { value: "true", label: "Activos" },
+            { value: "false", label: "Inactivos" },
+          ],
+          value: lista.filterValues.activo ?? "all",
+          onChange: (value) => lista.onFilter("activo", value),
+        },
+      ]}
+      serverSort={{ sort: lista.sort, order: lista.order, onSort: lista.onSort }}
+      serverPagination={{
+        page,
+        size,
+        total,
+        onPage: lista.onPage,
+        onSize: lista.onSize,
+        pageSizeOptions: LISTA_TAMANOS,
+      }}
       search={{
         placeholder: "Buscar por nombre o descripción",
         label: "Buscar por nombre o descripción",
       }}
-      filters={filters}
       renderCard={(s) => (
         <li className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-start gap-3">

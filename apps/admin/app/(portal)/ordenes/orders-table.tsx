@@ -2,51 +2,43 @@
 
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
-import type { DataTableColumn, DataTableFilter } from "@repo/ui/components/data-table";
-import { grupoDeEstado } from "@repo/api-client";
+import type { DataTableColumn } from "@repo/ui/components/data-table";
+import { useListaUrl } from "@/lib/lista-url";
+import { LISTA_TAMANOS } from "@/lib/lista-params";
 import { esEstadoFinal, formatCop, formatDate, fullName } from "@/lib/data/helpers";
 import type { Orden } from "@/lib/data/types";
 import { EstadoBadge, UrgenteBadge } from "../../_components/estado-badge";
 import { EstadoFilaSelect } from "./estado-fila-select";
-import { useBusquedaUrl } from "@/lib/busqueda-url";
 
-
-const filters: DataTableFilter<Orden>[] = [
-  {
-    id: "grupo",
-    label: "Estado",
-    allLabel: "Todas las órdenes",
-    // Tres grupos en vez de siete estados: menos opciones, menos ruido.
-    options: [
-      { value: "activas", label: "Activas" },
-      { value: "terminadas", label: "Terminadas" },
-      { value: "canceladas", label: "Canceladas" },
-    ],
-    match: (o, value) => grupoDeEstado(o.estado) === value,
-  },
-  {
-    id: "urgencia",
-    label: "Urgencia",
-    allLabel: "Todas",
-    options: [{ value: "1", label: "Solo urgentes" }],
-    match: (o, value) => (value === "1" ? o.urgente : true),
-  },
-];
 
 export function OrdersTable({
   ordenes,
+  total,
+  page,
+  size,
   estados,
   busquedaInicial,
+  filtros,
 }: {
   ordenes: Orden[];
+  total: number;
+  page: number;
+  size: number;
   estados: { id: string; codigo: string; nombre: string }[];
   busquedaInicial: string;
+  filtros?: { grupo?: string; urgente?: boolean; sort?: string; order?: "asc" | "desc" };
 }) {
-  const busqueda = useBusquedaUrl(busquedaInicial);
+  const lista = useListaUrl({
+    q: busquedaInicial,
+    sort: filtros?.sort,
+    order: filtros?.order,
+    filterIds: ["grupo", "urgente"],
+  });
   const columns: DataTableColumn<Orden>[] = [
   {
     id: "orden",
     header: "Orden",
+    sortKey: "orden",
     sortValue: (o) => o.id,
     render: (o) => (
       <div className="flex flex-wrap items-center gap-2">
@@ -63,6 +55,7 @@ export function OrdersTable({
   {
     id: "doctor",
     header: "Doctor",
+    sortKey: "doctor",
     sortValue: (o) => fullName(o.doctor),
     render: (o) => fullName(o.doctor),
   },
@@ -92,6 +85,7 @@ export function OrdersTable({
     id: "total",
     header: "Total",
     align: "right",
+    sortKey: "total",
     sortValue: (o) => Number(o.valor),
     // The amount is set when the order is attached to an invoice.
     render: (o) =>
@@ -104,12 +98,14 @@ export function OrdersTable({
   {
     id: "creada",
     header: "Creada",
+    sortKey: "creada",
     sortValue: (o) => o.fechaCreacion,
     render: (o) => formatDate(o.fechaCreacion),
   },
   {
     id: "entrega",
     header: "Entrega",
+    sortKey: "entrega",
     sortValue: (o) => o.fechaEntrega ?? "",
     render: (o) => formatDate(o.fechaEntrega),
   },
@@ -119,14 +115,42 @@ export function OrdersTable({
       rows={ordenes}
       columns={columns}
       rowKey={(o) => String(o.id)}
-      initialSort={{ id: "creada", dir: "asc" }}
-      initialFilterValues={{ grupo: "activas" }}
       search={{
         placeholder: "Buscar por número, doctor o paciente",
         label: "Buscar por número, doctor o paciente",
       }}
-      serverSearch={busqueda}
-      filters={filters}
+      serverSearch={{ value: lista.value, onSearch: lista.onSearch }}
+      serverFilters={[
+        {
+          id: "grupo",
+          label: "Estado",
+          allLabel: "Todas las órdenes",
+          options: [
+            { value: "activas", label: "Activas" },
+            { value: "terminadas", label: "Terminadas" },
+            { value: "canceladas", label: "Canceladas" },
+          ],
+          value: lista.filterValues.grupo ?? "all",
+          onChange: (value) => lista.onFilter("grupo", value),
+        },
+        {
+          id: "urgente",
+          label: "Urgencia",
+          allLabel: "Todas",
+          options: [{ value: "true", label: "Solo urgentes" }],
+          value: lista.filterValues.urgente ?? "all",
+          onChange: (value) => lista.onFilter("urgente", value),
+        },
+      ]}
+      serverSort={{ sort: lista.sort, order: lista.order, onSort: lista.onSort }}
+      serverPagination={{
+        page,
+        size,
+        total,
+        onPage: lista.onPage,
+        onSize: lista.onSize,
+        pageSizeOptions: LISTA_TAMANOS,
+      }}
       renderCard={(o) => (
         <li className="rounded-xl border border-border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">

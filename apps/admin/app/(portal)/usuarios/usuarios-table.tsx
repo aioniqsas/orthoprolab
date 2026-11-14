@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
-import type { DataTableColumn, DataTableFilter } from "@repo/ui/components/data-table";
+import type { DataTableColumn } from "@repo/ui/components/data-table";
+import { useListaUrl } from "@/lib/lista-url";
+import { LISTA_TAMANOS } from "@/lib/lista-params";
 import { rolLabel } from "@/lib/data/gestion";
 import { fullName } from "@/lib/data/helpers";
 import { ROLES } from "@/lib/data/types";
 import type { Usuario } from "@/lib/data/types";
 import { ActivoBadge, RolBadge } from "../../_components/status-badges";
-import { useBusquedaUrl } from "@/lib/busqueda-url";
 
 const columns: DataTableColumn<Usuario>[] = [
   {
     id: "usuario",
     header: "Usuario",
+    sortKey: "nombre",
     sortValue: (u) => fullName(u),
     render: (u) => (
       <Link
@@ -27,17 +29,20 @@ const columns: DataTableColumn<Usuario>[] = [
   {
     id: "correo",
     header: "Correo",
+    sortKey: "correo",
     sortValue: (u) => u.correo,
     render: (u) => u.correo,
   },
   {
     id: "rol",
     header: "Rol",
+    sortKey: "rol",
     render: (u) => <RolBadge rol={u.rol} />,
   },
   {
     id: "estado",
     header: "Estado",
+    sortKey: "activo",
     render: (u) => <ActivoBadge activo={u.activo} />,
   },
   {
@@ -48,45 +53,59 @@ const columns: DataTableColumn<Usuario>[] = [
   },
 ];
 
-const filters: DataTableFilter<Usuario>[] = [
-  {
-    id: "rol",
-    label: "Rol",
-    allLabel: "Todos los roles",
-    options: ROLES.map((rol) => ({ value: rol, label: rolLabel(rol) })),
-    match: (u, value) => u.rol === value,
-  },
-  {
-    id: "estado",
-    label: "Estado",
-    allLabel: "Todos los estados",
-    options: [
-      { value: "1", label: "Activos" },
-      { value: "0", label: "Inactivos" },
-    ],
-    match: (u, value) => u.activo === (value === "1"),
-  },
-];
-
 export function UsuariosTable({
   usuarios,
+  total,
+  page,
+  size,
   busquedaInicial,
+  filtros,
 }: {
   usuarios: Usuario[];
+  total: number;
+  page: number;
+  size: number;
   busquedaInicial: string;
+  filtros?: { activo?: boolean; sort?: string; order?: "asc" | "desc" };
 }) {
-  const busqueda = useBusquedaUrl(busquedaInicial);
+  const lista = useListaUrl({
+    q: busquedaInicial,
+    sort: filtros?.sort,
+    order: filtros?.order,
+    filterIds: ["activo"],
+  });
   return (
     <DataTable
       rows={usuarios}
       columns={columns}
       rowKey={(u) => u.id}
-      serverSearch={busqueda}
+      serverSearch={{ value: lista.value, onSearch: lista.onSearch }}
+      serverFilters={[
+        {
+          id: "activo",
+          label: "Estado",
+          allLabel: "Todos los estados",
+          options: [
+            { value: "true", label: "Activos" },
+            { value: "false", label: "Inactivos" },
+          ],
+          value: lista.filterValues.activo ?? "all",
+          onChange: (value) => lista.onFilter("activo", value),
+        },
+      ]}
+      serverSort={{ sort: lista.sort, order: lista.order, onSort: lista.onSort }}
+      serverPagination={{
+        page,
+        size,
+        total,
+        onPage: lista.onPage,
+        onSize: lista.onSize,
+        pageSizeOptions: LISTA_TAMANOS,
+      }}
       search={{
         placeholder: "Buscar por nombre o correo",
         label: "Buscar por nombre o correo",
       }}
-      filters={filters}
       renderCard={(u) => (
         <li className="rounded-xl border border-border bg-card p-4">
           <Link

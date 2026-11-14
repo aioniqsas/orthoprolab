@@ -2,24 +2,10 @@
 
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
-import type { DataTableFilter } from "@repo/ui/components/data-table";
-import { formatearFecha, grupoDeEstado } from "@repo/api-client";
+import { useListaUrl } from "@/lib/lista-url";
+import { LISTA_TAMANOS } from "@/lib/lista-params";
+import { formatearFecha } from "@repo/api-client";
 import type { Orden } from "@/lib/data/types";
-import { useBusquedaUrl } from "@/lib/busqueda-url";
-
-const filters: DataTableFilter<Orden>[] = [
-  {
-    id: "grupo",
-    label: "Estado",
-    allLabel: "Todas las órdenes",
-    options: [
-      { value: "activas", label: "Activas" },
-      { value: "terminadas", label: "Terminadas" },
-      { value: "canceladas", label: "Canceladas" },
-    ],
-    match: (o, value) => grupoDeEstado(o.estado.codigo) === value,
-  },
-];
 
 function estadoBadge(nombre: string, color: string | null) {
   return (
@@ -56,12 +42,25 @@ function formatCop(value: string) {
 
 export function OrdenesTable({
   ordenes,
+  total,
+  page,
+  size,
   busquedaInicial,
+  filtros,
 }: {
   ordenes: Orden[];
+  total: number;
+  page: number;
+  size: number;
   busquedaInicial: string;
+  filtros?: { grupo?: string; sort?: string; order?: "asc" | "desc" };
 }) {
-  const busqueda = useBusquedaUrl(busquedaInicial);
+  const lista = useListaUrl({
+    q: busquedaInicial,
+    sort: filtros?.sort,
+    order: filtros?.order,
+    filterIds: ["grupo"],
+  });
   return (
     <DataTable
       rows={ordenes}
@@ -70,6 +69,7 @@ export function OrdenesTable({
         {
           id: "orden",
           header: "Orden",
+          sortKey: "orden",
           render: (o) => (
             <Link href={`/ordenes/${o.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
               #{o.id}
@@ -99,6 +99,7 @@ export function OrdenesTable({
           id: "total",
           header: "Total",
           align: "right",
+          sortKey: "total",
           // The amount is set when the order is attached to an invoice.
           render: (o) =>
             Number(o.valor) > 0 ? (
@@ -111,21 +112,43 @@ export function OrdenesTable({
         {
           id: "creada",
           header: "Creada",
+          sortKey: "creada",
           render: (o) => formatDate(o.fechaCreacion),
           sortValue: (o) => o.fechaCreacion,
         },
         {
           id: "entrega",
           header: "Entrega",
+          sortKey: "entrega",
           render: (o) => formatDate(o.fechaEntrega),
           sortValue: (o) => o.fechaEntrega ?? "",
         },
       ]}
       search={{ placeholder: "Buscar por número, doctor o paciente", label: "Buscar por número, doctor o paciente" }}
-      serverSearch={busqueda}
-      filters={filters}
-      initialFilterValues={{ grupo: "activas" }}
-      initialSort={{ id: "creada", dir: "asc" }}
+      serverSearch={{ value: lista.value, onSearch: lista.onSearch }}
+      serverFilters={[
+        {
+          id: "grupo",
+          label: "Estado",
+          allLabel: "Todas las órdenes",
+          options: [
+            { value: "activas", label: "Activas" },
+            { value: "terminadas", label: "Terminadas" },
+            { value: "canceladas", label: "Canceladas" },
+          ],
+          value: lista.filterValues.grupo ?? "all",
+          onChange: (value) => lista.onFilter("grupo", value),
+        },
+      ]}
+      serverSort={{ sort: lista.sort, order: lista.order, onSort: lista.onSort }}
+      serverPagination={{
+        page,
+        size,
+        total,
+        onPage: lista.onPage,
+        onSize: lista.onSize,
+        pageSizeOptions: LISTA_TAMANOS,
+      }}
       renderCard={(o) => (
         <li className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-start justify-between gap-3">

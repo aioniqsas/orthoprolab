@@ -20,6 +20,7 @@ import {
 import type { AuthenticatedRequest } from '../auth/index.js';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto.js';
+import { ListOrdenesQueryDto } from './dto/list-ordenes-query.dto.js';
 import { CreateOrdenDto } from './dto/create-orden.dto.js';
 import { UpdateOrdenDto } from './dto/update-orden.dto.js';
 import { PedidosService } from './pedidos.service.js';
@@ -37,16 +38,8 @@ export class PedidosController {
   ) {}
 
   @Get()
-  findAll(
-    @Query('estadoId') estadoId?: string,
-    @Query('urgente') urgente?: string,
-    @Query('q') q?: string,
-  ): Promise<Orden[]> {
-    return this.pedidos.findAll({
-      estadoId: estadoId !== undefined ? Number(estadoId) : undefined,
-      urgente: urgente !== undefined ? urgente === 'true' : undefined,
-      q,
-    });
+  findAll(@Query() query: ListOrdenesQueryDto) {
+    return this.pedidos.findAll(query);
   }
 
   // Defined BEFORE /:id so NestJS does not treat 'stats' / 'estados' as id params.

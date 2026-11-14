@@ -8,6 +8,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
+import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import { orderByWhitelist, type SortOrder } from '../common/list-query.js';
+import { ESTADOS_POR_GRUPO, ORDEN_ORDER_COLUMNS } from './orden-grupo.js';
+import type { OrdenGroup } from './dto/list-ordenes-query.dto.js';
 import { EstadoOrden } from '../catalogo/estado-orden.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { Paciente } from '../pacientes/paciente.entity.js';
@@ -42,25 +50,51 @@ export class PedidosService {
   async findAll(filters?: {
     estadoId?: number;
     urgente?: boolean;
+    grupo?: OrdenGroup;
     q?: string;
-  }): Promise<Orden[]> {
+    page?: string | number;
+    size?: string | number;
+    sort?: string;
+    order?: SortOrder;
+  }): Promise<PaginatedResult<Orden>> {
     // The patient part of the search: ids from the blind index, then SQL.
     const pacienteIds = await this.pacientesService.buscarIds(filters?.q);
+    const { page, size, skip } = normalizePagination(filters?.page, filters?.size);
     const qb = this.ordenRepo
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.estado', 'estado')
       .leftJoinAndSelect('o.asignacion', 'asignacion')
       .leftJoinAndSelect('asignacion.doctor', 'doctor')
-      .leftJoinAndSelect('asignacion.paciente', 'paciente')
-      .orderBy('o.fechaCreacion', 'DESC');
+      .leftJoinAndSelect('asignacion.paciente', 'paciente');
+    // Filters run in SQL, before paginating: `total` counts the filtered set.
+    qb.orderBy(
+      orderByWhitelist(
+        ORDEN_ORDER_COLUMNS,
+        'o.id',
+        { sort: filters?.sort, order: filters?.order },
+        'creada',
+        'DESC',
+      ),
+    );
     if (filters?.estadoId !== undefined) {
       qb.andWhere('o.estadoId = :estadoId', { estadoId: String(filters.estadoId) });
+    }
+    if (filters?.grupo !== undefined) {
+      qb.andWhere('estado.codigo IN (:...codigos)', {
+        codigos: ESTADOS_POR_GRUPO[filters.grupo],
+      });
     }
     if (filters?.urgente !== undefined) {
       qb.andWhere('o.urgente = :urgente', { urgente: filters.urgente });
     }
     aplicarBusquedaOrdenes(qb, filters?.q, pacienteIds, { conEstado: false });
-    return qb.getMany();
+
+    const total = await qb.getCount();
+    if (skip >= total) {
+      return paginatedResult([], total, page, size);
+    }
+    const data = await qb.skip(skip).take(size).getMany();
+    return paginatedResult(data, total, page, size);
   }
 
   /** Returns the order with full nested relations needed by the detail view. */

@@ -13,7 +13,15 @@ export const metadata: Metadata = { title: "Órdenes" };
 export default function OrdenesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    size?: string;
+    grupo?: string;
+    urgente?: string;
+    sort?: string;
+    order?: string;
+  }>;
 }) {
   return (
     <section className="flex flex-col gap-6">
