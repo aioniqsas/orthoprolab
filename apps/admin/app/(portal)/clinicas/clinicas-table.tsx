@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn } from "@repo/ui/components/data-table";
-import { fullName } from "@/lib/data/helpers";
 import type { Clinica } from "@/lib/data/types";
 import { useListaUrl } from "@/lib/lista-url";
 import { LISTA_TAMANOS } from "@/lib/lista-params";

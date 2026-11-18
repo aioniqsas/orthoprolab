@@ -5,9 +5,7 @@ import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn } from "@repo/ui/components/data-table";
 import { useListaUrl } from "@/lib/lista-url";
 import { LISTA_TAMANOS } from "@/lib/lista-params";
-import { rolLabel } from "@/lib/data/gestion";
 import { fullName } from "@/lib/data/helpers";
-import { ROLES } from "@/lib/data/types";
 import type { Usuario } from "@/lib/data/types";
 import { ActivoBadge, RolBadge } from "../../_components/status-badges";
 

@@ -2,7 +2,6 @@
 import { use, useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
 import { forgotPassword, resetPassword } from "./actions";
 

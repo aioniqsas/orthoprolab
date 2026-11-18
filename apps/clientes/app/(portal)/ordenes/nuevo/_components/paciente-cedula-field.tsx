@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -19,8 +19,10 @@ export function PacienteCedulaField({ onFound, onCleared }: Props) {
   const prevStatusRef = useRef<Status>("idle");
   const onFoundRef = useRef(onFound);
   const onClearedRef = useRef(onCleared);
-  onFoundRef.current = onFound;
-  onClearedRef.current = onCleared;
+  useEffect(() => {
+    onFoundRef.current = onFound;
+    onClearedRef.current = onCleared;
+  });
 
   function handleCedulaChange(e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;

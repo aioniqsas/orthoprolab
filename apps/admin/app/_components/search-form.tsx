@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
 import { Input } from "@repo/ui/components/input";
 

@@ -3,10 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ActionButton } from "@repo/ui/action-button";
-import { Button } from "@repo/ui/components/button";
 import { Odontograma } from "@repo/ui/odontograma";
 import { FullWidthStack, Section } from "@repo/ui/section";
-import type { Orden } from "@/lib/data/types";
+import type { DetalleOrden, Orden } from "@/lib/data/types";
 import { API_URL } from "@/lib/api";
 
 type Linea = {
@@ -27,7 +26,7 @@ export function EditarOrdenForm({
   const [urgente, setUrgente] = useState(orden.urgente);
   const [fechaEntrega, setFechaEntrega] = useState(orden.fechaEntrega ?? "");
   const [lineas, setLineas] = useState<Linea[]>(
-    (orden.detalles ?? []).map((d: any) => ({
+    (orden.detalles ?? []).map((d: DetalleOrden) => ({
       id: d.id,
       servicio: d.servicio,
       cantidad: d.cantidad,

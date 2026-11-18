@@ -1,9 +1,8 @@
 "use client";
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
-import type { Clinica, Usuario, UsuarioDetalle } from "@/lib/data/types";
+import type { Clinica, UsuarioDetalle } from "@/lib/data/types";
 import { editarUsuario } from "../actions";
 
 const inputCls =

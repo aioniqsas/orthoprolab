@@ -1,7 +1,6 @@
 "use client";
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
 import type { Doctor } from "@/lib/data/types";
 import { editarDoctor } from "../actions";

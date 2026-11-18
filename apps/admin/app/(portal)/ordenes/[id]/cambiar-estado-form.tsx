@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
 import type { EstadoOrdenItem } from "@/lib/data/types";
 import { cambiarEstadoOrden } from "./actions";

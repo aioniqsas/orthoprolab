@@ -17,31 +17,31 @@ interface Props {
 
 export function EstadoFilaSelect({ ordenId, estadoActualCodigo, estados: estadosProp }: Props) {
   const [state, formAction, pending] = useActionState(cambiarEstadoFila, null);
-  const [estados, setEstados] = useState<EstadoItem[]>(estadosProp ?? []);
-
-  // Fallback: fetch if not provided (e.g. client-side usage).
+  // Solo se piden al API si la fila no vino con la lista (fallback).
+  const [fetchedEstados, setFetchedEstados] = useState<EstadoItem[] | null>(null);
   useEffect(() => {
-    if (estadosProp && estadosProp.length > 0) {
-      setEstados(estadosProp);
-      return;
-    }
+    if (estadosProp && estadosProp.length > 0) return;
     fetch((typeof window !== "undefined" ? "/api-proxy" : "http://localhost:3003") + "/ordenes/estados", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setEstados(Array.isArray(data) ? data : []))
-      .catch(() => setEstados([]));
+      .then((data) => setFetchedEstados(Array.isArray(data) ? data : []))
+      .catch(() => setFetchedEstados([]));
   }, [estadosProp]);
-
-  // Keep in sync if the prop changes (revalidate/SSE).
-  useEffect(() => {
-    if (estadosProp && estadosProp.length > 0) setEstados(estadosProp);
-  }, [estadosProp]);
+  // Estado derivado: la prop (revalidate/SSE) siempre gana sobre lo traído por fetch.
+  const estados =
+    estadosProp && estadosProp.length > 0 ? estadosProp : (fetchedEstados ?? []);
 
   const currentId = estados.find((e) => e.codigo === estadoActualCodigo)?.id ?? "";
   // Anular tiene su propia acción con motivo; la fila no la ofrece.
   const opciones = estados.filter((e) => e.codigo !== "cancelada");
 
   const [val, setVal] = useState(currentId);
-  useEffect(() => { setVal(currentId); }, [estadoActualCodigo, currentId, estados]);
+  // Reset durante render (patrón "adjust state on prop change" de React):
+  // cuando el estado real cambia, la selección vuelve a sincronizarse.
+  const [prevCurrentId, setPrevCurrentId] = useState(currentId);
+  if (currentId !== prevCurrentId) {
+    setPrevCurrentId(currentId);
+    setVal(currentId);
+  }
   // Si el API rechaza el cambio, el selector vuelve al estado real.
   const seleccionado = state && !state.ok ? currentId : val;
 

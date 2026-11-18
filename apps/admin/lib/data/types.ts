@@ -89,7 +89,7 @@ export interface Clinica {
 }
 
 /** Clinic row when loaded with its full doctor list (GET /clinicas/:id). */
-export interface ClinicaDetalle extends Clinica {}
+export type ClinicaDetalle = Clinica;
 
 export const ROLES = ["administrador", "clinica"] as const;
 export type RolNombre = (typeof ROLES)[number];

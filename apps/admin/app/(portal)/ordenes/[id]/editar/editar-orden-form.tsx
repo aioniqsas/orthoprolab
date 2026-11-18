@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ActionButton } from "@repo/ui/action-button";
-import { Button } from "@repo/ui/components/button";
 import { Odontograma } from "@repo/ui/odontograma";
 import { Section } from "@repo/ui/section";
 import type { Orden } from "@/lib/data/types";

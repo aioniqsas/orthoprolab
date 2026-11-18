@@ -182,6 +182,7 @@ export async function enviarEmail(
 export async function anularPago(
   cuentaId: string,
   pagoId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- bind(null, ...) necesita esta posición: React añade el FormData al final.
   _formData: FormData,
 ): Promise<void> {
   try {

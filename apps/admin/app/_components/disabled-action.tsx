@@ -1,6 +1,6 @@
 import * as React from "react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
+import { Button } from "@repo/ui/components/button";
 
 /** Button for an action that needs a backend that is not connected yet. */
 export function DisabledAction({

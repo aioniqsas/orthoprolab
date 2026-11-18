@@ -1,7 +1,6 @@
 "use client";
 import { useState, useActionState, useTransition } from "react";
 import { ExternalLink, FileText, Loader2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button"
 import { ActionButton } from "@repo/ui/action-button";
 import { generarPdf, enviarEmail } from "./actions";
 

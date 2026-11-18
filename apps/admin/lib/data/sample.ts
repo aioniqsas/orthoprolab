@@ -131,7 +131,6 @@ export const SAMPLE_ORDENES: Orden[] = [
 ];
 
 const uid = (n: number) => `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`;
-const clinicaPorId = new Map(SAMPLE_CLINICAS.map((c) => [c.id, c.nombre]));
 
 /** Fictional cedulas: they exist only to demonstrate masking, never stored in `Usuario`. */
 const CEDULAS_FICTICIAS = ["1000000101", "1000000202", "1000000303", "1000000404"];

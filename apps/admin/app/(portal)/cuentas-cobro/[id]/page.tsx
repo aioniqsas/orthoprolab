@@ -11,7 +11,7 @@ import { AdjuntarOrdenesForm } from "./adjuntar-ordenes-form";
 import { RegistrarPagoForm } from "./registrar-pago-form";
 import { EnviarForm } from "./enviar-form";
 import { anularPago } from "./actions";
-import type { CuentaCobro, EstadoCuentaCobro, PagoItem } from "@/lib/data/types";
+import type { EstadoCuentaCobro, PagoItem } from "@/lib/data/types";
 
 type Params = Promise<{ id: string }>;
 
