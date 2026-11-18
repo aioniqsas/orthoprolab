@@ -64,10 +64,14 @@ describe('MiClinicaService.listOrdenes', () => {
       'leftJoinAndSelect',
       'where',
       'orderBy',
+      'andWhere',
+      'skip',
+      'take',
     ]) {
       qb[metodo] = vi.fn(() => qb);
     }
     qb['getMany'] = vi.fn(async () => ordenes);
+    qb['getCount'] = vi.fn(async () => ordenes.length);
     const pedidos = {
       anotarEditable: vi.fn(anotarEditable ?? (async (o: unknown[]) => o)),
     };
@@ -77,7 +81,9 @@ describe('MiClinicaService.listOrdenes', () => {
       { createQueryBuilder: vi.fn(() => qb) } as never,
       {} as never, {} as never, {} as never,
       { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
-      pedidos as never, {} as never, {} as never, {} as never, {} as never,
+      pedidos as never, {} as never, {} as never,
+      { buscarIds: vi.fn(async () => null) } as never,
+      {} as never,
     );
     return { service, qb, pedidos };
   }
@@ -105,7 +111,7 @@ describe('MiClinicaService.listOrdenes', () => {
       { id: '9', asignacion: { doctor: { id: 'd1' } }, estado: { codigo: 'creada' }, detalles },
     ]);
 
-    const ordenes = await service.listOrdenes('u');
+    const ordenes = (await service.listOrdenes('u')).data;
 
     expect(ordenes).toHaveLength(1);
     expect(ordenes[0]!.detalles).toEqual(detalles);
@@ -118,7 +124,7 @@ describe('MiClinicaService.listOrdenes', () => {
         (lista as Array<Record<string, unknown>>).map((o) => ({ ...o, editable: true })),
     );
 
-    const ordenes = await service.listOrdenes('u');
+    const ordenes = (await service.listOrdenes('u')).data;
 
     // La regla se pide una sola vez, para todas las órdenes de la clínica.
     expect(pedidos.anotarEditable).toHaveBeenCalledTimes(1);

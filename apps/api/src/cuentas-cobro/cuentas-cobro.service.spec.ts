@@ -202,7 +202,7 @@ describe('CuentasCobroService.obtenerPdfBytes', () => {
       { findOne: vi.fn(async () => cuenta) } as never,
       {} as never, {} as never, {} as never, {} as never, {} as never,
       {} as never, {} as never, {} as never, {} as never, {} as never,
-      {} as never, { emitir: vi.fn() } as never,
+      { emitir: vi.fn() } as never,
     );
     const generarYGuardarPdf = vi.spyOn(service, 'generarYGuardarPdf');
     return { service, generarYGuardarPdf };
@@ -324,7 +324,7 @@ describe('CuentasCobroService.obtenerPdfBytes', () => {
       {} as never, {} as never, {} as never, {} as never, {} as never,
       {} as never, {} as never,
       { generate, uploadToCloudinary: upload } as never,
-      {} as never, {} as never, {} as never,
+      {} as never, {} as never,
       { emitir: vi.fn() } as never,
     );
     fetchMock.mockImplementation(async () => ({
@@ -380,7 +380,7 @@ describe('CuentasCobroService.obtenerPdfBytes', () => {
           hash: 'h',
         })),
       } as never,
-      {} as never, {} as never, {} as never,
+      {} as never, {} as never,
       { emitir: vi.fn() } as never,
     );
     fetchMock.mockResolvedValue({ ok: false, status: 500 });

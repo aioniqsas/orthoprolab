@@ -20,6 +20,7 @@ type Repo = {
   create: ReturnType<typeof vi.fn>;
   save: ReturnType<typeof vi.fn>;
   restore: ReturnType<typeof vi.fn>;
+  query: ReturnType<typeof vi.fn>;
 };
 
 function repo(): Repo {
@@ -29,6 +30,7 @@ function repo(): Repo {
     create: vi.fn((x) => x),
     save: vi.fn(async (x) => ({ ...x, id: x.id ?? '99', nombre: x.nombre ?? 'Paciente' })),
     restore: vi.fn(async () => undefined),
+    query: vi.fn(async () => undefined),
   };
 }
 

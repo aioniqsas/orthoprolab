@@ -138,11 +138,12 @@ function miClinica(opts: {
     repo,
     repo,
     (opts.servicioRepo ?? repo) as never,
-    {} as never,
-    {} as never,
+    { findOneBy: vi.fn(async () => ({ activo: true })) } as never,
+    { anotarEditable: vi.fn(async (o: unknown[]) => o) } as never,
     {} as never,
     {} as never,
     { buscarIds: vi.fn(async () => null) } as never,
+    { obtenerPdfBytes: vi.fn() } as never,
   );
   return { service, qb };
 }
@@ -393,6 +394,7 @@ describe('GET /mi-clinica/pacientes?doctorId=', () => {
       {} as never,
       {} as never,
       { buscarIds: vi.fn(async () => null) } as never,
+      { obtenerPdfBytes: vi.fn() } as never,
     );
     vi.spyOn(service, 'getDoctor').mockResolvedValue({} as never);
 
@@ -421,6 +423,7 @@ describe('GET /mi-clinica/pacientes?doctorId=', () => {
       {} as never,
       {} as never,
       { buscarIds: vi.fn(async () => null) } as never,
+      { obtenerPdfBytes: vi.fn() } as never,
     );
     vi.spyOn(service, 'getDoctor').mockResolvedValue({} as never);
 
