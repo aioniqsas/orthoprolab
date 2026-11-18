@@ -86,7 +86,7 @@ describe('Security baseline (e2e)', () => {
 
   beforeAll(async () => {
     app = await createApp();
-  });
+  }, 60_000); // app boot is slow when the whole suite runs in parallel
 
   afterAll(async () => {
     await app?.close();

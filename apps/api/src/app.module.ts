@@ -9,6 +9,7 @@ import { UsuariosApiModule } from './usuarios/usuarios-api.module.js';
 import { PacientesModule } from './pacientes/pacientes.module.js';
 import { CatalogoModule } from './catalogo/catalogo.module.js';
 import { ContenidoModule } from './contenido/contenido.module.js';
+import { ConfiguracionBotModule } from './configuracion-bot/configuracion-bot.module.js';
 import { ClinicasModule } from './clinicas/clinicas.module.js';
 import { CuentasCobroModule } from './cuentas-cobro/cuentas-cobro.module.js';
 import { DoctoresModule } from './doctores/doctores.module.js';
@@ -18,6 +19,7 @@ import { QueuesModule } from './queues/queues.module.js';
 import { HealthModule } from './health/health.module.js';
 import { SecurityModule } from './security/security.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { WhatsappModule } from './whatsapp/whatsapp.module.js';
 
 @Module({
   imports: [
@@ -35,12 +37,14 @@ import { AuthModule } from './auth/auth.module.js';
     PacientesModule,
     CatalogoModule,
     ContenidoModule,
+    ConfiguracionBotModule,
     PedidosModule,
     DoctoresModule,
     MiClinicaModule,
     CuentasCobroModule,
     QueuesModule,
     HealthModule,
+    WhatsappModule,
   ],
   controllers: [AppController],
   providers: [AppService],

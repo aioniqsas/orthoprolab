@@ -32,7 +32,7 @@ import {
     },
     RedisThrottlerStorage,
   ],
-  exports: [RedisThrottlerStorage],
+  exports: [RedisThrottlerStorage, THROTTLER_REDIS],
 })
 class ThrottlerStorageModule {}
 
@@ -42,7 +42,11 @@ class ThrottlerStorageModule {}
  * are stricter and only apply to routes using @StrictThrottle(name).
  */
 @Module({
+  // Re-exported so modules that import SecurityModule (WhatsappModule) receive
+  // THROTTLER_REDIS; previously it stayed private and @Optional() injections
+  // resolved to undefined (permanent 503 on the bot endpoints).
   imports: [
+    ThrottlerStorageModule,
     ThrottlerModule.forRootAsync({
       imports: [ThrottlerStorageModule],
       inject: [ConfigService, RedisThrottlerStorage],
@@ -75,5 +79,6 @@ class ThrottlerStorageModule {}
     }),
   ],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
+  exports: [ThrottlerStorageModule],
 })
 export class SecurityModule {}

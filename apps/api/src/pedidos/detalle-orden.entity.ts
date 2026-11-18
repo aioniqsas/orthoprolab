@@ -1,6 +1,7 @@
 import {
   Check,
   Column,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -58,4 +59,8 @@ export class DetalleOrden {
   // Free-text clinical notes: encrypted at rest (AES-256-GCM).
   @Column({ type: 'text', nullable: true, transformer: encryptedColumn() })
   observaciones: string | null;
+
+  // Null while the line is active; set once on soft delete (SD1).
+  @DeleteDateColumn({ name: 'eliminado_en', type: 'timestamptz', nullable: true })
+  eliminadoEn: Date | null;
 }

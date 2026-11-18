@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -121,10 +122,11 @@ export class AuthService {
     const user = await this.usuarios
       .createQueryBuilder('u')
       .innerJoinAndSelect('u.rol', 'rol')
+      .leftJoinAndSelect('u.clinica', 'clinica')
       .where('lower(u.correo) = :correo', { correo: dto.correo })
       .getOne();
 
-    const usable = user !== null && user.activo;
+    const usable = user !== null && this.isUsable(user);
     const hash = usable ? user.passwordHash : await this.getDummyHash();
     const passwordOk = await this.passwords.verify(dto.password, hash);
 
@@ -148,6 +150,15 @@ export class AuthService {
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const result = await this.sessions.rotate(rawToken);
     if (result.status !== 'rotated') throw new UnauthorizedException();
+    const user = await this.usuarios.findOne({
+      where: { id: result.usuarioId },
+      relations: { rol: true, clinica: true },
+    });
+    if (!user || !this.isUsable(user)) {
+      // Kill the whole family so a deactivated account cannot keep rotating.
+      await this.sessions.revokeAllForUser(result.usuarioId);
+      throw new UnauthorizedException();
+    }
     return {
       accessToken: await this.signAccessToken(result),
       refreshToken: result.refreshToken,
@@ -161,10 +172,20 @@ export class AuthService {
   async me(userId: string): Promise<UsuarioPublico> {
     const user = await this.usuarios.findOne({
       where: { id: userId },
-      relations: { rol: true },
+      relations: { rol: true, clinica: true },
     });
     if (!user?.activo) throw new UnauthorizedException();
+    // S2/S4: a deactivated clinic makes the session itself invalid (403,
+    // consistent with the data endpoints that also answer 403).
+    if (!this.isUsable(user)) throw new ForbiddenException();
     return toPublic(user);
+  }
+
+  /** A user of a deactivated clinic must not hold or reestablish a session. */
+  private isUsable(user: Usuario): boolean {
+    if (!user.activo) return false;
+    if (user.clinicaId === null) return true; // administrador y similares
+    return user.clinica?.activo === true;
   }
 
   private signAccessToken(session: {

@@ -1,5 +1,6 @@
 import {
   Column,
+  DeleteDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -26,4 +27,8 @@ export class CuentaCobroOrden {
   @ManyToOne(() => Orden)
   @JoinColumn({ name: 'orden_id' })
   orden: Orden;
+
+  // Null while the attachment is active; set once on soft delete (SD1).
+  @DeleteDateColumn({ name: 'eliminado_en', type: 'timestamptz', nullable: true })
+  eliminadoEn: Date | null;
 }

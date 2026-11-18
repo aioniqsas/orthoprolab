@@ -47,7 +47,7 @@ describe('Database model (integration)', () => {
     });
     await ds.initialize();
     await ds.runMigrations();
-  });
+  }, 60_000); // migrations are slow under full-suite parallelism
 
   afterAll(async () => {
     await ds?.destroy();
@@ -115,9 +115,15 @@ describe('Database model (integration)', () => {
   }
 
   async function doctor() {
-    const u = await usuario();
-    await qr.query(`INSERT INTO doctor (usuario_id) VALUES ($1)`, [u.id]);
-    return u.id;
+    // Doctors are standalone entities tied to a clinic (no usuario link).
+    const c = await one(
+      `INSERT INTO clinica (nombre) VALUES ($1) RETURNING id`,
+      [`cli-${uniq()}`],
+    );
+    return one(
+      `INSERT INTO doctor (clinica_id, nombres, apellidos) VALUES ($1, 'D', 'T') RETURNING id`,
+      [c.id],
+    );
   }
 
   async function paciente(cedula: string | null = null) {
@@ -141,14 +147,14 @@ describe('Database model (integration)', () => {
 
   async function servicio(precio = '100.00') {
     return one(
-      `INSERT INTO servicio (nombre, slug, precio) VALUES ($1, $1, $2) RETURNING id`,
+      `INSERT INTO servicio (nombre, slug, precio) VALUES ($1, $1, $2) RETURNING id, nombre, precio`,
       [`s-${uniq()}`, precio],
     );
   }
 
   /** doctor + assigned patient + state, ready to create orders. */
   async function ordenBase() {
-    const doctorId = await doctor();
+    const doctorId = (await doctor()).id;
     const p = await paciente();
     await qr.query(
       `INSERT INTO paciente_doctor (paciente_id, doctor_id) VALUES ($1, $2)`,
@@ -198,36 +204,11 @@ describe('Database model (integration)', () => {
   });
 
   describe('doctor', () => {
-    it('rejects a doctor for a non-existent usuario', async () => {
+    it('rejects a doctor for a non-existent clinica', async () => {
       const code = await failCode(
-        `INSERT INTO doctor (usuario_id) VALUES (gen_random_uuid())`,
+        `INSERT INTO doctor (clinica_id, nombres, apellidos) VALUES (999999999, 'D', 'T')`,
       );
       expect(code).toBe(FK);
-    });
-  });
-
-  describe('asistente_doctor', () => {
-    it('rejects doctor equal to asistente', async () => {
-      const d = await doctor();
-      const code = await failCode(
-        `INSERT INTO asistente_doctor (doctor_id, asistente_id) VALUES ($1, $1)`,
-        [d],
-      );
-      expect(code).toBe(CHECK);
-    });
-
-    it('rejects a duplicate assignment', async () => {
-      const d = await doctor();
-      const a = await usuario();
-      await qr.query(
-        `INSERT INTO asistente_doctor (doctor_id, asistente_id) VALUES ($1, $2)`,
-        [d, a.id],
-      );
-      const code = await failCode(
-        `INSERT INTO asistente_doctor (doctor_id, asistente_id) VALUES ($1, $2)`,
-        [d, a.id],
-      );
-      expect(code).toBe(UNIQUE);
     });
   });
 
@@ -299,9 +280,9 @@ describe('Database model (integration)', () => {
       const { row } = await orden();
       const s = await servicio();
       const code = await failCode(
-        `INSERT INTO detalle_orden (orden_id, servicio_id, cantidad, precio_unitario)
+        `INSERT INTO detalle_orden (orden_id, servicio, cantidad, precio_unitario)
          VALUES ($1, $2, 0, 10)`,
-        [row.id, s.id],
+        [row.id, s.nombre],
       );
       expect(code).toBe(CHECK);
     });
@@ -310,9 +291,9 @@ describe('Database model (integration)', () => {
       const { row } = await orden();
       const s = await servicio();
       const code = await failCode(
-        `INSERT INTO detalle_orden (orden_id, servicio_id, precio_unitario)
+        `INSERT INTO detalle_orden (orden_id, servicio, precio_unitario)
          VALUES ($1, $2, -5)`,
-        [row.id, s.id],
+        [row.id, s.nombre],
       );
       expect(code).toBe(CHECK);
     });
@@ -321,9 +302,9 @@ describe('Database model (integration)', () => {
       const { row } = await orden();
       const s = await servicio('100.00');
       const d = await one(
-        `INSERT INTO detalle_orden (orden_id, servicio_id, precio_unitario)
-         SELECT $1, id, precio FROM servicio WHERE id = $2 RETURNING id`,
-        [row.id, s.id],
+        `INSERT INTO detalle_orden (orden_id, servicio, precio_unitario)
+         VALUES ($1, $2, $3) RETURNING id`,
+        [row.id, s.nombre, s.precio],
       );
       await qr.query(`UPDATE servicio SET precio = 250.00 WHERE id = $1`, [
         s.id,
@@ -384,26 +365,34 @@ describe('Database model (integration)', () => {
   });
 
   describe('seeds (provisional values, to be confirmed with the client)', () => {
-    it('contains the 3 roles', async () => {
+    it('contains the 2 roles (administrador and clinica)', async () => {
       const rows = (await qr.query(
-        `SELECT nombre FROM rol WHERE nombre IN ('administrador','odontologo','asistente')`,
+        `SELECT nombre FROM rol WHERE nombre IN ('administrador','clinica')`,
       )) as Row[];
-      expect(rows).toHaveLength(3);
+      expect(rows).toHaveLength(2);
+      // The legacy per-doctor roles were removed by ClinicaAuthRefactor.
+      const legacy = (await qr.query(
+        `SELECT nombre FROM rol WHERE nombre IN ('odontologo','asistente')`,
+      )) as Row[];
+      expect(legacy).toHaveLength(0);
     });
 
-    it('contains the 3 order states in flow order', async () => {
+    it('contains the 7 order states in flow order', async () => {
       const rows = (await qr.query(
-        `SELECT codigo, posicion, es_final FROM estado_orden
-         WHERE codigo IN ('recibida','en_produccion','terminada') ORDER BY posicion`,
+        `SELECT codigo, posicion, es_final FROM estado_orden ORDER BY posicion`,
       )) as unknown as {
         codigo: string;
         posicion: number;
         es_final: boolean;
       }[];
       expect(rows.map((r) => [r.codigo, r.posicion, r.es_final])).toEqual([
-        ['recibida', 1, false],
-        ['en_produccion', 2, false],
-        ['terminada', 3, true],
+        ['creada', 1, false],
+        ['recibida', 2, false],
+        ['en_proceso', 3, false],
+        ['cancelada', 4, true],
+        ['en_entrega', 5, false],
+        ['devuelta_correccion', 6, false],
+        ['terminada', 7, true],
       ]);
     });
   });

@@ -75,4 +75,9 @@ export class Orden {
 
   @OneToMany('HistorialEstadoOrden', 'orden')
   historial: HistorialEstadoOrden[];
+
+  // Veredicto de la ventana de edición (S8). No son columnas: la regla vive en
+  // `ventana-edicion.ts` y el servicio anota el resultado en la orden que sale.
+  editable?: boolean;
+  editableHasta?: string | null;
 }

@@ -10,6 +10,11 @@ export const ARCO_INFERIOR = [
 
 const VALIDOS = new Set<number>([...ARCO_SUPERIOR, ...ARCO_INFERIOR]);
 
+/** True si `numero` es una pieza válida de la numeración FDI de dos dígitos. */
+export function esDienteValido(numero: number): boolean {
+  return VALIDOS.has(numero);
+}
+
 export type ParseDientesResult =
   | { ok: true; dientes: number[] }
   | { ok: false; error: string };

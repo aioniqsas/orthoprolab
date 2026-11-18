@@ -6,6 +6,7 @@ export interface AuthUser {
   rol: string;
   /** Session family id (`sid` claim). */
   sid: string;
+  scope?: 'whatsapp-bot';
 }
 
 export type AuthenticatedRequest = Request & { user: AuthUser };

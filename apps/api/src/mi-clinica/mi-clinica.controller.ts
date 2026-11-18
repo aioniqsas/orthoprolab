@@ -14,6 +14,7 @@ import {
   Put,
   Query,
   Req,
+  Res,
   Sse,
   UploadedFile,
   UseGuards,
@@ -33,6 +34,8 @@ import { ListOrdenesQueryDto } from '../pedidos/dto/list-ordenes-query.dto.js';
 import { ListCuentasQueryDto } from '../cuentas-cobro/dto/list-cuentas-query.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
+import type { CodigoVinculacion } from '../whatsapp/whatsapp-vinculacion.service.js';
+import { WhatsappVinculacionService } from '../whatsapp/whatsapp-vinculacion.service.js';
 import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
 import {
   filter,
@@ -45,6 +48,7 @@ import {
 } from 'rxjs';
 import { esDeClinica } from './eventos-clinica.js';
 import { StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
 import type { MessageEvent } from '@nestjs/common';
 
 @Controller('mi-clinica')
@@ -57,6 +61,7 @@ export class MiClinicaController {
     private readonly cuentasCobro: CuentasCobroService,
     private readonly eventos: PedidosEventosService,
     private readonly eventosCuentas: CuentasCobroEventosService,
+    private readonly vinculacion: WhatsappVinculacionService,
   ) {}
 
   @Get('doctores')
@@ -125,9 +130,14 @@ export class MiClinicaController {
   @HttpCode(HttpStatus.CREATED)
   createPaciente(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { cedula: string; nombre: string },
+    @Body() body: { cedula: string; nombre: string; doctorId?: string },
   ) {
-    return this.miClinica.createPaciente(req.user.id, body.cedula, body.nombre);
+    return this.miClinica.createPaciente(
+      req.user.id,
+      body.cedula,
+      body.nombre,
+      body.doctorId,
+    );
   }
 
   @Patch('pacientes/:id')
@@ -284,6 +294,36 @@ export class MiClinicaController {
     @Param('id') id: string,
   ) {
     return this.miClinica.getCuentaCobro(req.user.id, id);
+  }
+
+  /** PDF de una cuenta de cobro propia: bytes por la API, nunca la URL de Cloudinary. */
+  @Get('cuentas-cobro/:id/pdf')
+  async descargarCuentaCobroPdf(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    // Antes de llamar al servicio: los 404 y 503 de la ruta también deben
+    // salir con la cabecera.
+    res.setHeader('Cache-Control', 'private, no-store');
+    const { pdf, numero } = await this.miClinica.cuentaPdf(req.user.id, id);
+    const nombre = numero.replace(/[^A-Za-z0-9._-]/g, '_') || 'cuenta';
+    return new StreamableFile(pdf, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="cuenta-${nombre}.pdf"`,
+    });
+  }
+
+  /**
+   * OTP de vinculación de WhatsApp (T8): la clínica sale de la sesión
+   * (resolveClinicaId), nunca del cuerpo; el endpoint ni siquiera acepta uno.
+   */
+  @Post('whatsapp/codigo')
+  @HttpCode(HttpStatus.CREATED)
+  async crearCodigoVinculacion(@Req() req: AuthenticatedRequest): Promise<CodigoVinculacion> {
+    // Reutiliza el resolver existente: clínica activa de la cuenta llamante.
+    const clinicaId = await this.miClinica.resolveClinicaId(req.user.id);
+    return this.vinculacion.emitirCodigo(clinicaId);
   }
 
   @Get('metodos-pago-bancarios')
