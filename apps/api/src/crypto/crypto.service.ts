@@ -114,6 +114,18 @@ export class CryptoService {
   }
 
   /**
+   * Blind token for searching encrypted text (patient names and cedulas)
+   * without decrypting: HMAC-SHA256 (hex) of `campo|valor`, keyed with the same
+   * blind-index key. The campo prefix keeps name, cedula and last-4 tokens apart.
+   * The caller passes already normalized values.
+   */
+  tokenIndex(campo: string, valorNormalizado: string): string {
+    return createHmac('sha256', this.blindIndexKey)
+      .update(`${campo}|${valorNormalizado}`, 'utf8')
+      .digest('hex');
+  }
+
+  /**
    * Deterministic HMAC-SHA256 (hex) of the normalized identity number, keyed
    * with a key SEPARATE from the encryption key. Same id => same hash, so it
    * supports equality lookup and UNIQUE constraints on `cedula_hash`.

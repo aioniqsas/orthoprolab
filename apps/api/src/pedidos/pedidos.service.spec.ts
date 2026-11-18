@@ -224,3 +224,108 @@ describe('PedidosService.cambiarEstado · estados definitivos', () => {
     expect(historial?.valor).toMatchObject({ ordenId: '5', estadoNuevoId: '10' });
   });
 });
+
+
+describe('PedidosService.findAll · server pagination', () => {
+  function buildListing(opts?: {
+    total?: number;
+    rows?: unknown[];
+    pacienteIds?: string[] | null;
+  }) {
+    const total = opts?.total ?? 0;
+    const rows = opts?.rows ?? [];
+    const qb: any = {
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      addOrderBy: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getCount: vi.fn().mockResolvedValue(total),
+      skip: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue(rows),
+    };
+    const service = new PedidosService(
+      { createQueryBuilder: vi.fn().mockReturnValue(qb) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { buscarIds: vi.fn().mockResolvedValue(opts?.pacienteIds ?? null) } as never,
+      { emitir: vi.fn() } as never,
+    );
+    return { service, qb };
+  }
+
+  it('returns the requested page, the correct total and a deterministic order with an id tiebreak', async () => {
+    const rows = [{ id: '2' }, { id: '1' }];
+    const { service, qb } = buildListing({ total: 12, rows });
+
+    const res = await service.findAll({ page: '2', size: '5' });
+
+    expect(qb.orderBy).toHaveBeenCalledWith({
+      'o.fechaCreacion': 'DESC',
+      'o.id': 'DESC',
+    });
+    expect(qb.skip).toHaveBeenCalledWith(5);
+    expect(qb.take).toHaveBeenCalledWith(5);
+    expect(res).toEqual({ data: rows, total: 12, page: 2, size: 5 });
+  });
+
+  it('returns an empty page with the correct total when the page is beyond the end', async () => {
+    const { service, qb } = buildListing({ total: 7 });
+
+    const res = await service.findAll({ page: '9', size: '20' });
+
+    expect(qb.getMany).not.toHaveBeenCalled();
+    expect(res).toEqual({ data: [], total: 7, page: 9, size: 20 });
+  });
+
+  it('filters by state group in SQL before paginating and counts the filtered set', async () => {
+    const { service, qb } = buildListing({ total: 3, rows: [{ id: '1' }] });
+
+    const res = await service.findAll({ grupo: 'activas', page: '1', size: '10' });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('estado.codigo IN (:...codigos)', {
+      codigos: [
+        'creada',
+        'recibida',
+        'en_proceso',
+        'en_entrega',
+        'devuelta_correccion',
+      ],
+    });
+    expect(qb.getCount).toHaveBeenCalled();
+    expect(res.total).toBe(3);
+  });
+
+  it('filters urgent orders in SQL', async () => {
+    const { service, qb } = buildListing({ total: 1, rows: [{ id: '1' }] });
+
+    await service.findAll({ urgente: true });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('o.urgente = :urgente', {
+      urgente: true,
+    });
+  });
+
+  it('maps a whitelisted sort to its column and keeps the id tiebreak', async () => {
+    const { service, qb } = buildListing({ total: 1, rows: [{ id: '1' }] });
+
+    await service.findAll({ sort: 'entrega', order: 'asc' });
+
+    expect(qb.orderBy).toHaveBeenCalledWith({
+      'o.fechaEntrega': 'ASC',
+      'o.id': 'ASC',
+    });
+  });
+
+  it('clamps a size above the cap', async () => {
+    const { service, qb } = buildListing({ total: 1, rows: [{ id: '1' }] });
+
+    const res = await service.findAll({ page: '1', size: '500' });
+
+    expect(res.size).toBe(100);
+    expect(qb.take).toHaveBeenCalledWith(100);
+  });
+});

@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import { MailQueueService } from '../queues/mail-queue.service.js';
+import { CuentaCobroMailAttachmentsService } from './cuenta-cobro-mail-attachments.service.js';
 import type { CuentaCobro } from './cuenta-cobro.entity.js';
 import type { Pago } from './pago.entity.js';
 
@@ -26,13 +27,16 @@ export class MailerCuentaCobroService {
   constructor(
     private readonly config: ConfigService,
     private readonly mailQueue: MailQueueService,
+    private readonly attachments: CuentaCobroMailAttachmentsService,
   ) {}
 
+  /**
+   * Queues the email; the job carries the account id, never the PDF bytes, and
+   * the worker builds the same attachments when it sends (S3).
+   */
   async sendCuentaCobro(
     cuenta: CuentaCobro,
-    pdfBuffer: Buffer,
     toEmail: string,
-    adjuntos: { filename: string; buffer: Buffer }[] = [],
   ): Promise<EnviarResult> {
     const host = this.config.get<string>('SMTP_HOST');
     const port = this.config.get<number>('SMTP_PORT') ?? 587;
@@ -92,16 +96,7 @@ export class MailerCuentaCobroService {
       to: toEmail,
       subject: `Cuenta de cobro ${cuenta.numero} — OrthoPro Lab`,
       html,
-      attachments: [
-        {
-          filename: `cuenta_${cuenta.numero.replace(/-/g, '_')}.pdf`,
-          contentBase64: pdfBuffer.toString('base64'),
-        },
-        ...adjuntos.map((adjunto) => ({
-          filename: adjunto.filename,
-          contentBase64: adjunto.buffer.toString('base64'),
-        })),
-      ],
+      attachmentSource: { kind: 'cuenta-cobro', cuentaCobroId: cuenta.id },
     });
     if (encolado.sent) return encolado;
 
@@ -111,18 +106,7 @@ export class MailerCuentaCobroService {
         to: toEmail,
         subject: `Cuenta de cobro ${cuenta.numero} — OrthoPro Lab`,
         html,
-        attachments: [
-          {
-            filename: `cuenta_${cuenta.numero.replace(/-/g, '_')}.pdf`,
-            content: pdfBuffer,
-            contentType: 'application/pdf',
-          },
-          ...adjuntos.map((adjunto) => ({
-            filename: adjunto.filename,
-            content: adjunto.buffer,
-            contentType: 'application/pdf',
-          })),
-        ],
+        attachments: await this.attachments.attachmentsFor(cuenta.id),
       });
       return { sent: true };
     } catch (err) {

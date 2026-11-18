@@ -5,11 +5,14 @@ import { DataTable } from "@repo/ui/components/data-table";
 import type { DataTableColumn } from "@repo/ui/components/data-table";
 import { fullName } from "@/lib/data/helpers";
 import type { Clinica } from "@/lib/data/types";
+import { useListaUrl } from "@/lib/lista-url";
+import { LISTA_TAMANOS } from "@/lib/lista-params";
 
 const columns: DataTableColumn<Clinica>[] = [
   {
     id: "clinica",
     header: "Clínica",
+    sortKey: "nombre",
     sortValue: (c) => c.nombre,
     render: (c) => (
       <Link
@@ -19,13 +22,11 @@ const columns: DataTableColumn<Clinica>[] = [
         {c.nombre}
       </Link>
     ),
-    searchValue: (c) => c.nombre,
   },
   {
     id: "direccion",
     header: "Dirección",
     render: (c) => c.direccion ?? "Sin dirección",
-    searchValue: (c) => c.direccion ?? "",
   },
   {
     id: "doctores",
@@ -33,16 +34,44 @@ const columns: DataTableColumn<Clinica>[] = [
     align: "right",
     sortValue: (c) => c.doctorCount ?? c.doctores.length,
     render: (c) => c.doctorCount ?? c.doctores.length,
-    searchValue: (c) => c.doctores.map((d) => fullName(d)).join(" "),
   },
 ];
 
-export function ClinicasTable({ clinicas }: { clinicas: Clinica[] }) {
+export function ClinicasTable({
+  clinicas,
+  total,
+  page,
+  size,
+  busquedaInicial,
+  filtros,
+}: {
+  clinicas: Clinica[];
+  total: number;
+  page: number;
+  size: number;
+  busquedaInicial: string;
+  filtros?: { sort?: string; order?: "asc" | "desc" };
+}) {
+  const lista = useListaUrl({
+    q: busquedaInicial,
+    sort: filtros?.sort,
+    order: filtros?.order,
+  });
   return (
     <DataTable
       rows={clinicas}
       columns={columns}
       rowKey={(c) => String(c.id)}
+      serverSearch={{ value: lista.value, onSearch: lista.onSearch }}
+      serverSort={{ sort: lista.sort, order: lista.order, onSort: lista.onSort }}
+      serverPagination={{
+        page,
+        size,
+        total,
+        onPage: lista.onPage,
+        onSize: lista.onSize,
+        pageSizeOptions: LISTA_TAMANOS,
+      }}
       search={{
         placeholder: "Buscar por clínica, dirección o doctor",
         label: "Buscar por clínica, dirección o doctor",

@@ -11,11 +11,13 @@ import {
   Res,
   UseInterceptors,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Roles } from '../auth/roles.decorator.js';
 import { NoStoreInterceptor } from '../security/index.js';
 import { CreateServicioDto, UpdateServicioDto } from './dto/servicio.dto.js';
+import { ListServiciosQueryDto } from './dto/list-servicios-query.dto.js';
 import { ImagenUploadInterceptor } from './imagen-upload.interceptor.js';
 import { ServicioIdPipe } from './servicio-id.pipe.js';
 import { ServiciosService, type ServicioAdmin } from './servicios.service.js';
@@ -27,8 +29,12 @@ export class CatalogoAdminController {
   constructor(private readonly servicios: ServiciosService) {}
 
   @Get()
-  list(): Promise<ServicioAdmin[]> {
-    return this.servicios.listAdmin();
+  list(@Query() query: ListServiciosQueryDto) {
+    return this.servicios.listAdmin(query.q, query.page, query.size, {
+      activo: query.activo,
+      sort: query.sort,
+      order: query.order,
+    });
   }
 
   @Post()

@@ -14,12 +14,22 @@ export interface MailAttachment {
   contentBase64: string;
 }
 
+/**
+ * Attachments the WORKER builds at send time from ids. Nothing binary travels
+ * in the job, so Redis keeps no base64 and a retry rebuilds the same files.
+ */
+export type MailAttachmentSource = {
+  kind: 'cuenta-cobro';
+  cuentaCobroId: string;
+};
+
 export interface MailMessage {
   to: string | string[];
   subject: string;
   text?: string;
   html?: string;
   attachments?: MailAttachment[];
+  attachmentSource?: MailAttachmentSource;
 }
 
 export interface MailJobPayload {
@@ -28,6 +38,7 @@ export interface MailJobPayload {
   text: string | null;
   html: string | null;
   attachments: MailAttachment[];
+  attachmentSource?: MailAttachmentSource;
 }
 
 /**
@@ -56,6 +67,7 @@ export class MailQueueService {
       text: mail.text ?? null,
       html: mail.html ?? null,
       attachments: mail.attachments ?? [],
+      ...(mail.attachmentSource ? { attachmentSource: mail.attachmentSource } : {}),
     };
 
     try {

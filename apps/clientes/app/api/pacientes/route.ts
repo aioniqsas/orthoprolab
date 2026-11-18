@@ -12,17 +12,26 @@ export async function GET(req: NextRequest) {
   const cookieHeader = token ? `auth_token=${token}` : "";
 
   try {
-    const res = await fetch(
-      `${API_URL}/mi-clinica/pacientes?doctorId=${encodeURIComponent(doctorId)}`,
-      {
-        headers: cookieHeader ? { Cookie: cookieHeader } : {},
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) {
-      return NextResponse.json([], { status: 200 });
+    const data: unknown[] = [];
+    let page = 1;
+    let total = Infinity;
+    while (data.length < total) {
+      const res = await fetch(
+        `${API_URL}/mi-clinica/pacientes?doctorId=${encodeURIComponent(doctorId)}&page=${page}&size=100`,
+        {
+          headers: cookieHeader ? { Cookie: cookieHeader } : {},
+          cache: "no-store",
+        },
+      );
+      if (!res.ok) {
+        return NextResponse.json(data, { status: 200 });
+      }
+      const body = (await res.json()) as { data: unknown[]; total: number };
+      data.push(...body.data);
+      total = body.total;
+      if (body.data.length === 0) break;
+      page += 1;
     }
-    const data = await res.json();
     return NextResponse.json(data);
   } catch {
     return NextResponse.json([], { status: 200 });

@@ -28,10 +28,22 @@ import { CuentasCobroEventosService } from '../cuentas-cobro/cuentas-cobro-event
 import { RegistrarComprobanteDto } from '../cuentas-cobro/dto/registrar-comprobante.dto.js';
 import { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { CreateMiDoctorDto } from './dto/create-mi-doctor.dto.js';
+import { ListPacientesQueryDto } from './dto/list-pacientes-query.dto.js';
+import { ListOrdenesQueryDto } from '../pedidos/dto/list-ordenes-query.dto.js';
+import { ListCuentasQueryDto } from '../cuentas-cobro/dto/list-cuentas-query.dto.js';
 import { UpdateMiDoctorDto } from './dto/update-mi-doctor.dto.js';
 import { MiClinicaService } from './mi-clinica.service.js';
 import { PedidosEventosService } from '../pedidos/pedidos-eventos.service.js';
-import { interval, map, merge, type Observable } from 'rxjs';
+import {
+  filter,
+  from,
+  interval,
+  map,
+  merge,
+  type Observable,
+  switchMap,
+} from 'rxjs';
+import { esDeClinica } from './eventos-clinica.js';
 import { StreamableFile } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 
@@ -90,12 +102,23 @@ export class MiClinicaController {
   @Get('pacientes')
   listPacientes(
     @Req() req: AuthenticatedRequest,
-    @Query('doctorId') doctorId?: string,
+    @Query() query: ListPacientesQueryDto,
   ) {
-    if (doctorId) {
-      return this.miClinica.listPacientesDelDoctor(req.user.id, doctorId);
+    if (query.doctorId) {
+      return this.miClinica.listPacientesDelDoctor(
+        req.user.id,
+        query.doctorId,
+        query.q,
+        query.page,
+        query.size,
+      );
     }
-    return this.miClinica.listAllPacientes(req.user.id);
+    return this.miClinica.listAllPacientes(
+      req.user.id,
+      query.q,
+      query.page,
+      query.size,
+    );
   }
 
   @Post('pacientes')
@@ -117,13 +140,25 @@ export class MiClinicaController {
   }
 
   @Get('servicios')
-  listServicios() {
-    return this.miClinica.listServicios();
+  listServicios(
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.miClinica.listServicios(page, size);
   }
 
   @Get('ordenes')
-  listOrdenes(@Req() req: AuthenticatedRequest) {
-    return this.miClinica.listOrdenes(req.user.id);
+  listOrdenes(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ListOrdenesQueryDto,
+  ) {
+    return this.miClinica.listOrdenes(
+      req.user.id,
+      query.q,
+      query.page,
+      query.size,
+      { grupo: query.grupo, sort: query.sort, order: query.order },
+    );
   }
 
   @Post('ordenes')
@@ -167,14 +202,21 @@ export class MiClinicaController {
   @Sse('ordenes/eventos')
   @Header('Cache-Control', 'no-cache, no-transform')
   @Header('X-Accel-Buffering', 'no')
-  ordenesEventos(): Observable<MessageEvent> {
+  ordenesEventos(@Req() req: AuthenticatedRequest): Observable<MessageEvent> {
     const SSE_HEARTBEAT_MS = 25_000;
-    return merge(
-      this.eventos.cambios$.pipe(
-        map((cambio): MessageEvent => ({ type: 'orden', data: { tipo: cambio.tipo } })),
-      ),
-      interval(SSE_HEARTBEAT_MS).pipe(
-        map((): MessageEvent => ({ type: 'ping', data: {} })),
+    // Only this clinic's order events (optimizacion B5): the event carries the
+    // clinic of the order, and the clinic is resolved from the session.
+    return from(this.miClinica.resolveClinicaId(req.user.id)).pipe(
+      switchMap((clinicaId) =>
+        merge(
+          this.eventos.cambios$.pipe(
+            filter((cambio) => esDeClinica(cambio, clinicaId)),
+            map((cambio): MessageEvent => ({ type: 'orden', data: { tipo: cambio.tipo } })),
+          ),
+          interval(SSE_HEARTBEAT_MS).pipe(
+            map((): MessageEvent => ({ type: 'ping', data: {} })),
+          ),
+        ),
       ),
     );
   }
@@ -205,8 +247,17 @@ export class MiClinicaController {
   }
 
   @Get('cuentas-cobro')
-  listCuentasCobro(@Req() req: AuthenticatedRequest) {
-    return this.miClinica.listCuentasCobro(req.user.id);
+  listCuentasCobro(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ListCuentasQueryDto,
+  ) {
+    return this.miClinica.listCuentasCobro(
+      req.user.id,
+      query.q,
+      query.page,
+      query.size,
+      { grupo: query.grupo, sort: query.sort, order: query.order },
+    );
   }
 
   /** Change trigger for the client portal: the clinic refreshes its own list. */

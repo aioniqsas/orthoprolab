@@ -13,6 +13,7 @@ import { CuentasCobroController } from './cuentas-cobro.controller.js';
 import { CuentasCobroEventosService } from './cuentas-cobro-eventos.service.js';
 import { PdfCuentaCobroService } from './pdf-cuenta-cobro.service.js';
 import { MailerCuentaCobroService } from './mailer-cuenta-cobro.service.js';
+import { CuentaCobroMailAttachmentsService } from './cuenta-cobro-mail-attachments.service.js';
 import { ComprobanteStorageService } from './comprobante-storage.service.js';
 import { ComprobanteUploadInterceptor } from './comprobante-upload.interceptor.js';
 
@@ -34,6 +35,7 @@ import { ComprobanteUploadInterceptor } from './comprobante-upload.interceptor.j
     CuentasCobroEventosService,
     PdfCuentaCobroService,
     MailerCuentaCobroService,
+    CuentaCobroMailAttachmentsService,
     ComprobanteStorageService,
     ComprobanteUploadInterceptor,
   ],
@@ -42,6 +44,7 @@ import { ComprobanteUploadInterceptor } from './comprobante-upload.interceptor.j
     CuentasCobroService,
     CuentasCobroEventosService,
     ComprobanteUploadInterceptor,
+    CuentaCobroMailAttachmentsService,
   ],
 })
 export class CuentasCobroModule {}

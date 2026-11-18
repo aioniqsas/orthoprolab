@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { odontogramaPng } from './odontograma-png.js';
+import { limpiarCacheOdontograma, odontogramaPng } from './odontograma-png.js';
 import { odontogramaSvg, ODONTOGRAMA_ALTO, ODONTOGRAMA_ANCHO } from './odontograma-svg.js';
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -15,5 +15,20 @@ describe('odontogramaPng', () => {
     expect(meta.format).toBe('png');
     expect(meta.width).toBe(ODONTOGRAMA_ANCHO);
     expect(meta.height).toBe(ODONTOGRAMA_ALTO);
+  });
+
+  it('reuses the rasterization of the same teeth set (cache hit)', async () => {
+    limpiarCacheOdontograma();
+    const svg = odontogramaSvg({ dientes: [13, 14] });
+    const primera = await odontogramaPng(svg);
+    const segunda = await odontogramaPng(svg);
+    expect(segunda).toBe(primera);
+  });
+
+  it('keeps different teeth sets apart', async () => {
+    limpiarCacheOdontograma();
+    const a = await odontogramaPng(odontogramaSvg({ dientes: [13] }));
+    const b = await odontogramaPng(odontogramaSvg({ dientes: [46] }));
+    expect(a).not.toEqual(b);
   });
 });

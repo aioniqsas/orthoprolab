@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
 import { CuentaCobro } from '../cuentas-cobro/cuenta-cobro.entity.js';
 import { PacienteDoctor } from '../pacientes/paciente-doctor.entity.js';
 import { PacientesService } from '../pacientes/pacientes.service.js';
@@ -14,6 +14,21 @@ import type { CreateOrdenDto } from '../pedidos/dto/create-orden.dto.js';
 import { PedidosService } from '../pedidos/pedidos.service.js';
 import { PdfControlTrabajosService } from '../pedidos/pdf-control-trabajos.service.js';
 import { MailerControlTrabajosService } from '../pedidos/mailer-control-trabajos.service.js';
+import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
+import { aplicarBusquedaOrdenes } from '../pedidos/orden-busqueda.js';
+import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import { orderByWhitelist, type SortOrder } from '../common/list-query.js';
+import { ESTADOS_POR_GRUPO, ORDEN_ORDER_COLUMNS } from '../pedidos/orden-grupo.js';
+import {
+  CUENTA_ORDER_COLUMNS,
+  ESTADOS_POR_GRUPO_CUENTA,
+} from '../cuentas-cobro/cuenta-grupo.js';
+import type { OrdenGroup } from '../pedidos/dto/list-ordenes-query.dto.js';
+import type { CuentaGroup } from '../cuentas-cobro/dto/list-cuentas-query.dto.js';
 import { Servicio } from '../catalogo/servicio.entity.js';
 import { Clinica } from '../usuarios/clinica.entity.js';
 import { Doctor } from '../usuarios/doctor.entity.js';
@@ -105,29 +120,87 @@ export class MiClinicaService {
     return this.doctorRepo.save(doctor);
   }
 
-  async listOrdenes(usuarioId: string): Promise<Orden[]> {
+  async listOrdenes(
+    usuarioId: string,
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+    opts?: { grupo?: OrdenGroup; sort?: string; order?: SortOrder },
+  ): Promise<PaginatedResult<Orden>> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.ordenRepo
+    const pacienteIds = await this.pacientesService.buscarIds(q);
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    const qb = this.ordenRepo
       .createQueryBuilder('o')
       .innerJoinAndSelect('o.asignacion', 'asig')
       .innerJoinAndSelect('asig.doctor', 'doctor')
       .innerJoinAndSelect('asig.paciente', 'paciente')
       .innerJoinAndSelect('o.estado', 'estado')
-      .where('doctor.clinicaId = :clinicaId', { clinicaId })
-      .orderBy('o.fechaCreacion', 'DESC')
-      .getMany();
+      .where('doctor.clinicaId = :clinicaId', { clinicaId });
+    qb.orderBy(
+      orderByWhitelist(
+        ORDEN_ORDER_COLUMNS,
+        'o.id',
+        { sort: opts?.sort, order: opts?.order },
+        'creada',
+        'DESC',
+      ),
+    );
+    if (opts?.grupo !== undefined) {
+      qb.andWhere('estado.codigo IN (:...codigos)', {
+        codigos: ESTADOS_POR_GRUPO[opts.grupo],
+      });
+    }
+    aplicarBusquedaOrdenes(qb, q, pacienteIds, { conEstado: true });
+    const total = await qb.getCount();
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    const data = await qb.skip(skip).take(currentSize).getMany();
+    return paginatedResult(data, total, currentPage, currentSize);
   }
 
   /** Clinic portal: drafts are still internal, so they never reach the client. */
-  async listCuentasCobro(usuarioId: string): Promise<CuentaCobro[]> {
+  async listCuentasCobro(
+    usuarioId: string,
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+    opts?: { grupo?: CuentaGroup; sort?: string; order?: SortOrder },
+  ): Promise<PaginatedResult<CuentaCobro>> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.cuentaCobroRepo
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    const qb = this.cuentaCobroRepo
       .createQueryBuilder('cc')
       .leftJoinAndSelect('cc.clinica', 'clinica')
       .where('cc.clinicaId = :clinicaId', { clinicaId })
-      .andWhere('cc.estado != :borrador', { borrador: 'borrador' })
-      .orderBy('cc.createdAt', 'DESC')
-      .getMany();
+      .andWhere('cc.estado != :borrador', { borrador: 'borrador' });
+    qb.orderBy(
+      orderByWhitelist(
+        CUENTA_ORDER_COLUMNS,
+        'cc.id',
+        { sort: opts?.sort, order: opts?.order },
+        'fecha',
+        'DESC',
+      ),
+    );
+    if (opts?.grupo !== undefined) {
+      qb.andWhere('cc.estado IN (:...estados)', {
+        estados: ESTADOS_POR_GRUPO_CUENTA[opts.grupo],
+      });
+    }
+    const patron = patronBusqueda(q);
+    if (patron) {
+      qb.andWhere(`${sinAcentosSql('cc.numero')} LIKE :patron ESCAPE '\\'`, { patron });
+    }
+    const total = await qb.getCount();
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    const data = await qb.skip(skip).take(currentSize).getMany();
+    return paginatedResult(data, total, currentPage, currentSize);
   }
 
   /** Detail view for the client portal; rejects accounts from other clinics. */
@@ -147,20 +220,49 @@ export class MiClinicaService {
   async listPacientesDelDoctor(
     usuarioId: string,
     doctorId: string,
-  ): Promise<PacienteDoctor[]> {
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+  ): Promise<PaginatedResult<PacienteDoctor>> {
     await this.getDoctor(usuarioId, doctorId);
-    return this.pacienteDoctorRepo.find({
-      where: { doctorId },
+    const ids = await this.pacientesService.buscarIds(q);
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    if (ids && ids.length === 0) {
+      return paginatedResult([], 0, currentPage, currentSize);
+    }
+    const where = ids ? { doctorId, pacienteId: In(ids) } : { doctorId };
+    const [data, total] = await this.pacienteDoctorRepo.findAndCount({
+      where,
       relations: { paciente: true },
-      order: { fechaAsignacion: 'DESC' },
+      // The pair (fechaAsignacion, pacienteId) is unique for one doctor: pages
+      // never repeat nor skip a row.
+      order: { fechaAsignacion: 'DESC', pacienteId: 'DESC' },
+      skip,
+      take: currentSize,
     });
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    return paginatedResult(data, total, currentPage, currentSize);
   }
 
-  async listServicios(): Promise<Servicio[]> {
-    return this.servicioRepo.find({
+  async listServicios(
+    page?: string | number,
+    size?: string | number,
+  ): Promise<PaginatedResult<Servicio>> {
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    const [data, total] = await this.servicioRepo.findAndCount({
       where: { activo: true },
-      order: { nombre: 'ASC' },
+      order: { nombre: 'ASC', id: 'ASC' },
+      skip,
+      take: currentSize,
     });
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    return paginatedResult(data, total, currentPage, currentSize);
   }
 
   async createOrden(usuarioId: string, dto: CreateOrdenDto): Promise<Orden> {
@@ -180,9 +282,12 @@ export class MiClinicaService {
 
   async listAllPacientes(
     usuarioId: string,
-  ): Promise<Array<{ id: string; nombre: string; cedula: string | null }>> {
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+  ): Promise<PaginatedResult<{ id: string; nombre: string; cedula: string | null }>> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    return this.pacientesService.listForClinica(clinicaId);
+    return this.pacientesService.listForClinica(clinicaId, q, page, size);
   }
 
   async updatePaciente(
@@ -191,9 +296,14 @@ export class MiClinicaService {
     nombre: string,
   ): Promise<{ id: string; nombre: string }> {
     const clinicaId = await this.resolveClinicaId(usuarioId);
-    const inClinica = await this.pacientesService.listForClinica(clinicaId);
-    const found = inClinica.find((p) => p.id === String(pacienteId));
-    if (!found) {
+    // Direct ownership check (does not depend on paginated listing).
+    const link = await this.pacienteDoctorRepo
+      .createQueryBuilder('pd')
+      .innerJoin('pd.doctor', 'doctor')
+      .where('doctor.clinicaId = :clinicaId', { clinicaId })
+      .andWhere('pd.pacienteId = :pacienteId', { pacienteId: String(pacienteId) })
+      .getOne();
+    if (!link) {
       throw new NotFoundException(`Paciente ${pacienteId} no encontrado en esta clínica.`);
     }
     return this.pacientesService.updateNombre(pacienteId, nombre);

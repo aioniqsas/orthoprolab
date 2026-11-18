@@ -4,6 +4,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
 import { Redis } from 'ioredis';
 import type { EnvConfig } from '../config/env.validation.js';
+import { CuentasCobroModule } from '../cuentas-cobro/cuentas-cobro.module.js';
 import { HttpRetryController } from './http-retry.controller.js';
 import { HttpRetryProcessor } from './http-retry.processor.js';
 import { HttpRetryQueueService } from './http-retry.queue.service.js';
@@ -47,6 +48,8 @@ const redisOptions = (config: ConfigService<EnvConfig, true>) => ({
         },
       }),
     }),
+    // The mail worker builds the billing-account attachments by id (S3).
+    CuentasCobroModule,
     BullModule.registerQueue(
       { name: SYSTEM_QUEUE },
       { name: MAIL_QUEUE },

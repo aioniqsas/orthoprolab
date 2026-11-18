@@ -191,11 +191,13 @@ describe('Catalogo (e2e)', () => {
     it('lists only active services with the public fields and a short public cache', async () => {
       const active = await create('publico');
       const hidden = await create('oculto', { activo: false });
-      const res = await pub('/catalogo/servicios').expect(200);
+      const res = await pub('/catalogo/servicios?size=100').expect(200);
       expect(res.headers['cache-control']).toBe(
         'public, max-age=60, stale-while-revalidate=300',
       );
-      const list = res.body as Record<string, unknown>[];
+      expect(res.body).toMatchObject({ page: 1, size: 100 });
+      expect(typeof res.body.total).toBe('number');
+      const list = res.body.data as Record<string, unknown>[];
       const slugs = list.map((s) => s.slug);
       expect(slugs).toContain(active.slug);
       expect(slugs).not.toContain(hidden.slug);
@@ -208,7 +210,7 @@ describe('Catalogo (e2e)', () => {
           ['descripcion', 'id', 'imagenUrl', 'nombre', 'slug'].sort(),
         );
       }
-      expect(JSON.stringify(res.body)).not.toMatch(
+      expect(JSON.stringify(list)).not.toMatch(
         /precio|activo|imagenPublicId|fecha/i,
       );
     });
@@ -236,7 +238,8 @@ describe('Catalogo (e2e)', () => {
     });
 
     it('needs no authentication', async () => {
-      await pub('/catalogo/servicios').expect(200);
+      const res = await pub('/catalogo/servicios').expect(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
     });
   });
 
@@ -279,8 +282,10 @@ describe('Catalogo (e2e)', () => {
       expect(svc).toHaveProperty('fechaCreacion');
       expect(svc).toHaveProperty('fechaActualizacion');
       expect(svc).not.toHaveProperty('imagenPublicId');
-      const list = await admin('get', '/admin/catalogo/servicios').expect(200);
-      const found = (list.body as Servicio[]).find((s) => s.id === svc.id);
+      const list = await admin('get', '/admin/catalogo/servicios?size=100').expect(200);
+      expect(list.body).toMatchObject({ page: 1, size: 100 });
+      expect(typeof list.body.total).toBe('number');
+      const found = (list.body.data as Servicio[]).find((s) => s.id === svc.id);
       expect(found?.precio).toBe('1500.50');
       const one = await admin(
         'get',

@@ -10,7 +10,19 @@ import { OrdenesLive } from "./ordenes-live";
 
 export const metadata: Metadata = { title: "Órdenes" };
 
-export default function OrdenesPage() {
+export default function OrdenesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    size?: string;
+    grupo?: string;
+    urgente?: string;
+    sort?: string;
+    order?: string;
+  }>;
+}) {
   return (
     <section className="flex flex-col gap-6">
       <OrdenesLive />
@@ -24,7 +36,7 @@ export default function OrdenesPage() {
         }
       />
       <Suspense fallback={<ListSkeleton />}>
-        <OrdersView />
+        <OrdersView searchParams={searchParams} />
       </Suspense>
     </section>
   );

@@ -54,6 +54,21 @@ export function OrdenDetallesTable({ detalles }: { detalles: DetalleOrden[] }) {
         },
 
       ]}
+      renderCard={(d) => (
+        <li className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <span className="font-medium">{d.servicio}</span>
+            <span className="text-xs text-muted-foreground tabular-nums">Cant. {d.cantidad}</span>
+          </div>
+          {d.observaciones && (
+            <p className="mt-1 text-xs text-muted-foreground">{d.observaciones}</p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span>Dientes: {d.dientes?.length ? d.dientes.join(", ") : "—"}</span>
+            <span>Color: {d.colorDiente ? d.colorDiente : "—"}</span>
+          </div>
+        </li>
+      )}
       empty={<p className="text-sm text-muted-foreground">Sin detalles.</p>}
     />
   );

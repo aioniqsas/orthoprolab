@@ -18,7 +18,11 @@ type Linea = {
   observaciones?: string;
 };
 
-export function EditarOrdenForm({ orden }: { orden: Orden }) {
+export function EditarOrdenForm({
+  orden,
+}: {
+  orden: Pick<Orden, "id" | "urgente" | "fechaEntrega" | "detalles">;
+}) {
   const router = useRouter();
   const [urgente, setUrgente] = useState(orden.urgente);
   const [fechaEntrega, setFechaEntrega] = useState(orden.fechaEntrega ?? "");

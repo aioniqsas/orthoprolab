@@ -84,6 +84,9 @@ export class PdfService {
   // short stub from the top edge, but the very first card starts it instead.
   private timelineDrawn = false;
 
+  /** Generations in progress, keyed like the Redis cache. */
+  private readonly enCurso = new Map<string, Promise<Buffer>>();
+
   constructor(
     @Inject(PDF_REDIS) private readonly redis: Redis,
     private readonly serviciosService: ServiciosService,
@@ -98,9 +101,19 @@ export class PdfService {
     const cached = await this.redis.getBuffer(cacheKey).catch(() => null);
     if (cached) return cached;
 
-    const pdf = await this.generate(services);
-    await this.redis.set(cacheKey, pdf, 'EX', CACHE_TTL_SECONDS).catch(() => {});
-    return pdf;
+    // Single-flight (optimizacion P3): concurrent requests with a cold cache
+    // share one generation instead of rendering the same PDF N times.
+    let pendiente = this.enCurso.get(cacheKey);
+    if (!pendiente) {
+      pendiente = this.generate(services)
+        .then(async (pdf) => {
+          await this.redis.set(cacheKey, pdf, 'EX', CACHE_TTL_SECONDS).catch(() => {});
+          return pdf;
+        })
+        .finally(() => this.enCurso.delete(cacheKey));
+      this.enCurso.set(cacheKey, pendiente);
+    }
+    return pendiente;
   }
 
   /** Invalidates the cached PDF. Call after any catalog mutation. */

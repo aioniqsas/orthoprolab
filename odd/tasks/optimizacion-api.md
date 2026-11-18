@@ -1,0 +1,54 @@
+# Optimización: paginación, adjuntos y documentación
+
+Objetivo: cerrar lo que falta de la línea `feat/optimizacion-api` — los pendientes que las mediciones del 2026-11-12 dejaron abiertos. Rama de trabajo: `feat/optimizacion-api` en `app-worktrees/optimizacion-api`. Runner: `bun run test` y `bun run check-types` en `apps/api`; `bunx turbo run test --filter=@repo/ui` para el paquete UI. Entrega: sin push ni merge hasta que la persona lo decida.
+
+## Specs
+
+**S1 — Los listados se paginan en el servidor.**
+Evidencia: Engram 1261 midió `GET /ordenes` del admin en 49 KB con 8 órdenes y anotó "no server pagination"; Engram 1213 registra que el `DataTable` pagina en el cliente, así que el listado completo viaja igual.
+Aceptación: cada endpoint de lista que hoy devuelve el conjunto completo (órdenes, cuentas de cobro, pacientes, usuarios, clínicas, servicios) acepta página y tamaño con tope, y responde la página pedida junto con el total de filas. Una página más allá del final devuelve lista vacía con el total correcto, nunca error. El orden es determinista (un desempate explícito por id) para que dos páginas consecutivas no repitan ni salten filas. Un tamaño mayor al tope se recorta al tope.
+
+**S2 — La UI usa la paginación del servidor.**
+Aceptación: las tablas de los tres portales piden páginas al servidor en vez de recibir todo y partir en el cliente; el buscador sigue funcionando en servidor; el contador de filas refleja el total del servidor, no el de la página. Los cambios de página no pierden el término de búsqueda.
+
+**S3 — El correo de cuentas de cobro no lleva los PDF por Redis en base64.**
+Evidencia: Engram 1261 midió 6 PDFs de control (264 KB) convertidos en 352 KB base64 dentro del payload de la cola.
+Aceptación: el trabajo encolado no contiene los bytes del PDF; los adjuntos se generan al enviar (o se guardan fuera de Redis). El correo llega con los mismos adjuntos que hoy y un reintento no pierde ni duplica adjuntos.
+
+**S5 — Los filtros y el ordenamiento vuelven, en el servidor.**
+Aceptación: cada tabla paginada filtra y ordena sobre TODO el conjunto, no sobre la página cargada. El API acepta filtros validados con DTOs (grupo de estados y urgencia en `/ordenes`, grupo de estados en las cuentas de cobro, `activo` en usuarios y servicios), un `sort` de lista blanca por endpoint y `order` `asc`/`desc`; un `sort` fuera de la lista blanca o un `order` inválido responden 400. Los filtros se aplican antes de paginar y `total` cuenta el conjunto filtrado. El orden conserva el desempate por id. Los portales cablean sus filtros y el orden por cabecera a esos parámetros, con todo el estado en la URL, y el default sigue en 10 filas.
+
+**S4 — El feature queda documentado.**
+Aceptación: este documento queda actualizado con sus tareas y evidencia, y las secciones afectadas de `apps/api/docs/*.md` y `docs/portals.md` describen la búsqueda en servidor, la paginación, la serialización sin datos sensibles y la compresión.
+
+## Tasks
+
+| ID  | Tarea                                                         | Specs | Ruta  |
+| --- | ------------------------------------------------------------- | ----- | ----- |
+| T1  | Paginación en servidor en los endpoints de lista del API      | S1    | hecha |
+| T2  | Tablas de los tres portales contra la paginación del servidor | S2    | hecha |
+| T3  | Adjuntos de cuentas de cobro fuera del payload de Redis       | S3    | hecha |
+| T4  | Documentación del feature y de los contratos que cambian      | S4    | hecha |
+| T5  | Filtros y ordenamiento en servidor en las tablas paginadas    | S5    | hecha |
+
+## Log
+
+**L1 — pedido (textual, 2026-11-13):** "Revisa los cambios hechos ahí y si en engram hay algo relacionado para saber si nos falta algo de esos cambios" y después "vamos a terminar lo que queda faltando de ahí otro Worktree, seguiremos en este, solo cambia de rama", con la aclaración "usa la rama que ya existe".
+
+**L2 — evidencia (memorias 1261 y 1265, mediciones del 2026-11-12):** control de trabajos ~93 ms p50 con 118 ms de bloqueo del event loop; PDF de catálogo 330 ms en frío y 32 ms en caliente; `GET /ordenes` del admin 49 KB para 8 órdenes sin paginación en servidor; pipeline de correo de cuentas de cobro 480 ms y 640 ms de CPU con 264 KB de PDFs convertidos en 352 KB base64 en Redis; bcrypt coste 12 ≈ 310 ms por hash y 674 ms con 8 logins concurrentes por el pool de 4 de libuv; SSE ~13 KB de RSS por conexión; RSS del API de 160 MB en reposo a 247 MB tras generar PDFs. La rama ya cubrió gzip, cacheo de PDFs, recorte de campos, serialización sin contraseña ni cédula y búsqueda en servidor; quedan S1–S4 de arriba.
+
+**L3 — decisión pendiente de la persona (no es código):** `BCRYPT_COST` ya es configurable por entorno y vale 12 por defecto. Bajar el coste reduce el tiempo de login y también el costo de un ataque offline sobre los hashes: la persona decide si se toca o se deja en 12.
+
+**L4 — corrección de contrato (textual, 2026-11-13):** la persona pidió los nombres de paginación en inglés: query `page` y `size`, respuesta `{ data, total, page, size }`, y el helper en `apps/api/src/common/pagination.ts` (`PaginatedResult`, `normalizePagination`, `paginatedResult`, `DEFAULT_PAGE`, `DEFAULT_SIZE`, `MAX_SIZE`). No se renombran campos de dominio que ya estaban en español (`numero`, `clinicaId`, `fechaEntrega`, …).
+
+**L5 — T1 paginación en servidor (2026-11-13):** endpoints de lista del API (órdenes, cuentas de cobro, clínicas, usuarios, pacientes de clínica y servicios, en admin/mi-clinica y catálogo público/admin) devuelven `{ data, total, page, size }` con `page`/`size` (tope 100, recorte), total correcto, lista vacía fuera de rango y orden determinista con desempate por `id`. Consumidores del repo (portales, `@repo/api-client` no requirió cambio, sitio web, proxy de pacientes de clientes y e2e de catálogo) actualizados para agregar/consumir páginas. Pruebas: `apps/api/src/common/pagination.spec.ts` y `pagination.contract.spec.ts` (por endpoint y regla de S1) más las de `pedidos.service.spec.ts`. No se creó índice de BD (S1 no lo pide); si hiciera falta, queda como mejora separada.
+
+**L6 — T2 tablas paginadas en servidor (2026-11-13):** cada tabla de los portales pide UNA página (`page`/`size`, 10 por defecto) y toma sus contadores del `total` del API. El estado vive en la URL (`?q=&page=&size=`): se puede enlazar, recargar y volver atrás; cambiar de página conserva la búsqueda y buscar vuelve a la página 1 (`listaQuery` en `apps/admin/lib/lista-params.ts` y su gemelo de `apps/clientes`). `DataTable` (`packages/ui`) gana `serverPagination` y `serverPageWindow(total)`; en ese modo desactiva el filtrado y el ordenamiento en cliente, que sobre una sola página darían resultados falsos. El catálogo público (`apps/web`) pide una sola página (`size=10`) y no tiene paginador: el grid es de maquetación fija. Pendiente de API para recuperar esos controles en los portales: filtros por grupo de estado/urgencia y orden por columna (hoy `/ordenes` acepta `estadoId` y `urgente`, no grupos) y un `GET /mi-clinica/pacientes/:id` que elimine el barrido del detalle de paciente.
+
+**L7 — corrección de T2 (2026-11-13):** el catálogo público quedaba truncado al pedir una sola página de 10: `fetchServices()` alimenta el grid, `generateStaticParams` y los servicios relacionados, así que un servicio fuera de la primera decena perdía su ruta estática. `apps/web` vuelve a leer la lista completa con el helper `fetchAllPages` (`packages/ui/src/lib/fetch-all-pages.ts`, tope defensivo de 10 páginas de 100, sin tocar `cacheTag`/`cacheLife`/`revalidate`), exento del default de 10 por ser contenido de marketing con rutas estáticas. Se borraron los hooks muertos `apps/admin/lib/busqueda-url.ts` y `apps/clientes/lib/busqueda-url.ts`. Los filtros por grupo y el orden por columna siguen desactivados hasta que la persona decida.
+
+**L8 — T5 filtros y orden en servidor (2026-11-13):** el API valida la query de lista con DTOs (`ListQueryDto` y derivados en `apps/api/src/common/list-query.ts` + `dto/list-*-query.dto.ts`) y acepta `grupo`/`urgente` en órdenes, `grupo` en cuentas de cobro, `activo` en usuarios y servicios, más `sort`/`order`. `sort` es lista blanca por endpoint y se mapea a la columna con `orderByWhitelist` (nunca se interpola el valor); un `sort` o `order` inválido responde 400. Los filtros corren en SQL antes de paginar y `total` cuenta el conjunto filtrado; el orden conserva el desempate por id. En los portales, `DataTable` recupera filtros (`serverFilters`) y orden por cabecera (`serverSort`/`sortKey`) en modo servidor, y `useListaUrl` mantiene búsqueda, filtros, `sort`/`order`, página y tamaño en la URL (solo cambiar de página conserva la página; cualquier otro cambio vuelve a 1). Sin `sort` en pacientes: nombre y cédula están cifrados en reposo, así que la base no puede ordenarlos; tampoco en la columna «doctores» de clínicas, que es un conteo calculado después de paginar.
+
+**L9 — T3 adjuntos fuera de Redis (2026-11-13):** el trabajo encolado de la cuenta de cobro ya no lleva bytes: `MailMessage`/`MailJobPayload` ganan `attachmentSource: { kind: 'cuenta-cobro', cuentaCobroId }` y el productor encola solo el id. El PDF de la cuenta ya vive en Cloudinary (`pdfUrl` en la fila) y los controles de trabajo se generan en el worker al enviar, uno por orden y en secuencia, en `CuentaCobroMailAttachmentsService` (nuevo, en `apps/api/src/cuentas-cobro/`), que `MailProcessor` usa y que `CuentasCobroModule` exporta. `enviarPorEmail` deja de generar y leer PDFs en la petición. Medición con 6 PDFs de 44 KB: payload viejo 352,5 KB (base64), payload nuevo 0,2 KB. El correo no cambia (mismo asunto, cuerpo y adjuntos); un reintento del mismo job reconstruye los mismos adjuntos desde la base. Queda fuera de S3 el correo de control de trabajos individual, que aún encola un PDF en base64.
+
+**L10 — T4 documentación (2026-11-13):** nueva referencia `apps/api/docs/listados.md` con el contrato real: `page`/`size` (10 por defecto, tope 100 recortado), respuesta `{ data, total, page, size }`, página fuera de rango con lista vacía y total real, desempate por id, filtros y listas blancas de `sort` por endpoint con 400 ante un valor inválido, búsqueda en servidor, serialización (`@Exclude` de usuario, cédula del paciente enmascarada), compresión gzip con las excepciones de SSE y PDF, y el correo de cuentas de cobro encolado por id. `apps/api/docs/catalogo.md` §1, §3 y §5 reflejan la lista paginada pública y de administración. `docs/portals.md` cambia las dos secciones de filtros/paginación por una sola de listados en servidor con el estado en la URL y añade el envío del correo por id. `README.md` actualiza la mención del catálogo y añade una viñeta con el contrato de listados. Sin cifras nuevas: solo lo comprobado en el código.

@@ -9,11 +9,13 @@ import {
   Patch,
   Post,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { Roles, RolesGuard } from '../auth/index.js';
 import { ClinicasService } from './clinicas.service.js';
 import { CreateClinicaDto } from './dto/create-clinica.dto.js';
 import { UpdateClinicaDto } from './dto/update-clinica.dto.js';
+import { ListClinicasQueryDto } from './dto/list-clinicas-query.dto.js';
 
 @Controller('clinicas')
 @UseGuards(RolesGuard)
@@ -22,8 +24,11 @@ export class ClinicasController {
   constructor(private readonly clinicas: ClinicasService) {}
 
   @Get()
-  findAll() {
-    return this.clinicas.findAll();
+  findAll(@Query() query: ListClinicasQueryDto) {
+    return this.clinicas.findAll(query.q, query.page, query.size, {
+      sort: query.sort,
+      order: query.order,
+    });
   }
 
   @Post()

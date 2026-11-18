@@ -3,6 +3,8 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import type { Job } from 'bullmq';
 import nodemailer from 'nodemailer';
+import type { Attachment } from 'nodemailer/lib/mailer/index.js';
+import { CuentaCobroMailAttachmentsService } from '../cuentas-cobro/cuenta-cobro-mail-attachments.service.js';
 import { MAIL_CONCURRENCY, MAIL_JOB, MAIL_QUEUE } from './queues.constants.js';
 import type { MailJobPayload } from './mail-queue.service.js';
 
@@ -15,7 +17,10 @@ import type { MailJobPayload } from './mail-queue.service.js';
 export class MailProcessor extends WorkerHost {
   private readonly logger = new Logger(MailProcessor.name);
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly cuentaCobroAttachments: CuentaCobroMailAttachmentsService,
+  ) {
     super();
   }
 
@@ -39,6 +44,19 @@ export class MailProcessor extends WorkerHost {
       auth: { user, pass },
     });
 
+    const attachments: Attachment[] = job.data.attachments.map((attachment) => ({
+      filename: attachment.filename,
+      content: Buffer.from(attachment.contentBase64, 'base64'),
+    }));
+    if (job.data.attachmentSource?.kind === 'cuenta-cobro') {
+      // Built here, at send time, from ids: a retry rebuilds them unchanged.
+      attachments.push(
+        ...(await this.cuentaCobroAttachments.attachmentsFor(
+          job.data.attachmentSource.cuentaCobroId,
+        )),
+      );
+    }
+
     try {
       await transport.sendMail({
         from:
@@ -48,10 +66,7 @@ export class MailProcessor extends WorkerHost {
         subject: job.data.subject,
         text: job.data.text ?? undefined,
         html: job.data.html ?? undefined,
-        attachments: job.data.attachments.map((attachment) => ({
-          filename: attachment.filename,
-          content: Buffer.from(attachment.contentBase64, 'base64'),
-        })),
+        attachments,
       });
       this.logger.log(`Mail job ${job.id} delivered: "${job.data.subject}"`);
       return { delivered: job.data.to.length };

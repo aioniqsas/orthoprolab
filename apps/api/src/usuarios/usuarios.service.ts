@@ -17,6 +17,22 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 import { Rol } from './rol.entity.js';
 import { Usuario } from './usuario.entity.js';
+import { patronBusqueda, sinAcentosSql } from '../common/busqueda.js';
+import {
+  normalizePagination,
+  paginatedResult,
+  type PaginatedResult,
+} from '../common/pagination.js';
+import { orderByWhitelist, type SortOrder } from '../common/list-query.js';
+
+/** Whitelisted `sort` keys of `/usuarios`, mapped to their SQL column. */
+const USUARIO_ORDER_COLUMNS: Record<string, string> = {
+  nombre: 'u.apellidos',
+  correo: 'u.correo',
+  rol: 'rol.nombre',
+  activo: 'u.activo',
+  creado: 'u.fechaCreacion',
+};
 
 const PASSWORD_CHARS =
   'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
@@ -60,8 +76,17 @@ export class UsuariosService {
     private readonly mailerAuth: MailerAuthService,
   ) {}
 
-  async findAll(): Promise<UsuarioPublico[]> {
-    const usuarios = await this.usuarioRepo
+  async findAll(
+    q?: string,
+    page?: string | number,
+    size?: string | number,
+    opts?: { activo?: boolean; sort?: string; order?: SortOrder },
+  ): Promise<PaginatedResult<UsuarioPublico>> {
+    const { page: currentPage, size: currentSize, skip } = normalizePagination(
+      page,
+      size,
+    );
+    const qb = this.usuarioRepo
       .createQueryBuilder('u')
       .innerJoinAndSelect('u.rol', 'rol')
       .leftJoinAndSelect('u.clinica', 'clinica')
@@ -76,12 +101,31 @@ export class UsuariosService {
         'rol.nombre',
         'clinica.id',
         'clinica.nombre',
-      ])
-      .orderBy('u.apellidos', 'ASC')
-      .addOrderBy('u.nombres', 'ASC')
-      .getMany();
+      ]);
+    qb.orderBy(
+      orderByWhitelist(
+        USUARIO_ORDER_COLUMNS,
+        'u.id',
+        { sort: opts?.sort, order: opts?.order },
+        'nombre',
+        'ASC',
+      ),
+    );
+    if (opts?.activo !== undefined) {
+      qb.andWhere('u.activo = :activo', { activo: opts.activo });
+    }
+    const patron = patronBusqueda(q);
+    if (patron) {
+      qb.andWhere(
+        `(${sinAcentosSql("u.nombres || ' ' || u.apellidos")} LIKE :patron ESCAPE '\\' OR ${sinAcentosSql('u.correo')} LIKE :patron ESCAPE '\\')`,
+        { patron },
+      );
+    }
+    const total = await qb.getCount();
+    if (skip >= total) return paginatedResult([], total, currentPage, currentSize);
+    const usuarios = await qb.skip(skip).take(currentSize).getMany();
 
-    return usuarios.map((u) => ({
+    const data = usuarios.map((u) => ({
       id: u.id,
       nombres: u.nombres,
       apellidos: u.apellidos,
@@ -91,6 +135,7 @@ export class UsuariosService {
       rol: { id: u.rol.id, nombre: u.rol.nombre },
       clinica: u.clinica ? { id: u.clinica.id, nombre: u.clinica.nombre } : null,
     }));
+    return paginatedResult(data, total, currentPage, currentSize);
   }
 
   async findOne(id: string): Promise<UsuarioPublico> {
