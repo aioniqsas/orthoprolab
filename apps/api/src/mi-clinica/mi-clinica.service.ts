@@ -159,7 +159,6 @@ export class MiClinicaService {
       .innerJoinAndSelect('asig.paciente', 'paciente')
       .innerJoinAndSelect('o.estado', 'estado')
       .leftJoinAndSelect('o.detalles', 'detalle')
-<<<<<<< HEAD
       .where('doctor.clinicaId = :clinicaId', { clinicaId });
     qb.orderBy(
       orderByWhitelist(
