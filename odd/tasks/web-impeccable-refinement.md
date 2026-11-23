@@ -17,7 +17,7 @@ Branch: `feat/web-impeccable-refinement`. Delivery: work-unit commits, no push. 
 - [x] T1 (S1, S2) home — commits `01ea4f2`, `35c69f5`, `3f12a9d`: sin cambios de copy/rutas/metadata (S1 intacto); tracking al piso del craft-floor, `text-balance` en títulos, motion con `motion-safe:`
 - [x] T2 (S1, S3) inner pages + layout components — commits `01ea4f2`, `3f12a9d`: `lib/ui.ts` unifica RADIUS/TINTED_SHADOW/CTA_BASE en las cinco páginas y en location-map/price-download-button
 - [x] T3 (S4, S5) adapt + a11y — commits `35c69f5`, `0518587`: touch targets 44px (nav, footer, trigger, volver), focus-visible global en anchors, reduced-motion respetado, callout de /pagos a 1px
-- [x] T4 (S6) verification — lint y build verdes en `apps/web`, `impeccable detect` sin hallazgos nuevos; ver Log L4
+- [x] T4 (S6) verification — lint y build verdes en `apps/web`, `impeccable detect` sin hallazgos nuevos; ver Log L5
 
 ## Log
 
@@ -25,3 +25,4 @@ Branch: `feat/web-impeccable-refinement`. Delivery: work-unit commits, no push. 
 - L2 (2026-11-22, user): chose "Refinamiento" over full redesign; approved plan S1–S6, T1–T4.
 - L3: no unit tests exist in `apps/web`; lint, build and impeccable detect are the applicable checks.
 - L4 (2026-11-23, Pi): refinamiento completo en la rama `feat/web-impeccable-refinement-pi` (4 commits de unidad de trabajo). S1 preservado: cero cambios a claves `texto`/`fetchContenido`, defaults, rutas, metadata/JSON-LD e imágenes. Sin PRODUCT.md: se ofrece `/impeccable init` como seguimiento.
+- L5 (2026-11-23, Pi): verificación final. `bun run lint` verde en los 6 workspaces del monorepo; `bun run build` en `apps/web` con exit 0; `impeccable detect --json` sobre los 11 archivos tocados devuelve `[]`. El upgrade de Next.js y demás dependencias queda fuera de esta tarea: lo lleva el usuario en paralelo.
