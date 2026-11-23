@@ -1,10 +1,14 @@
 "use cache";
 import { cacheTag, cacheLife } from "next/cache";
 import { fetchAllPages, type ApiPage } from "@repo/ui/lib/fetch-all-pages";
-import { SERVICES, SERVICE_IMAGES } from "./catalog";
-import type { ServiceType } from "./catalog";
+import { SERVICE_IMAGES } from "./catalog";
 
-export type ApiService = ServiceType & { imagenUrl: string | null };
+export type ApiService = {
+  slug: string;
+  name: string;
+  description: string;
+  imagenUrl: string | null;
+};
 
 const DEFAULT_API_BASE = "http://localhost:3003";
 
@@ -35,27 +39,16 @@ export async function fetchServices(): Promise<ApiService[]> {
       if (!res.ok) return null;
       return (await res.json()) as ApiPage<ServicioPublicoApi>;
     });
-    if (data.length === 0) return fallback();
-
-    return data.map((apiSvc) => {
-      const local = SERVICES.find((s) => s.slug === apiSvc.slug);
-      return {
-        slug: apiSvc.slug,
-        name: apiSvc.nombre,
-        description: apiSvc.descripcion,
-        icon: local?.icon ?? "wrench",
-        tagline: local?.tagline ?? apiSvc.nombre,
-        items: local?.items ?? [],
-        imagenUrl: apiSvc.imagenUrl,
-      };
-    });
+    return data.map((apiSvc) => ({
+      slug: apiSvc.slug,
+      name: apiSvc.nombre,
+      description: apiSvc.descripcion,
+      imagenUrl: apiSvc.imagenUrl,
+    }));
   } catch {
-    return fallback();
+    // Nothing is invented when the API is down: the pages show no service.
+    return [];
   }
-}
-
-function fallback(): ApiService[] {
-  return SERVICES.map((s) => ({ ...s, imagenUrl: null }));
 }
 
 export async function resolveImage(service: ApiService): Promise<string> {

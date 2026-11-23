@@ -34,8 +34,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       {/* Browser extensions (e.g. ColorZilla) inject attributes into <body> before hydration. */}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <a
+          href="#contenido"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-xl focus:bg-highlight focus:px-4 focus:py-3 focus:font-semibold focus:text-background"
+        >
+          Saltar al contenido
+        </a>
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <main id="contenido" tabIndex={-1} className="flex-1 outline-none">{children}</main>
         <SiteFooter />
         <CatalogLive />
       </body>

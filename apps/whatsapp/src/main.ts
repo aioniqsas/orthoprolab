@@ -39,6 +39,7 @@ import {
   AUTH_DIR_MODE,
   AUTH_FILE_MODE,
 } from './safety'
+import { iniciarServidorSalud, puertoSalud, type EstadoBot } from './salud'
 
 // WHATSAPP_AUTH_DIR configures external Baileys credentials; never put it in this repo.
 const authDir = process.env.WHATSAPP_AUTH_DIR ?? join(homedir(), '.orthopro-lab', 'whatsapp', 'auth_info')
@@ -132,6 +133,8 @@ function messageText(message: WAMessage): string {
   return message.message?.conversation ?? message.message?.extendedTextMessage?.text ?? ''
 }
 
+let estadoBot: EstadoBot = 'conectando'
+
 async function start(attempt = 1): Promise<void> {
   await secureAuthDir(authDir)
   const { state, saveCreds } = await useMultiFileAuthState(authDir)
@@ -193,6 +196,7 @@ async function start(attempt = 1): Promise<void> {
   socket.ev.on('creds.update', () => void saveCredsSecured(saveCreds, authDir))
   socket.ev.on('connection.update', ({ connection, lastDisconnect }) => {
     if (connection === 'close') {
+      estadoBot = 'conectando'
       const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode
       const plan = planDesconexion(code, attempt, RECONNECT_MAX_ATTEMPTS, reconnectDelayMs(attempt) / 1000)
       console.error(plan.mensaje)
@@ -200,6 +204,7 @@ async function start(attempt = 1): Promise<void> {
       setTimeout(() => void start(attempt + 1), reconnectDelayMs(attempt))
     }
     if (connection === 'open' && socket.user?.id) {
+      estadoBot = 'conectado'
       console.log(`WhatsApp conectado como ${etiquetaRemitente(socket.user.id, true)}.`)
     }
   })
@@ -321,6 +326,13 @@ if (!guard.ok) {
 if (process.env.WHATSAPP_PAIRING_PHONE !== undefined && telefonoEmparejado === undefined) {
   console.error('WHATSAPP_PAIRING_PHONE inválido: usa dígitos E.164 sin + (ej. 573001234567).')
   process.exit(1)
+}
+
+// Railway (y similares) exigen un puerto: sin PORT, p. ej. en desarrollo local, no se levanta.
+const puertoHttp = puertoSalud()
+if (puertoHttp !== undefined) {
+  iniciarServidorSalud(puertoHttp, () => estadoBot)
+  console.log(`Servidor de salud escuchando en el puerto ${puertoHttp}.`)
 }
 
 void start().catch(() => {

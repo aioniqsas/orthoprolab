@@ -1,4 +1,6 @@
+import sharp from 'sharp';
 import { PdfService } from './pdf.service.js';
+import { detectImageType } from './image-validation.js';
 import type { ServicioParaPdf } from './servicios.service.js';
 
 // ---------------------------------------------------------------------------
@@ -146,6 +148,36 @@ describe('PdfService.fetchServiceImage', () => {
     );
     // In test environment fetch fails or returns non-200 → null
     expect(result === null || result instanceof Buffer).toBe(true);
+  });
+});
+
+describe('PdfService WebP thumbnails', () => {
+  const CLOUDINARY_WEBP = 'https://res.cloudinary.com/demo/image/upload/a.webp';
+
+  async function webpBuffer(): Promise<Buffer> {
+    return sharp({
+      create: { width: 40, height: 30, channels: 3, background: '#cc3333' },
+    })
+      .webp()
+      .toBuffer();
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('converts a WebP thumbnail to a format pdfkit can embed', async () => {
+    const webp = await webpBuffer();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(new Uint8Array(webp), { status: 200 })),
+    );
+    const { service } = buildService();
+
+    const result = await service.fetchServiceImage(CLOUDINARY_WEBP);
+
+    expect(result).toBeInstanceOf(Buffer);
+    expect(detectImageType(result as Buffer)).toBe('image/png');
   });
 });
 

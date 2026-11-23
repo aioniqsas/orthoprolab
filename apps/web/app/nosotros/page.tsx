@@ -1,34 +1,14 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { Metadata } from "next";
-import {
-  ArrowRightIcon,
-  CalendarCheckIcon,
-  CheckCircle2Icon,
-  CloudCheckIcon,
-  ReceiptTextIcon,
-  RulerIcon,
-  TrendingUpIcon,
-  UsersIcon,
-  type LucideIcon,
-} from "lucide-react";
-import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
 import { fetchContenido, texto } from "@/lib/content";
-import {
-  CTA_BASE,
-  RADIUS,
-  SECTION_BAND,
-  SECTION_CLOSE,
-  SECTION_TIGHT,
-  TINTED_SHADOW,
-} from "@/lib/ui";
+import { RADIUS, SECTION_BAND, SECTION_LEAD } from "@/lib/ui";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
-const ABOUT_TITLE = "Sobre nosotros: laboratorio dental en Medellín";
+const ABOUT_TITLE = "Laboratorio dental en Medellín para tu consultorio";
 const ABOUT_DESCRIPTION =
-  "Conoce la misión y la visión de OrthoPro Lab, laboratorio dental en Medellín para ortodoncia.";
+  "OrthoPro Lab fabrica aparatos de ortodoncia y prótesis dentales en Medellín a partir de los casos de cada consultorio.";
 
 export const metadata: Metadata = {
   title: ABOUT_TITLE,
@@ -36,156 +16,182 @@ export const metadata: Metadata = {
   ...pageSocial(`${ABOUT_TITLE} | ${BRAND_NAME}`, ABOUT_DESCRIPTION, "/nosotros"),
 };
 
-type Point = { title: string; text: string; icon: LucideIcon };
-
 // The page body awaits the cached content before rendering anything, so the
 // navigation cannot produce an instant shell without that data.
 export const instant = false;
-
-function PointList({ points }: { points: Point[] }) {
-  return (
-    <ul className="divide-y divide-border">
-      {points.map(({ icon: Icon, ...p }, i) => (
-        <li key={p.title}>
-          <Reveal delay={i * 0.08} className="flex items-start gap-4 py-5">
-            <Icon className="mt-0.5 size-6 shrink-0 text-highlight" strokeWidth={1.5} aria-hidden />
-            <div>
-              <p className="font-heading font-semibold text-body">{p.title}</p>
-              <p className="text-sm text-muted-foreground">{p.text}</p>
-            </div>
-          </Reveal>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export default async function AboutPage() {
   const contenido = await fetchContenido();
   const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
 
-  const missionPoints: Point[] = [
-    { icon: CheckCircle2Icon, title: t("nosotros.mision.punto1.titulo", "Parte del caso"), text: t("nosotros.mision.punto1.texto", "Fabricamos a partir de las impresiones que recibimos.") },
-    { icon: CheckCircle2Icon, title: t("nosotros.mision.punto2.titulo", "Cuatro líneas de trabajo"), text: t("nosotros.mision.punto2.texto", "Ortodoncia fija y removible, alineadores y retenedores.") },
-    { icon: CheckCircle2Icon, title: t("nosotros.mision.punto3.titulo", "Vuelve a tu consultorio"), text: t("nosotros.mision.punto3.texto", "El trabajo terminado regresa al odontólogo que lo pidió.") },
+  const pillars = [
+    {
+      title: t("nosotros.mision.punto1.titulo", "Parte del caso"),
+      text: t("nosotros.mision.punto1.texto", "Fabricamos a partir de las impresiones que recibimos."),
+    },
+    {
+      title: t("nosotros.mision.punto2.titulo", "Cuatro líneas de trabajo"),
+      text: t("nosotros.mision.punto2.texto", "Ortodoncia fija y removible, alineadores y retenedores."),
+    },
+    {
+      title: t("nosotros.mision.punto3.titulo", "Vuelve a tu consultorio"),
+      text: t("nosotros.mision.punto3.texto", "El trabajo terminado regresa al odontólogo que lo pidió."),
+    },
   ];
 
-  const visionPoints: Point[] = [
-    { icon: CloudCheckIcon, title: t("nosotros.vision.punto1.titulo", "Más trabajo digital"), text: t("nosotros.vision.punto1.texto", "Recibir y diseñar los casos en digital cuando el consultorio ya trabaja así.") },
-    { icon: TrendingUpIcon, title: t("nosotros.vision.punto2.titulo", "Mejora del servicio"), text: t("nosotros.vision.punto2.texto", "Ajustar nuestro proceso con lo que los clientes nos cuentan.") },
+  // Order follows the design; each item keeps the key that already holds its copy.
+  const values = [
+    {
+      title: t("nosotros.valores.punto1.titulo", "Exactitud"),
+      text: t("nosotros.valores.punto1.texto", "Trabajamos para que cada aparato corresponda al caso que nos enviaste."),
+    },
+    {
+      title: t("nosotros.valores.punto3.titulo", "Respeto por la agenda"),
+      text: t("nosotros.valores.punto3.texto", "Detrás de cada caso hay un paciente con una cita."),
+    },
+    {
+      title: t("nosotros.valores.punto4.titulo", "Trabajo con profesionales"),
+      text: t("nosotros.valores.punto4.texto", "Nuestros clientes son odontólogos, ortodoncistas y clínicas."),
+    },
+    {
+      title: t("nosotros.valores.punto2.titulo", "Transparencia"),
+      text: t("nosotros.valores.punto2.texto", "Los precios están en el catálogo y los pagos van a la cuenta oficial de la página de pagos."),
+    },
   ];
 
-  const values: Point[] = [
-    { icon: RulerIcon, title: t("nosotros.valores.punto1.titulo", "Precisión"), text: t("nosotros.valores.punto1.texto", "Trabajamos para que cada aparato corresponda al caso que nos enviaste.") },
-    { icon: ReceiptTextIcon, title: t("nosotros.valores.punto2.titulo", "Claridad"), text: t("nosotros.valores.punto2.texto", "Los precios están en el catálogo y los pagos van a la cuenta oficial de la página de pagos.") },
-    { icon: CalendarCheckIcon, title: t("nosotros.valores.punto3.titulo", "Respeto por la agenda"), text: t("nosotros.valores.punto3.texto", "Detrás de cada caso hay un paciente con una cita.") },
-    { icon: UsersIcon, title: t("nosotros.valores.punto4.titulo", "Trabajo con profesionales"), text: t("nosotros.valores.punto4.texto", "Nuestros clientes son odontólogos, ortodoncistas y clínicas.") },
+  const ahead = [
+    {
+      title: t("nosotros.vision.punto1.titulo", "Más trabajo digital"),
+      text: t("nosotros.vision.punto1.texto", "Recibir y diseñar los casos en digital cuando el consultorio ya trabaja así."),
+    },
+    {
+      title: t("nosotros.vision.punto2.titulo", "Mejora del servicio"),
+      text: t("nosotros.vision.punto2.texto", "Ajustar nuestro proceso con lo que los clientes nos cuentan."),
+    },
   ];
 
   return (
     <>
-      {/* Hero: lab photo under a vertical gray-to-black mask; copy sits in the dark lower part */}
-      <section className="relative isolate flex min-h-[70dvh] items-end overflow-hidden pt-24 pb-16 lg:min-h-[75dvh] lg:pb-24">
+      {/* Hero: lab photo under a gray-to-black mask, copy in the dark lower part.
+          The image is the LCP element, so it carries `priority` and no entrance animation. */}
+      <section
+        aria-labelledby="h1"
+        className="relative isolate flex min-h-[560px] items-end overflow-hidden pt-30 pb-16"
+      >
         <Image
           src={t("nosotros.hero.imagen", "/images/tecnicos-laboratorio-dental-trabajando-medellin.webp")}
-          alt={t("nosotros.hero.imagen_alt", "Técnicos del laboratorio dental fabricando prótesis dentales en Medellín")}
+          alt={t(
+            "nosotros.hero.imagen_alt",
+            "Técnicos del laboratorio dental fabricando prótesis dentales en Medellín",
+          )}
           fill
-          preload
+          priority
           fetchPriority="high"
           sizes="100vw"
-          className="-z-20 object-cover object-left"
+          className="-z-20 object-cover"
         />
         <div
           aria-hidden
-          className="absolute inset-0 -z-10 bg-gradient-to-b from-surface-alt/50 via-background/85 to-background"
+          className="absolute inset-0 -z-10 bg-gradient-to-b from-surface-alt/20 via-background/55 to-background"
         />
-        <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
-          <div className="flex max-w-3xl flex-col gap-6">
-            <Reveal>
-              <h1 className="text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl lg:text-6xl">
-                {t("nosotros.hero.titulo", "Un laboratorio para")} <span className="text-highlight">{t("nosotros.hero.titulo_destacado", "odontólogos y ortodoncistas")}</span>
-              </h1>
-            </Reveal>
-            <Reveal delay={0.1}>
-              <p className="max-w-[60ch] text-lg text-body/80">
-                {t("nosotros.hero.subtitulo", "OrthoPro Lab fabrica aparatos de ortodoncia y prótesis dentales en Medellín a partir de los casos de cada consultorio.")}
-              </p>
-            </Reveal>
-          </div>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-6 lg:px-12">
+          <h1
+            id="h1"
+            className="max-w-[16ch] text-[clamp(2.5rem,5.4vw,4.25rem)] leading-[1.04] font-bold tracking-[-0.04em] text-balance text-body"
+          >
+            {t("nosotros.hero.titulo", "Un laboratorio dental")}{" "}
+            <span className="text-highlight">
+              {t("nosotros.hero.titulo_destacado", "en Medellín")}
+            </span>{" "}
+            {t("nosotros.hero.titulo_cierre", "para tu consultorio")}
+          </h1>
+          <p className="max-w-[58ch] text-[19px] text-body/90">
+            {t(
+              "nosotros.hero.subtitulo",
+              "OrthoPro Lab fabrica aparatos de ortodoncia y prótesis dentales en Medellín a partir de los casos de cada consultorio.",
+            )}
+          </p>
         </div>
       </section>
 
-      {/* Mission: image left, text right */}
-      <section id="mision" className={cn("scroll-mt-16", SECTION_BAND)}>
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
-          <Reveal className="lg:col-span-5">
-            <div className={cn("relative aspect-[4/5] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
-              <Image
-                src={t("nosotros.mision.imagen", "/images/tecnico-laboratorio-dental-ajustando-protesis.webp")}
-                alt={t("nosotros.mision.imagen_alt", "Técnico del laboratorio dental ajustando una prótesis sobre el articulador")}
-                fill
-                sizes="(min-width: 1024px) 40vw, 100vw"
-                className="object-cover"
-              />
-            </div>
-          </Reveal>
-          <div className="flex flex-col gap-6 lg:col-span-7">
-            <Reveal className="flex flex-col gap-4">
-              <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-                {t("nosotros.mision.titulo", "Nuestra")} <span className="text-highlight">{t("nosotros.mision.titulo_destacado", "misión")}</span>
+      {/* How the lab works: three rules on a highlight top rule */}
+      <section aria-label="Qué hacemos" className={SECTION_LEAD}>
+        <div className="mx-auto grid max-w-7xl items-start gap-5 px-6 sm:grid-cols-2 lg:grid-cols-3 lg:px-12">
+          {pillars.map((pillar, i) => (
+            <Reveal
+              key={pillar.title}
+              delay={i * 0.06}
+              className="border-t-2 border-highlight pt-5"
+            >
+              <h2 className="mb-2 font-heading text-2xl font-semibold text-body">{pillar.title}</h2>
+              <p className="text-surface-alt">{pillar.text}</p>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* Mission and vision share one band: photo left, the two statements right */}
+      <section aria-label="Misión y visión" className={cn("border-y border-border bg-surface-raised", SECTION_BAND)}>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-12 px-6 lg:px-12">
+          <div className={cn("relative aspect-[5/4] w-full min-w-0 flex-[1_1_420px] overflow-hidden", RADIUS)}>
+            <Image
+              src={t("nosotros.mision.imagen", "/images/tecnico-laboratorio-dental-ajustando-protesis.webp")}
+              alt={t(
+                "nosotros.mision.imagen_alt",
+                "Técnico del laboratorio dental ajustando una prótesis sobre el articulador",
+              )}
+              fill
+              sizes="(min-width: 1024px) 45vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+          <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-10">
+            <Reveal className="flex flex-col gap-2.5">
+              <h2 className="font-heading text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.03em] text-body">
+                {t("nosotros.mision.titulo", "Misión")}
               </h2>
-              <p className="max-w-[60ch] text-body/80">
-                {t("nosotros.mision.intro", "Fabricar aparatos de ortodoncia y prótesis dentales a partir de lo que cada odontólogo planifica para su paciente.")}
+              <p className="text-[18px] text-surface-alt">
+                {t(
+                  "nosotros.mision.intro",
+                  "Fabricar aparatos de ortodoncia y prótesis dentales a partir de lo que cada odontólogo planifica para su paciente.",
+                )}
               </p>
             </Reveal>
-            <PointList points={missionPoints} />
-          </div>
-        </div>
-      </section>
-
-      {/* Vision: text left, image right */}
-      <section id="vision" className={cn("scroll-mt-16 bg-surface-raised/40", SECTION_TIGHT)}>
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
-          <div className="flex flex-col gap-6 lg:col-span-7">
-            <Reveal className="flex flex-col gap-4">
-              <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-                {t("nosotros.vision.titulo", "Nuestra")} <span className="text-highlight">{t("nosotros.vision.titulo_destacado", "visión")}</span>
+            <Reveal className="flex flex-col gap-2.5">
+              <h2 className="font-heading text-[clamp(1.75rem,3vw,2.5rem)] font-semibold tracking-[-0.03em] text-body">
+                {t("nosotros.vision.titulo", "Visión")}
               </h2>
-              <p className="max-w-[60ch] text-body/80">
-                {t("nosotros.vision.intro", "Ser un laboratorio al que odontólogos y ortodoncistas de Colombia recurran para sus casos de ortodoncia y prótesis.")}
+              <p className="text-[18px] text-surface-alt">
+                {t(
+                  "nosotros.vision.intro",
+                  "Ser un laboratorio al que odontólogos y ortodoncistas de Colombia recurran para sus casos de ortodoncia y prótesis.",
+                )}
               </p>
             </Reveal>
-            <PointList points={visionPoints} />
           </div>
-          <Reveal className="lg:col-span-5">
-            <div className={cn("relative aspect-[4/5] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
-              <Image
-                src={t("nosotros.vision.imagen", "/images/protesis-total-superior-ortopro-lab-medellin.webp")}
-                alt={t("nosotros.vision.imagen_alt", "Prótesis dental terminada en el laboratorio de Medellín")}
-                fill
-                sizes="(min-width: 1024px) 40vw, 100vw"
-                className="object-cover"
-              />
-            </div>
-          </Reveal>
         </div>
       </section>
 
-      {/* Values: heading left, divided list right */}
-      <section className={SECTION_BAND}>
-        <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
-          <Reveal className="lg:col-span-4">
-            <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-              {t("nosotros.valores.titulo", "Cuatro principios para trabajar contigo")}
+      {/* How the lab works with a practice */}
+      <section aria-labelledby="valores" className={SECTION_BAND}>
+        <div className="mx-auto max-w-7xl px-6 lg:px-12">
+          <Reveal>
+            <h2
+              id="valores"
+              className="mb-9 font-heading text-[clamp(1.875rem,3.4vw,2.75rem)] font-semibold tracking-[-0.035em] text-body"
+            >
+              {t("nosotros.valores.titulo", "Cómo trabajamos")}
             </h2>
           </Reveal>
-          <ul className="grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:col-span-8">
-            {values.map(({ icon: Icon, ...v }, i) => (
-              <li key={v.title}>
-                <Reveal delay={i * 0.08} className="flex flex-col gap-3 border-t border-border pt-6">
-                  <Icon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
-                  <h3 className="font-heading text-lg font-semibold text-body">{v.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{v.text}</p>
+          <ul className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {values.map((value, i) => (
+              <li key={value.title}>
+                <Reveal
+                  delay={i * 0.06}
+                  className="flex h-full flex-col gap-2 border border-border bg-surface-raised p-7"
+                >
+                  <h3 className="font-heading text-[22px] font-semibold text-body">{value.title}</h3>
+                  <p className="text-surface-alt">{value.text}</p>
                 </Reveal>
               </li>
             ))}
@@ -193,22 +199,24 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* Closing CTA */}
-      <section className={cn("relative isolate overflow-hidden", SECTION_CLOSE)}>
-        <Image src={t("nosotros.cierre.imagen", "/images/protesis-dental-completa-laboratorio-medellin.webp")} alt="" fill sizes="100vw" className="-z-20 object-cover" />
-        <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
-        <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
-          <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
-            {t("nosotros.cierre.titulo", "Revisa lo que fabricamos")}
+      {/* Where the lab is going */}
+      <section aria-labelledby="proximos" className="pb-24 lg:pb-28">
+        <div className="mx-auto flex max-w-7xl flex-wrap gap-12 px-6 lg:px-12">
+          <h2
+            id="proximos"
+            className="min-w-0 flex-[1_1_280px] font-heading text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] font-semibold tracking-[-0.03em] text-body"
+          >
+            {t("nosotros.proximos.titulo", "Hacia dónde vamos")}
           </h2>
-          <p className="max-w-[60ch] text-body/80">
-            {t("nosotros.cierre.texto", "Cada línea de trabajo tiene su página en el catálogo.")}
-          </p>
-          <Link href="/catalogo" prefetch className={cn(buttonVariants(), CTA_BASE)}>
-            {t("nosotros.cierre.boton", "Ver catálogo")}
-            <ArrowRightIcon className="size-4" aria-hidden />
-          </Link>
-        </Reveal>
+          <div className="grid min-w-0 flex-[999_1_560px] items-start gap-8 sm:grid-cols-2">
+            {ahead.map((item, i) => (
+              <Reveal key={item.title} delay={i * 0.06} className="flex flex-col gap-1.5">
+                <h3 className="font-heading text-xl font-semibold text-highlight">{item.title}</h3>
+                <p className="text-surface-alt">{item.text}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
       </section>
     </>
   );

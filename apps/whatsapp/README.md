@@ -51,6 +51,10 @@ una operación excede el plazo acotado, el bot responde sin memoria y no se cae
 
 ## Variables
 
+- `PORT`: si está definida (Railway la inyecta), el bot levanta un servidor HTTP
+  mínimo en `0.0.0.0` que responde 200 con `{"estado":"conectado|conectando"}`;
+  sirve para el dominio público y la verificación de salud. Sin `PORT` (desarrollo
+  local) no se abre ningún puerto.
 - `API_BASE_URL`: base de la API; por defecto `http://localhost:3003`.
 - `WHATSAPP_SERVICE_TOKEN`: token de servicio que exige
   `POST /internal/whatsapp/sesion` (cabecera `X-Whatsapp-Service-Token`).

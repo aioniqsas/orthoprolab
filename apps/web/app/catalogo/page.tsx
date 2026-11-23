@@ -24,69 +24,75 @@ export const metadata: Metadata = {
   ...pageSocial(`${CATALOG_TITLE} | ${BRAND_NAME}`, CATALOG_DESCRIPTION, "/catalogo"),
 };
 
-// Column spans on a 12-col grid: one wide feature, then three equal tiles.
-const SPANS = [
-  "lg:col-span-12",
-  "lg:col-span-4",
-  "lg:col-span-4",
-  "lg:col-span-4",
-];
+// Alt text per line, as in the design; the name is the fallback for a slug the
+// catalog adds later.
+const SERVICE_ALTS: Record<string, string> = {
+  "ortodoncia-fija": "Expansor de ortodoncia fija con tornillo central",
+  "ortodoncia-removible": "Placa removible de ortodoncia con tornillo",
+  "alineadores-invisibles": "Alineadores transparentes sobre modelos dentales",
+  "retenedores-y-ferulas": "Placa de acrílico removible sobre modelo de yeso",
+};
 
 export default async function CatalogPage() {
-  const services = await fetchServices();
-  const serviceImages = await Promise.all(services.map(resolveImage));
-  const contenido = await fetchContenido();
+  const [services, contenido] = await Promise.all([fetchServices(), fetchContenido()]);
   const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
+  // A row needs a photo: the admin upload from the API, else the line's lab photo.
+  const rows = await Promise.all(
+    services.map(async (s) => ({ ...s, image: await resolveImage(s) })),
+  );
+  const lines = rows.filter((s) => s.image);
+
   return (
     <>
-      <section className="pt-14 lg:pt-20">
-        <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
-          <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl">
-            {t("catalogo.titulo", "Catálogo de")} <span className="text-highlight">{t("catalogo.titulo_destacado", "servicios")}</span>
+      <section className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-8 px-6 pt-16 pb-12 lg:px-12 lg:pt-20 lg:pb-14">
+        <div className="flex min-w-0 flex-1 basis-[560px] flex-col gap-4.5">
+          <h1 className="text-[clamp(2.5rem,5vw,4rem)] leading-[1.04] font-bold tracking-[-0.04em] text-balance text-body">
+            {t("catalogo.titulo", "Catálogo de ortodoncia y prótesis dental")}{" "}
+            <span className="text-highlight">{t("catalogo.titulo_destacado", "en Medellín")}</span>
           </h1>
-          <p className="max-w-[60ch] text-lg text-body/80">
+          <p className="max-w-[56ch] text-lg text-surface-alt lg:text-[19px]">
             {t("catalogo.intro", "Cuatro líneas de ortodoncia. Los precios están en el catálogo en PDF.")}
           </p>
-          <PriceDownloadButton label={t("catalogo.boton_precios", "Ver precios")} />
-        </Reveal>
+        </div>
+        <PriceDownloadButton label={t("catalogo.boton_precios", "Descargar precios (PDF)")} />
       </section>
 
-      <section className={SECTION_TIGHT}>
-        <ul className="mx-auto grid max-w-7xl gap-4 px-6 lg:grid-cols-12 lg:px-12">
-          {services.map((service, i) => (
-            <li key={service.slug} className={cn("h-full", SPANS[i])}>
-              <Reveal delay={(i % 2) * 0.08} className="h-full">
+      {/* Four horizontal feature rows: photo left, text centred on the right so
+          every row reads the same even when the copy runs shorter. */}
+      <section aria-label="Líneas de trabajo" className={SECTION_TIGHT}>
+        <ul className="mx-auto flex max-w-7xl flex-col gap-5 px-6 lg:px-12">
+          {lines.map((line, i) => (
+            <li key={line.slug}>
+              <Reveal delay={i * 0.06}>
                 <Link
-                  href={`/catalogo/${service.slug}`}
+                  href={`/catalogo/${line.slug}`}
                   prefetch
                   className={cn(
-                    "group relative isolate flex h-full flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99]",
-                    i === 0 ? "min-h-80 lg:min-h-[26rem] lg:p-10" : "min-h-72 lg:min-h-80",
+                    "group flex flex-wrap overflow-hidden bg-surface-raised text-body ring-1 ring-border transition-transform duration-300 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99]",
                     RADIUS,
                     TINTED_SHADOW,
                   )}
                 >
-                  <Image
-                    src={serviceImages[i]!}
-                    alt=""
-                    fill
-                    sizes={i === 0 ? "100vw" : "(min-width: 1024px) 33vw, 100vw"}
-                    className="-z-20 object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
-                  />
-                  <div
-                    aria-hidden
-                    className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/75 to-background/10"
-                  />
-                  <h2 className={cn("font-heading font-semibold text-body", i === 0 ? "text-3xl lg:text-4xl" : "text-2xl")}>
-                    {service.name}
-                  </h2>
-                  <p className={cn("mt-2 text-sm text-body/75", i === 0 ? "max-w-xl" : "line-clamp-2 max-w-md")}>
-                    {service.description}
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold whitespace-nowrap text-highlight">
-                      {t("catalogo.boton", "Ver servicio")}
-                      <ArrowRightIcon className="size-4 transition-transform motion-safe:group-hover:translate-x-1" aria-hidden />
+                  <span className="relative block aspect-[16/10] min-w-0 flex-[1_1_360px]">
+                    <Image
+                      src={line.image}
+                      alt={SERVICE_ALTS[line.slug] ?? line.name}
+                      fill
+                      sizes="(min-width: 1024px) 45vw, 100vw"
+                      className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+                    />
+                  </span>
+                  <div className="flex min-w-0 flex-[1.4_1_420px] flex-col justify-center gap-2.5 p-6 lg:p-8">
+                    <h2 className="min-h-[2.5em] font-heading text-2xl leading-[1.25] font-semibold tracking-[-0.03em] text-body lg:text-[2rem]">
+                      {line.name}
+                    </h2>
+                    <p className="text-surface-alt">{line.description}</p>
+                    <span className="mt-2 inline-flex min-h-11 items-center gap-2 font-semibold text-highlight">
+                      {t("catalogo.boton", "Ver")} {line.name.toLowerCase()}
+                      <ArrowRightIcon
+                        className="size-4 transition-transform motion-safe:group-hover:translate-x-1"
+                        aria-hidden
+                      />
                     </span>
                   </div>
                 </Link>

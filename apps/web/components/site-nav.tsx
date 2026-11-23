@@ -24,7 +24,7 @@ export function SiteNav() {
 
   return (
     <>
-      <nav aria-label="Principal" className="hidden flex-nowrap items-center gap-1 md:flex">
+      <nav aria-label="Principal" className="hidden flex-nowrap items-center gap-0.5 md:flex">
         {NAV_LINKS.map(({ href, label }) => {
           const active = isActive(pathname, href);
           return (
@@ -35,9 +35,7 @@ export function SiteNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "inline-flex min-h-11 items-center rounded-xl px-3.5 text-sm font-medium whitespace-nowrap transition-colors",
-                active
-                  ? "bg-card text-highlight"
-                  : "text-muted-foreground hover:text-body",
+                active ? "text-highlight" : "text-body hover:text-highlight",
               )}
             >
               {label}
@@ -74,10 +72,8 @@ export function SiteNav() {
                     />
                   }
                   className={cn(
-                    "rounded-xl px-3 py-3 text-base font-medium transition-colors",
-                    active
-                      ? "bg-card text-highlight"
-                      : "text-muted-foreground hover:text-body",
+                    "inline-flex min-h-11 items-center rounded-xl px-3 text-base font-medium transition-colors",
+                    active ? "text-highlight" : "text-body hover:text-highlight",
                   )}
                 >
                   {label}
