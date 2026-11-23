@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { BRAND_NAME, LAB_ADDRESS, whatsappUrl } from "@/lib/site";
-import { SERVICES } from "@/lib/catalog";
+import { fetchServices } from "@/lib/api-catalog";
 import { Brand } from "./brand";
 import { CurrentYear } from "./current-year";
 
 const FOOTER_LINK = "inline-flex min-h-11 items-center transition-colors hover:text-body";
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const services = await fetchServices();
   return (
     <footer className="border-t border-border bg-background text-sm text-muted-foreground">
       <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-10 px-6 py-14 lg:px-12">
@@ -25,7 +26,7 @@ export function SiteFooter() {
 
         <nav aria-label="Servicios" className="flex flex-col gap-0.5">
           <strong className="font-heading text-sm font-semibold text-body">Servicios</strong>
-          {SERVICES.map(({ slug, name }) => (
+          {services.map(({ slug, name }) => (
             <Link key={slug} href={`/catalogo/${slug}`} prefetch className={FOOTER_LINK}>
               {name}
             </Link>

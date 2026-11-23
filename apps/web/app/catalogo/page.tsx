@@ -87,11 +87,6 @@ export default async function CatalogPage() {
                       {line.name}
                     </h2>
                     <p className="text-surface-alt">{line.description}</p>
-                    {line.items.length > 0 && (
-                      <p className="text-sm text-surface-alt">
-                        {line.items.map((item) => item.name).join(" · ")}
-                      </p>
-                    )}
                     <span className="mt-2 inline-flex min-h-11 items-center gap-2 font-semibold text-highlight">
                       {t("catalogo.boton", "Ver")} {line.name.toLowerCase()}
                       <ArrowRightIcon

@@ -8,18 +8,18 @@ export const instant = false;
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { PriceDownloadButton } from "@/components/price-download-button";
-import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { fetchContenido, texto } from "@/lib/content";
-import { CTA_BASE, RADIUS, SECTION_BAND, SECTION_CLOSE } from "@/lib/ui";
+import { CTA_BASE, RADIUS, SECTION_CLOSE } from "@/lib/ui";
 import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial, whatsappUrl } from "@/lib/site";
 
 type Props = { params: Promise<{ servicio: string }> };
 
 export async function generateStaticParams() {
   const services = await fetchServices();
-  return services.map((s) => ({ servicio: s.slug }));
+  // Cache Components rejects an empty list; the placeholder resolves to notFound().
+  return services.length > 0 ? services.map((s) => ({ servicio: s.slug })) : [{ servicio: "sin-servicios" }];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -143,44 +143,6 @@ export default async function ServicePage({ params }: Props) {
           </span>
         </div>
       </section>
-
-      {/* Items: one card per product. Titles reserve two lines and the
-          indication rule sits at the bottom, so the three cards in a row line up. */}
-      {service.items.length > 0 && (
-        <section
-          aria-labelledby="productos"
-          className={cn("border-y border-border bg-surface-raised", SECTION_BAND)}
-        >
-          <div className="mx-auto max-w-7xl px-6 lg:px-12">
-            <h2
-              id="productos"
-              className="mb-9 text-[clamp(1.875rem,3.4vw,2.75rem)] font-semibold tracking-[-0.035em] text-body"
-            >
-              {t("catalogo.detalle.productos_titulo", "Productos de esta línea")}
-            </h2>
-            <ul className="grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {service.items.map((item, i) => (
-                <li key={item.code}>
-                  <Reveal delay={i * 0.06} className="h-full">
-                    <article className={cn("flex h-full flex-col gap-2.5 border border-border bg-surface p-7", RADIUS)}>
-                      <h3 className="min-h-[2.5em] font-heading text-2xl leading-[1.25] font-semibold text-body">
-                        {item.name}
-                      </h3>
-                      <p className="text-body">{item.summary}</p>
-                      <p className="mt-auto border-t border-border pt-3.5 text-sm text-surface-alt">
-                        <strong className="font-semibold text-title">
-                          {t("catalogo.detalle.label_cuando", "Cuándo se indica")}:
-                        </strong>{" "}
-                        {item.indication}
-                      </p>
-                    </article>
-                  </Reveal>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
 
       {related.length > 0 && (
         <section
