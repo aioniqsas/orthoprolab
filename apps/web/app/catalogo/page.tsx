@@ -60,7 +60,7 @@ export default async function CatalogPage() {
                   href={`/catalogo/${service.slug}`}
                   prefetch
                   className={cn(
-                    "group relative isolate flex h-full flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.99]",
+                    "group relative isolate flex h-full flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99]",
                     i === 0 ? "min-h-80 lg:min-h-[26rem] lg:p-10" : "min-h-72 lg:min-h-80",
                     RADIUS,
                     TINTED_SHADOW,
@@ -71,7 +71,7 @@ export default async function CatalogPage() {
                     alt=""
                     fill
                     sizes={i === 0 ? "100vw" : "(min-width: 1024px) 33vw, 100vw"}
-                    className="-z-20 object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="-z-20 object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
                   />
                   <div
                     aria-hidden
@@ -86,7 +86,7 @@ export default async function CatalogPage() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
                     <span className="inline-flex items-center gap-2 text-sm font-semibold whitespace-nowrap text-highlight">
                       {t("catalogo.boton", "Ver servicio")}
-                      <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
+                      <ArrowRightIcon className="size-4 transition-transform motion-safe:group-hover:translate-x-1" aria-hidden />
                     </span>
                   </div>
                 </Link>

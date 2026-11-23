@@ -160,7 +160,7 @@ export default async function ServicePage({ params }: Props) {
                 <Link
                   href={`/catalogo/${s.slug}`}
                   prefetch
-                  className="group flex items-center gap-5 py-4 transition-transform active:scale-[0.99]"
+                  className="group flex items-center gap-5 py-4 transition-transform motion-safe:active:scale-[0.99]"
                 >
                   <span className={cn("relative h-16 w-24 shrink-0 overflow-hidden ring-1 ring-border", RADIUS)}>
                     <Image
@@ -176,7 +176,7 @@ export default async function ServicePage({ params }: Props) {
                     <span className="block text-sm text-muted-foreground">{s.tagline}</span>
                   </span>
                   <ArrowRightIcon
-                    className="size-5 shrink-0 text-highlight transition-transform group-hover:translate-x-1"
+                    className="size-5 shrink-0 text-highlight transition-transform motion-safe:group-hover:translate-x-1"
                     aria-hidden
                   />
                 </Link>

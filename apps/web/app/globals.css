@@ -19,4 +19,9 @@
   h6 {
     @apply text-title font-heading;
   }
+
+  /* Anchors get a visible focus ring; @repo/ui buttons ship their own. */
+  a:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
 }

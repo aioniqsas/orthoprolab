@@ -161,7 +161,7 @@ export default async function Home() {
                   href={`/catalogo/${s.slug}`}
                   prefetch
                   className={cn(
-                    "group relative isolate flex h-full min-h-64 flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.99]",
+                    "group relative isolate flex h-full min-h-64 flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99]",
                     RADIUS,
                     TINTED_SHADOW,
                     i === 0 && "lg:min-h-[34rem]",
@@ -172,7 +172,7 @@ export default async function Home() {
                     alt=""
                     fill
                     sizes={i === 0 ? "(min-width: 1024px) 50vw, 100vw" : "(min-width: 1024px) 25vw, 50vw"}
-                    className="-z-20 object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="-z-20 object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
                   />
                   <div
                     aria-hidden
@@ -186,7 +186,7 @@ export default async function Home() {
                   </p>
                   <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-highlight">
                     {t("home.servicios.boton", "Ver servicio")}
-                    <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
+                    <ArrowRightIcon className="size-4 transition-transform motion-safe:group-hover:translate-x-1" aria-hidden />
                   </span>
                 </Link>
               </Reveal>

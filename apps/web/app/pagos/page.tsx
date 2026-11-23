@@ -45,7 +45,7 @@ export default async function PaymentsPage() {
             <p className="max-w-[60ch] text-lg text-body/80">
               {t("pagos.hero.intro", "Recibimos pagos solo en la cuenta bancaria de esta página.")}
             </p>
-            <div className="flex gap-3 border-l-2 border-highlight/60 pl-4">
+            <div className="flex gap-3 border-l border-highlight/60 pl-4">
               <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-highlight" aria-hidden />
               <p className="text-sm text-body/80">
                 <strong className="font-semibold text-body">{t("pagos.hero.aviso_titulo", "Aviso de seguridad:")}</strong>{" "}

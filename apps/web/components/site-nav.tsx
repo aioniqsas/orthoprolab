@@ -49,7 +49,7 @@ export function SiteNav() {
       <Sheet>
         <SheetTrigger
           aria-label="Abrir menú"
-          className="inline-flex size-10 items-center justify-center rounded-xl text-body transition-transform hover:bg-card active:scale-[0.98] md:hidden"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-body transition-transform hover:bg-card motion-safe:active:scale-[0.98] md:hidden"
         >
           <MenuIcon className="size-5" />
         </SheetTrigger>
