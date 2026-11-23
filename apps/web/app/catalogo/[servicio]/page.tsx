@@ -98,7 +98,7 @@ export default async function ServicePage({ params }: Props) {
           <Link
             href="/catalogo"
             prefetch
-            className="mb-8 inline-flex items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
+            className="mb-8 inline-flex min-h-11 items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
           >
             <ArrowLeftIcon className="size-4" aria-hidden />
             {t("catalogo.detalle.volver", "Volver al catálogo")}

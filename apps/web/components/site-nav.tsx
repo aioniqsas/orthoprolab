@@ -34,7 +34,7 @@ export function SiteNav() {
               prefetch
               aria-current={active ? "page" : undefined}
               className={cn(
-                "rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors",
+                "inline-flex min-h-11 items-center rounded-xl px-3.5 text-sm font-medium whitespace-nowrap transition-colors",
                 active
                   ? "bg-card text-highlight"
                   : "text-muted-foreground hover:text-body",
@@ -49,7 +49,7 @@ export function SiteNav() {
       <Sheet>
         <SheetTrigger
           aria-label="Abrir menú"
-          className="inline-flex size-10 items-center justify-center rounded-xl text-body transition-transform hover:bg-card motion-safe:active:scale-[0.98] md:hidden"
+          className="inline-flex size-11 items-center justify-center rounded-xl text-body transition-transform hover:bg-card motion-safe:active:scale-[0.98] md:hidden"
         >
           <MenuIcon className="size-5" />
         </SheetTrigger>
