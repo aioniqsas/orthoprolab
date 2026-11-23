@@ -12,7 +12,7 @@ import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { fetchContenido, texto } from "@/lib/content";
-import { RADIUS } from "@/lib/ui";
+import { HEADING_GAP, RADIUS, SECTION_BAND, SECTION_TIGHT } from "@/lib/ui";
 import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial } from "@/lib/site";
 
 type Props = { params: Promise<{ servicio: string }> };
@@ -116,8 +116,8 @@ export default async function ServicePage({ params }: Props) {
       </section>
 
       {/* Items: divided rows, name left and spec list right */}
-      <section className="py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
+      <section className={SECTION_TIGHT}>
+        <div className={cn("mx-auto max-w-7xl px-6 lg:px-12", HEADING_GAP)}>
           <Reveal>
             <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("catalogo.detalle.productos_titulo", "Productos de esta línea")}
@@ -147,7 +147,7 @@ export default async function ServicePage({ params }: Props) {
       </section>
 
       {/* Related services: compact rows with thumbnail */}
-      <section className="bg-surface-raised/40 py-20 lg:py-28">
+      <section className={cn("bg-surface-raised/40", SECTION_BAND)}>
         <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
             <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">

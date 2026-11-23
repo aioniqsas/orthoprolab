@@ -7,7 +7,7 @@ import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { fetchContenido, texto } from "@/lib/content";
-import { RADIUS, TINTED_SHADOW } from "@/lib/ui";
+import { RADIUS, SECTION_TIGHT, TINTED_SHADOW } from "@/lib/ui";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 // The page body awaits the cached catalog before rendering anything, so the
@@ -39,7 +39,7 @@ export default async function CatalogPage() {
   const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
   return (
     <>
-      <section className="pt-16 pb-10 lg:pt-24">
+      <section className="pt-14 lg:pt-20">
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
           <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl">
             {t("catalogo.titulo", "Catálogo de")} <span className="text-highlight">{t("catalogo.titulo_destacado", "servicios")}</span>
@@ -51,7 +51,7 @@ export default async function CatalogPage() {
         </Reveal>
       </section>
 
-      <section className="pb-20 lg:pb-28">
+      <section className={SECTION_TIGHT}>
         <ul className="mx-auto grid max-w-7xl gap-4 px-6 lg:grid-cols-12 lg:px-12">
           {services.map((service, i) => (
             <li key={service.slug} className={cn("h-full", SPANS[i])}>

@@ -2,7 +2,7 @@ import { MapPinIcon } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
-import { CTA_BASE, RADIUS } from "@/lib/ui";
+import { CTA_BASE, RADIUS, SECTION_BAND } from "@/lib/ui";
 import { BRAND_NAME, LAB_ADDRESS, LAB_FULL_ADDRESS } from "@/lib/site";
 
 // Keyless Google Maps URLs (no API key exists for this project).
@@ -11,7 +11,7 @@ const EMBED_SRC = `https://www.google.com/maps?q=${encodeURIComponent(LAB_FULL_A
 
 export function LocationMap() {
   return (
-    <section id="ubicacion" className="scroll-mt-16 bg-surface-raised/40 py-20 lg:py-28">
+    <section id="ubicacion" className={cn("scroll-mt-16 bg-surface-raised/40", SECTION_BAND)}>
       <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:items-stretch lg:gap-14 lg:px-12">
         <Reveal className="flex flex-col justify-center gap-6 lg:col-span-4">
           <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">

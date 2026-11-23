@@ -6,7 +6,7 @@ import { AccountQr } from "@/components/account-qr";
 import { CopyButton } from "@/components/copy-button";
 import { Reveal } from "@/components/reveal";
 import { fetchContenido, texto } from "@/lib/content";
-import { RADIUS, TINTED_SHADOW } from "@/lib/ui";
+import { HEADING_GAP, RADIUS, SECTION_BAND, SECTION_LEAD, TINTED_SHADOW } from "@/lib/ui";
 import { BANK_ACCOUNTS } from "@/lib/payments";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
@@ -36,7 +36,7 @@ export default async function PaymentsPage() {
 
   return (
     <>
-      <section className="py-16 lg:py-24">
+      <section className={SECTION_LEAD}>
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-span-5 lg:self-start">
             <h1 className="text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl">
@@ -118,8 +118,8 @@ export default async function PaymentsPage() {
         </div>
       </section>
 
-      <section className="bg-surface-raised/40 py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
+      <section className={cn("bg-surface-raised/40", SECTION_BAND)}>
+        <div className={cn("mx-auto max-w-7xl px-6 lg:px-12", HEADING_GAP)}>
           <Reveal>
             <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("pagos.pasos.titulo", "Cómo pagar y confirmar en tres pasos")}

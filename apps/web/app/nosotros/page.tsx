@@ -16,7 +16,14 @@ import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
 import { fetchContenido, texto } from "@/lib/content";
-import { CTA_BASE, RADIUS, TINTED_SHADOW } from "@/lib/ui";
+import {
+  CTA_BASE,
+  RADIUS,
+  SECTION_BAND,
+  SECTION_CLOSE,
+  SECTION_TIGHT,
+  TINTED_SHADOW,
+} from "@/lib/ui";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const ABOUT_TITLE = "Sobre nosotros: laboratorio dental en Medellín";
@@ -78,7 +85,7 @@ export default async function AboutPage() {
   return (
     <>
       {/* Hero: lab photo under a vertical gray-to-black mask; copy sits in the dark lower part */}
-      <section className="relative isolate flex min-h-[calc(100dvh-4rem)] items-end overflow-hidden pt-24 pb-16 lg:pb-24">
+      <section className="relative isolate flex min-h-[70dvh] items-end overflow-hidden pt-24 pb-16 lg:min-h-[75dvh] lg:pb-24">
         <Image
           src={t("nosotros.hero.imagen", "/images/tecnicos-laboratorio-dental-trabajando-medellin.webp")}
           alt={t("nosotros.hero.imagen_alt", "Técnicos del laboratorio dental fabricando prótesis dentales en Medellín")}
@@ -109,7 +116,7 @@ export default async function AboutPage() {
       </section>
 
       {/* Mission: image left, text right */}
-      <section id="mision" className="scroll-mt-16 py-20 lg:py-28">
+      <section id="mision" className={cn("scroll-mt-16", SECTION_BAND)}>
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-5">
             <div className={cn("relative aspect-[4/5] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
@@ -137,7 +144,7 @@ export default async function AboutPage() {
       </section>
 
       {/* Vision: text left, image right */}
-      <section id="vision" className="scroll-mt-16 bg-surface-raised/40 py-20 lg:py-28">
+      <section id="vision" className={cn("scroll-mt-16 bg-surface-raised/40", SECTION_TIGHT)}>
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <div className="flex flex-col gap-6 lg:col-span-7">
             <Reveal className="flex flex-col gap-4">
@@ -165,7 +172,7 @@ export default async function AboutPage() {
       </section>
 
       {/* Values: heading left, divided list right */}
-      <section className="py-20 lg:py-28">
+      <section className={SECTION_BAND}>
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
             <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
@@ -187,7 +194,7 @@ export default async function AboutPage() {
       </section>
 
       {/* Closing CTA */}
-      <section className="relative isolate overflow-hidden py-20 lg:py-28">
+      <section className={cn("relative isolate overflow-hidden", SECTION_CLOSE)}>
         <Image src={t("nosotros.cierre.imagen", "/images/protesis-dental-completa-laboratorio-medellin.webp")} alt="" fill sizes="100vw" className="-z-20 object-cover" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
