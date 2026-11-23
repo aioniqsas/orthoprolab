@@ -16,6 +16,7 @@ import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
 import { fetchContenido, texto } from "@/lib/content";
+import { CTA_BASE, RADIUS, TINTED_SHADOW } from "@/lib/ui";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 const ABOUT_TITLE = "Sobre nosotros: laboratorio dental en Medellín";
@@ -27,10 +28,6 @@ export const metadata: Metadata = {
   description: ABOUT_DESCRIPTION,
   ...pageSocial(`${ABOUT_TITLE} | ${BRAND_NAME}`, ABOUT_DESCRIPTION, "/nosotros"),
 };
-
-const RADIUS = "rounded-xl";
-const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
-const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold whitespace-nowrap transition-transform active:scale-[0.98]`;
 
 type Point = { title: string; text: string; icon: LucideIcon };
 

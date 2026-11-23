@@ -6,6 +6,7 @@ import { AccountQr } from "@/components/account-qr";
 import { CopyButton } from "@/components/copy-button";
 import { Reveal } from "@/components/reveal";
 import { fetchContenido, texto } from "@/lib/content";
+import { RADIUS, TINTED_SHADOW } from "@/lib/ui";
 import { BANK_ACCOUNTS } from "@/lib/payments";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
@@ -18,9 +19,6 @@ export const metadata: Metadata = {
   description: PAYMENTS_DESCRIPTION,
   ...pageSocial(`${PAYMENTS_TITLE} | ${BRAND_NAME}`, PAYMENTS_DESCRIPTION, "/pagos"),
 };
-
-const RADIUS = "rounded-xl";
-const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 
 // The page body awaits the cached content before rendering anything, so the
 // navigation cannot produce an instant shell without that data.

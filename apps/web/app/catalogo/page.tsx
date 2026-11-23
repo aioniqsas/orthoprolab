@@ -7,6 +7,7 @@ import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { fetchContenido, texto } from "@/lib/content";
+import { RADIUS, TINTED_SHADOW } from "@/lib/ui";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 // The page body awaits the cached catalog before rendering anything, so the
@@ -22,9 +23,6 @@ export const metadata: Metadata = {
   description: CATALOG_DESCRIPTION,
   ...pageSocial(`${CATALOG_TITLE} | ${BRAND_NAME}`, CATALOG_DESCRIPTION, "/catalogo"),
 };
-
-const RADIUS = "rounded-xl";
-const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 
 // Column spans on a 12-col grid: one wide feature, then three equal tiles.
 const SPANS = [

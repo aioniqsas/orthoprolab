@@ -2,6 +2,7 @@ import { MapPinIcon } from "lucide-react";
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { Reveal } from "@/components/reveal";
+import { CTA_BASE, RADIUS } from "@/lib/ui";
 import { BRAND_NAME, LAB_ADDRESS, LAB_FULL_ADDRESS } from "@/lib/site";
 
 // Keyless Google Maps URLs (no API key exists for this project).
@@ -29,7 +30,8 @@ export function LocationMap() {
             rel="noopener noreferrer"
             className={cn(
               buttonVariants({ variant: "outline" }),
-              "h-auto w-fit gap-2 rounded-xl border-body/40 px-6 py-3.5 font-semibold",
+              CTA_BASE,
+              "w-fit border-body/40",
             )}
           >
             Cómo llegar
@@ -37,7 +39,7 @@ export function LocationMap() {
           </a>
         </Reveal>
         <Reveal className="min-w-0 lg:col-span-8">
-          <div className="aspect-[4/3] min-h-80 w-full overflow-hidden rounded-xl bg-card ring-1 ring-body/20 lg:aspect-auto lg:h-full lg:min-h-[28rem]">
+          <div className={cn("aspect-[4/3] min-h-80 w-full overflow-hidden bg-card ring-1 ring-body/20 lg:aspect-auto lg:h-full lg:min-h-[28rem]", RADIUS)}>
             <iframe
               src={EMBED_SRC}
               title={`Mapa de Google con la ubicación de ${BRAND_NAME} en Medellín`}

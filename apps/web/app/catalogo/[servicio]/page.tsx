@@ -12,11 +12,10 @@ import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { fetchContenido, texto } from "@/lib/content";
+import { RADIUS } from "@/lib/ui";
 import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial } from "@/lib/site";
 
 type Props = { params: Promise<{ servicio: string }> };
-
-const RADIUS = "rounded-xl";
 
 export async function generateStaticParams() {
   const services = await fetchServices();

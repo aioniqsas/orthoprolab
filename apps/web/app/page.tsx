@@ -16,6 +16,7 @@ import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { LocationMap } from "@/components/location-map";
 import { fetchContenido, texto } from "@/lib/content";
+import { CTA_BASE, RADIUS, TINTED_SHADOW } from "@/lib/ui";
 import { SERVICES, SERVICE_IMAGES } from "@/lib/catalog";
 import {
   BRAND_NAME,
@@ -66,11 +67,6 @@ const BUSINESS_JSON_LD = {
     },
   ],
 };
-
-// Single corner-radius scale for the whole page: rounded-xl.
-const RADIUS = "rounded-xl";
-const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
-const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold transition-transform active:scale-[0.98]`;
 
 // The page body awaits the cached content before rendering anything, so the
 // navigation cannot produce an instant shell without that data.
