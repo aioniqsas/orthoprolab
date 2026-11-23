@@ -39,7 +39,7 @@ export default async function PaymentsPage() {
       <section className="py-16 lg:py-24">
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-span-5 lg:self-start">
-            <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">
+            <h1 className="text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl">
               {t("pagos.hero.titulo", "Paga por")} <span className="text-highlight">{t("pagos.hero.titulo_destacado", "transferencia")}</span>
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">
@@ -121,7 +121,7 @@ export default async function PaymentsPage() {
       <section className="bg-surface-raised/40 py-20 lg:py-28">
         <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
           <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("pagos.pasos.titulo", "Cómo pagar y confirmar en tres pasos")}
             </h2>
           </Reveal>

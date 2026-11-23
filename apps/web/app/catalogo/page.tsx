@@ -41,7 +41,7 @@ export default async function CatalogPage() {
     <>
       <section className="pt-16 pb-10 lg:pt-24">
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
-          <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">
+          <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl">
             {t("catalogo.titulo", "Catálogo de")} <span className="text-highlight">{t("catalogo.titulo_destacado", "servicios")}</span>
           </h1>
           <p className="max-w-[60ch] text-lg text-body/80">

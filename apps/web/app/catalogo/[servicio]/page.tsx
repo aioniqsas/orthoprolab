@@ -104,7 +104,7 @@ export default async function ServicePage({ params }: Props) {
             {t("catalogo.detalle.volver", "Volver al catálogo")}
           </Link>
           <Reveal className="flex max-w-3xl flex-col gap-6">
-            <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl lg:text-6xl">
               {service.name}
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">{service.description}</p>
@@ -119,7 +119,7 @@ export default async function ServicePage({ params }: Props) {
       <section className="py-20 lg:py-28">
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("catalogo.detalle.productos_titulo", "Productos de esta línea")}
             </h2>
           </Reveal>
@@ -150,7 +150,7 @@ export default async function ServicePage({ params }: Props) {
       <section className="bg-surface-raised/40 py-20 lg:py-28">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
-            <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("catalogo.detalle.relacionados_titulo", "Otras líneas del laboratorio")}
             </h2>
           </Reveal>

@@ -95,7 +95,7 @@ export default async function AboutPage() {
         <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
           <div className="flex max-w-3xl flex-col gap-6">
             <Reveal>
-              <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
+              <h1 className="text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl lg:text-6xl">
                 {t("nosotros.hero.titulo", "Un laboratorio para")} <span className="text-highlight">{t("nosotros.hero.titulo_destacado", "odontólogos y ortodoncistas")}</span>
               </h1>
             </Reveal>
@@ -124,7 +124,7 @@ export default async function AboutPage() {
           </Reveal>
           <div className="flex flex-col gap-6 lg:col-span-7">
             <Reveal className="flex flex-col gap-4">
-              <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+              <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
                 {t("nosotros.mision.titulo", "Nuestra")} <span className="text-highlight">{t("nosotros.mision.titulo_destacado", "misión")}</span>
               </h2>
               <p className="max-w-[60ch] text-body/80">
@@ -141,7 +141,7 @@ export default async function AboutPage() {
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <div className="flex flex-col gap-6 lg:col-span-7">
             <Reveal className="flex flex-col gap-4">
-              <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+              <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
                 {t("nosotros.vision.titulo", "Nuestra")} <span className="text-highlight">{t("nosotros.vision.titulo_destacado", "visión")}</span>
               </h2>
               <p className="max-w-[60ch] text-body/80">
@@ -168,7 +168,7 @@ export default async function AboutPage() {
       <section className="py-20 lg:py-28">
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
-            <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("nosotros.valores.titulo", "Cuatro principios para trabajar contigo")}
             </h2>
           </Reveal>
@@ -191,7 +191,7 @@ export default async function AboutPage() {
         <Image src={t("nosotros.cierre.imagen", "/images/protesis-dental-completa-laboratorio-medellin.webp")} alt="" fill sizes="100vw" className="-z-20 object-cover" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
-          <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+          <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
             {t("nosotros.cierre.titulo", "Revisa lo que fabricamos")}
           </h2>
           <p className="max-w-[60ch] text-body/80">

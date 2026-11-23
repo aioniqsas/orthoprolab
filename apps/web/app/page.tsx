@@ -112,7 +112,7 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
           <div className="flex max-w-4xl flex-col gap-7">
             <Reveal>
-              <h1 className="text-5xl font-bold leading-[1.05] tracking-tighter text-body md:text-6xl lg:text-7xl">
+              <h1 className="text-5xl font-bold leading-[1.05] text-balance tracking-[-0.04em] text-body md:text-6xl lg:text-7xl">
                 {t("home.hero.titulo", "Laboratorio dental en")} <span className="text-highlight">{t("home.hero.titulo_destacado", "Medellín")}</span>
               </h1>
             </Reveal>
@@ -146,7 +146,7 @@ export default async function Home() {
       <section id="servicios" className="scroll-mt-16 py-20 lg:py-28">
         <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
           <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("home.servicios.titulo", "Cuatro líneas de trabajo para ortodoncia")}
             </h2>
           </Reveal>
@@ -199,7 +199,7 @@ export default async function Home() {
       <section className="bg-surface-raised/40 py-20 lg:py-28">
         <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
           <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("home.proceso.titulo", "Del caso que envías al trabajo que recibes")}
             </h2>
           </Reveal>
@@ -233,7 +233,7 @@ export default async function Home() {
           </Reveal>
           <div className="flex flex-col gap-8 lg:col-span-6">
             <Reveal>
-              <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+              <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
                 {t("home.antes.titulo", "Antes de enviar tu primer caso")}
               </h2>
             </Reveal>
@@ -267,7 +267,7 @@ export default async function Home() {
         />
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
-          <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+          <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
             {t("home.cierre.titulo", "Consulta el catálogo completo")}
           </h2>
           <p className="max-w-[60ch] text-body/80">
