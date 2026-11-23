@@ -51,6 +51,9 @@ una operación excede el plazo acotado, el bot responde sin memoria y no se cae
 
 ## Variables
 
+- `WHATSAPP_LOG_DETALLE`: con `1` imprime todo el detalle interno de Baileys (JSON, muy
+  verboso); sin ella, la consola solo muestra los mensajes del bot, avisos y errores
+  en una línea.
 - `PORT`: si está definida (Railway la inyecta), el bot levanta un servidor HTTP
   mínimo en `0.0.0.0` que responde 200 con `{"estado":"conectado|conectando"}`;
   sirve para el dominio público y la verificación de salud. Sin `PORT` (desarrollo

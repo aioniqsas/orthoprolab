@@ -24,6 +24,8 @@ export interface OpcionesSesion {
   mostrarQr: (qr: string) => void
   mostrarCodigo: (codigo: string) => void
   log: (linea: string) => void
+  /** Logger de Baileys; sin él se usa el de fábrica (pino, muy verboso). */
+  logger?: Parameters<typeof makeWASocket>[0]['logger']
 }
 
 /**
@@ -40,7 +42,12 @@ export async function iniciarSesion(op: OpcionesSesion): Promise<WASocket> {
   } catch {
     op.log(MENSAJE_VERSION_FALLBACK)
   }
-  const socket = op.crearSocket({ auth: op.auth, version, printQRInTerminal: false })
+  const socket = op.crearSocket({
+    auth: op.auth,
+    version,
+    printQRInTerminal: false,
+    ...(op.logger ? { logger: op.logger } : {}),
+  })
   let codigoPedido = false
   socket.ev.on('connection.update', async (datos: { qr?: string }) => {
     const { qr } = datos

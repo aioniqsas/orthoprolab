@@ -39,6 +39,7 @@ import {
   AUTH_DIR_MODE,
   AUTH_FILE_MODE,
 } from './safety'
+import { loggerDesdeEntorno } from './registro'
 import { iniciarServidorSalud, puertoSalud, type EstadoBot } from './salud'
 
 // WHATSAPP_AUTH_DIR configures external Baileys credentials; never put it in this repo.
@@ -136,6 +137,7 @@ function messageText(message: WAMessage): string {
 let estadoBot: EstadoBot = 'conectando'
 
 async function start(attempt = 1): Promise<void> {
+  console.log(attempt === 1 ? 'Iniciando el bot de WhatsApp…' : `Reconectando con WhatsApp (intento ${attempt})…`)
   await secureAuthDir(authDir)
   const { state, saveCreds } = await useMultiFileAuthState(authDir)
   let sockRef: Awaited<ReturnType<typeof makeWASocket>> | undefined
@@ -151,6 +153,7 @@ async function start(attempt = 1): Promise<void> {
     mostrarQr,
     mostrarCodigo,
     log: console.log,
+    logger: loggerDesdeEntorno(),
   })
   sockRef = socket
   // Baileys 7 guarda el mapeo LID → teléfono; no siempre está disponible.
@@ -205,7 +208,7 @@ async function start(attempt = 1): Promise<void> {
     }
     if (connection === 'open' && socket.user?.id) {
       estadoBot = 'conectado'
-      console.log(`WhatsApp conectado como ${etiquetaRemitente(socket.user.id, true)}.`)
+      console.log(`Listo: WhatsApp conectado como ${etiquetaRemitente(socket.user.id, true)}.`)
     }
   })
 
