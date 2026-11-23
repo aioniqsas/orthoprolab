@@ -1,11 +1,22 @@
+// Same order as the design's nav; the brand is the link home.
 export const NAV_LINKS = [
-  { href: "/", label: "Inicio" },
-  { href: "/nosotros", label: "Nosotros" },
   { href: "/catalogo", label: "Catálogo" },
+  { href: "/nosotros", label: "Nosotros" },
   { href: "/pagos", label: "Pagos" },
 ] as const;
 
 export const BRAND_NAME = "OrthoPro Lab";
+
+// Digits only: wa.me rejects anything else. Empty means "let WhatsApp ask the user".
+const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
+
+/** Plain WhatsApp link; there is no lead form, so every CTA is a link. */
+export function whatsappUrl(message: string): string {
+  const text = encodeURIComponent(message);
+  return WHATSAPP_NUMBER
+    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`
+    : `https://wa.me/?text=${text}`;
+}
 
 // Real address provided by the client; reused by footer and SEO metadata.
 export const LAB_ADDRESS = "Cl. 53 #43 - 43, oficina 204, Medellín";

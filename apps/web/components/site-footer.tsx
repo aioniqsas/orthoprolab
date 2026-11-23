@@ -1,36 +1,48 @@
 import Link from "next/link";
-import { MapPinIcon } from "lucide-react";
-import { BRAND_NAME, LAB_ADDRESS, NAV_LINKS } from "@/lib/site";
+import { BRAND_NAME, LAB_ADDRESS, whatsappUrl } from "@/lib/site";
+import { SERVICES } from "@/lib/catalog";
 import { Brand } from "./brand";
 import { CurrentYear } from "./current-year";
 
+const FOOTER_LINK = "inline-flex min-h-11 items-center transition-colors hover:text-body";
+
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-background">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 md:grid-cols-12 lg:px-12">
-        <div className="space-y-4 md:col-span-6">
+    <footer className="border-t border-border bg-background text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-10 px-6 py-14 lg:px-12">
+        <div className="flex flex-col gap-1">
           <Brand className="text-xl" />
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Laboratorio dental en Medellín de ortodoncia
-            para odontólogos y especialistas.
-          </p>
-          <div className="flex max-w-sm gap-2 text-sm text-body/80">
-            <MapPinIcon className="mt-0.5 size-4 shrink-0 text-highlight" aria-hidden />
-            <address className="not-italic">{LAB_ADDRESS}</address>
-          </div>
+          <address className="not-italic">{LAB_ADDRESS}</address>
+          <a
+            href={whatsappUrl("Hola, quiero enviar un caso a OrthoPro Lab.")}
+            target="_blank"
+            rel="noreferrer"
+            className={FOOTER_LINK}
+          >
+            WhatsApp
+          </a>
         </div>
 
-        <nav aria-label="Pie de página" className="md:col-span-3 md:col-start-10">
-          <h2 className="font-heading text-sm font-semibold text-body">Navegación</h2>
-          <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-            {NAV_LINKS.map(({ href, label }) => (
-              <li key={href}>
-                <Link href={href} prefetch className="inline-flex min-h-11 items-center transition-colors hover:text-body">
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <nav aria-label="Servicios" className="flex flex-col gap-0.5">
+          <strong className="font-heading text-sm font-semibold text-body">Servicios</strong>
+          {SERVICES.map(({ slug, name }) => (
+            <Link key={slug} href={`/catalogo/${slug}`} prefetch className={FOOTER_LINK}>
+              {name}
+            </Link>
+          ))}
+        </nav>
+
+        <nav aria-label="Laboratorio" className="flex flex-col gap-0.5">
+          <strong className="font-heading text-sm font-semibold text-body">Laboratorio</strong>
+          <Link href="/nosotros" prefetch className={FOOTER_LINK}>
+            Nosotros
+          </Link>
+          <Link href="/pagos" prefetch className={FOOTER_LINK}>
+            Pagos
+          </Link>
+          <Link href="/privacidad" prefetch className={FOOTER_LINK}>
+            Política de privacidad
+          </Link>
         </nav>
       </div>
       <div className="border-t border-border px-6 py-5 text-center text-xs text-muted-foreground">
