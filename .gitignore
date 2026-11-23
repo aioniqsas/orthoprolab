@@ -57,3 +57,11 @@ logs/
 apps/whatsapp/auth_info/
 auth_info/
 **/auth_info/
+
+# WhatsApp (Baileys) session: credentials, never commit
+auth_info*/
+.orthopro-lab/
+creds.json
+app-state-sync-*.json
+pre-key-*.json
+sender-key-*.json
