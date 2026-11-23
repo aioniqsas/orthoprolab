@@ -137,11 +137,11 @@ export default async function Home() {
                 className="flex flex-col gap-2.5 leading-[1.04] font-bold tracking-[-0.04em] text-balance"
               >
                 <span className="text-[clamp(3.25rem,7.4vw,6rem)] text-body">
-                  {t("home.hero.titulo", "Laboratorio dental")}
-                </span>
+                  {t("home.hero.h1.linea1", "Laboratorio dental")}
+                </span>{" "}
                 <span className="text-[clamp(1.625rem,3vw,2.5rem)] font-semibold tracking-[-0.03em] text-body">
-                  {t("home.hero.titulo_secundario", "con ortodoncia y prótesis")}{" "}
-                  <span className="text-highlight">{t("home.hero.titulo_destacado", "en Medellín")}</span>
+                  {t("home.hero.h1.linea2", "con ortodoncia y prótesis")}{" "}
+                  <span className="text-highlight">{t("home.hero.h1.destacado", "en Medellín")}</span>
                 </span>
               </h1>
             </Reveal>

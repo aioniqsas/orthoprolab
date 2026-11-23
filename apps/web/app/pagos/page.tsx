@@ -205,7 +205,7 @@ export default async function PaymentsPage() {
                     </span>
                     {!last && <span aria-hidden className="mt-2 w-px flex-1 bg-border" />}
                   </div>
-                  <Reveal delay={i * 0.08} className="flex flex-col gap-2.5 pt-1.5">
+                  <Reveal delay={i * 0.08} className="flex min-w-0 flex-col gap-2.5 pt-1.5">
                     <div>
                       <h3 className="mb-1.5 font-heading text-[22px] font-semibold text-body">
                         {step.title}
@@ -217,7 +217,11 @@ export default async function PaymentsPage() {
                         href={whatsappHref}
                         target="_blank"
                         rel="noreferrer"
-                        className={cn(buttonVariants(), CTA_BASE, "self-start")}
+                        className={cn(
+                          buttonVariants(),
+                          CTA_BASE,
+                          "self-start text-center whitespace-normal",
+                        )}
                       >
                         {t("pagos.pasos.boton", "Enviar comprobante por WhatsApp")}
                       </a>
