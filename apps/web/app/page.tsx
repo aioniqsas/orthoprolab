@@ -16,6 +16,16 @@ import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { LocationMap } from "@/components/location-map";
 import { fetchContenido, texto } from "@/lib/content";
+import {
+  CTA_BASE,
+  HEADING_GAP,
+  RADIUS,
+  SECTION_BAND,
+  SECTION_CLOSE,
+  SECTION_LEAD,
+  SECTION_TIGHT,
+  TINTED_SHADOW,
+} from "@/lib/ui";
 import { SERVICES, SERVICE_IMAGES } from "@/lib/catalog";
 import {
   BRAND_NAME,
@@ -67,11 +77,6 @@ const BUSINESS_JSON_LD = {
   ],
 };
 
-// Single corner-radius scale for the whole page: rounded-xl.
-const RADIUS = "rounded-xl";
-const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
-const CTA_BASE = `h-auto gap-2 ${RADIUS} px-6 py-3.5 font-semibold transition-transform active:scale-[0.98]`;
-
 // The page body awaits the cached content before rendering anything, so the
 // navigation cannot produce an instant shell without that data.
 export const instant = false;
@@ -116,7 +121,7 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
           <div className="flex max-w-4xl flex-col gap-7">
             <Reveal>
-              <h1 className="text-5xl font-bold leading-[1.05] tracking-tighter text-body md:text-6xl lg:text-7xl">
+              <h1 className="text-5xl font-bold leading-[1.05] text-balance tracking-[-0.04em] text-body md:text-6xl lg:text-7xl">
                 {t("home.hero.titulo", "Laboratorio dental en")} <span className="text-highlight">{t("home.hero.titulo_destacado", "Medellín")}</span>
               </h1>
             </Reveal>
@@ -146,74 +151,111 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Services: bento, one featured tile plus three, all linking to their route */}
-      <section id="servicios" className="scroll-mt-16 py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
+      {/* Services: the lead chapter after the hero. One anchor tile takes 7 of
+          12 columns; the other three stack beside it instead of forming a
+          symmetric bento with no centre of gravity. */}
+      <section id="servicios" className={cn("scroll-mt-16", SECTION_LEAD)}>
+        <div className={cn("mx-auto max-w-7xl px-6 lg:px-12", HEADING_GAP)}>
           <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-body lg:text-5xl">
               {t("home.servicios.titulo", "Cuatro líneas de trabajo para ortodoncia")}
             </h2>
           </Reveal>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
-            {[featured, ...others].map((s, i) => (
-              <Reveal
-                key={s.slug}
-                delay={i * 0.06}
-                className={cn("h-full", i === 0 && "md:col-span-2 lg:row-span-2", i === 3 && "md:col-span-2")}
+          <div className="grid gap-4 lg:grid-cols-12">
+            <Reveal className="h-full lg:col-span-7">
+              <Link
+                href={`/catalogo/${featured.slug}`}
+                prefetch
+                className={cn(
+                  "group relative isolate flex h-full min-h-72 flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99] lg:min-h-[34rem] lg:p-8",
+                  RADIUS,
+                  TINTED_SHADOW,
+                )}
               >
-                <Link
-                  href={`/catalogo/${s.slug}`}
-                  prefetch
-                  className={cn(
-                    "group relative isolate flex h-full min-h-64 flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.99]",
-                    RADIUS,
-                    TINTED_SHADOW,
-                    i === 0 && "lg:min-h-[34rem]",
-                  )}
-                >
-                  <Image
-                    src={SERVICE_IMAGES[s.slug]!}
-                    alt=""
-                    fill
-                    sizes={i === 0 ? "(min-width: 1024px) 50vw, 100vw" : "(min-width: 1024px) 25vw, 50vw"}
-                    className="-z-20 object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div
-                    aria-hidden
-                    className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/70 to-background/10"
-                  />
-                  <h3 className={cn("font-heading font-semibold text-body", i === 0 ? "text-2xl lg:text-3xl" : "text-xl")}>
-                    {s.name}
-                  </h3>
-                  <p className={cn("mt-2 text-sm text-body/75", i === 0 ? "line-clamp-3 max-w-md" : "line-clamp-2")}>
-                    {s.description}
-                  </p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-highlight">
-                    {t("home.servicios.boton", "Ver servicio")}
-                    <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
-                  </span>
-                </Link>
-              </Reveal>
-            ))}
+                <Image
+                  src={SERVICE_IMAGES[featured.slug]!}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 58vw, 100vw"
+                  className="-z-20 object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+                />
+                <div
+                  aria-hidden
+                  className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/70 to-background/10"
+                />
+                <h3 className="font-heading text-2xl font-semibold text-body lg:text-3xl">{featured.name}</h3>
+                <p className="mt-2 max-w-md text-sm text-body/75 lg:line-clamp-3">{featured.description}</p>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-highlight">
+                  {t("home.servicios.boton", "Ver servicio")}
+                  <ArrowRightIcon className="size-4 transition-transform motion-safe:group-hover:translate-x-1" aria-hidden />
+                </span>
+              </Link>
+            </Reveal>
+            <div className="grid gap-4 lg:col-span-5">
+              {others.map((s, i) => (
+                <Reveal key={s.slug} delay={(i + 1) * 0.06} className="h-full">
+                  <Link
+                    href={`/catalogo/${s.slug}`}
+                    prefetch
+                    className={cn(
+                      "group relative isolate flex h-full min-h-40 flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99]",
+                      RADIUS,
+                      TINTED_SHADOW,
+                    )}
+                  >
+                    <Image
+                      src={SERVICE_IMAGES[s.slug]!}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1024px) 42vw, 100vw"
+                      className="-z-20 object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+                    />
+                    <div
+                      aria-hidden
+                      className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/70 to-background/10"
+                    />
+                    <h3 className="font-heading text-xl font-semibold text-body">{s.name}</h3>
+                    <p className="mt-1.5 line-clamp-2 text-sm text-body/75">{s.description}</p>
+                    <span className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-highlight">
+                      {t("home.servicios.boton", "Ver servicio")}
+                      <ArrowRightIcon className="size-4 transition-transform motion-safe:group-hover:translate-x-1" aria-hidden />
+                    </span>
+                  </Link>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Workflow: horizontal timeline */}
-      <section className="bg-surface-raised/40 py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
-          <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+      {/* Workflow: a vertical rail instead of four equal columns, so the order
+          of the case reads in the topology and not only in the text. */}
+      <section className={cn("bg-surface-raised/40", SECTION_BAND)}>
+        <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
+          <Reveal className="lg:sticky lg:top-24 lg:col-span-4 lg:self-start">
+            <h2 className="max-w-md text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("home.proceso.titulo", "Del caso que envías al trabajo que recibes")}
             </h2>
           </Reveal>
-          <ol className="grid gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+          <ol className="lg:col-span-8">
             {steps.map(({ icon: Icon, ...s }, i) => (
               <li key={s.title}>
-                <Reveal delay={i * 0.08} className="relative flex flex-col gap-4 border-t border-border pt-6 lg:border-highlight/40">
-                  <Icon className="size-6 text-highlight" strokeWidth={1.5} aria-hidden />
-                  <h3 className="font-heading text-lg font-semibold text-body">{s.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{s.text}</p>
+                <Reveal
+                  delay={i * 0.08}
+                  className={cn("relative flex gap-5", i < steps.length - 1 && "pb-12")}
+                >
+                  <span className="flex flex-col items-center">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-card ring-1 ring-border">
+                      <Icon className="size-5 text-highlight" strokeWidth={1.5} aria-hidden />
+                    </span>
+                    {i < steps.length - 1 ? (
+                      <span aria-hidden className="mt-2 w-px flex-1 bg-border" />
+                    ) : null}
+                  </span>
+                  <div className="max-w-md pt-2">
+                    <h3 className="font-heading text-lg font-semibold text-body">{s.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.text}</p>
+                  </div>
                 </Reveal>
               </li>
             ))}
@@ -221,23 +263,24 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Before the first case: split with image */}
-      <section className="py-20 lg:py-28">
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
-          <Reveal className="lg:col-span-6">
+      {/* Before the first case: supporting checklist, deliberately tighter than
+          the chapters around it and split 5/7 so the image supports, not leads. */}
+      <section className={SECTION_TIGHT}>
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
+          <Reveal className="lg:col-span-5">
             <div className={cn("relative aspect-[4/3] overflow-hidden ring-1 ring-border", RADIUS, TINTED_SHADOW)}>
               <Image
                 src={t("home.antes.imagen", "/images/tecnico-laboratorio-dental-ajustando-protesis.webp")}
                 alt={t("home.antes.imagen_alt", "Técnico del laboratorio dental de Medellín ajustando una prótesis dental en el articulador")}
                 fill
-                sizes="(min-width: 1024px) 50vw, 100vw"
+                sizes="(min-width: 1024px) 42vw, 100vw"
                 className="object-cover"
               />
             </div>
           </Reveal>
-          <div className="flex flex-col gap-8 lg:col-span-6">
+          <div className={cn("lg:col-span-7", HEADING_GAP)}>
             <Reveal>
-              <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+              <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
                 {t("home.antes.titulo", "Antes de enviar tu primer caso")}
               </h2>
             </Reveal>
@@ -261,7 +304,7 @@ export default async function Home() {
       <LocationMap />
 
       {/* Closing CTA: full-width band over the milling image */}
-      <section className="relative isolate overflow-hidden py-20 lg:py-28">
+      <section className={cn("relative isolate overflow-hidden", SECTION_CLOSE)}>
         <Image
           src={t("home.cierre.imagen", "/images/protesis-dental-completa-laboratorio-medellin.webp")}
           alt=""
@@ -271,7 +314,7 @@ export default async function Home() {
         />
         <div aria-hidden className="absolute inset-0 -z-10 bg-background/85" />
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
-          <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+          <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
             {t("home.cierre.titulo", "Consulta el catálogo completo")}
           </h2>
           <p className="max-w-[60ch] text-body/80">

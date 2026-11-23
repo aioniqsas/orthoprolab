@@ -12,11 +12,10 @@ import { Reveal } from "@/components/reveal";
 import { JsonLd } from "@/components/json-ld";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { fetchContenido, texto } from "@/lib/content";
+import { HEADING_GAP, RADIUS, SECTION_BAND, SECTION_TIGHT } from "@/lib/ui";
 import { BRAND_NAME, LAB_LOCALITY, SITE_URL, pageSocial } from "@/lib/site";
 
 type Props = { params: Promise<{ servicio: string }> };
-
-const RADIUS = "rounded-xl";
 
 export async function generateStaticParams() {
   const services = await fetchServices();
@@ -99,13 +98,13 @@ export default async function ServicePage({ params }: Props) {
           <Link
             href="/catalogo"
             prefetch
-            className="mb-8 inline-flex items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
+            className="mb-8 inline-flex min-h-11 items-center gap-2 text-sm text-body/80 transition-colors hover:text-body"
           >
             <ArrowLeftIcon className="size-4" aria-hidden />
             {t("catalogo.detalle.volver", "Volver al catálogo")}
           </Link>
           <Reveal className="flex max-w-3xl flex-col gap-6">
-            <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl lg:text-6xl">
               {service.name}
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">{service.description}</p>
@@ -117,10 +116,10 @@ export default async function ServicePage({ params }: Props) {
       </section>
 
       {/* Items: divided rows, name left and spec list right */}
-      <section className="py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl space-y-12 px-6 lg:px-12">
+      <section className={SECTION_TIGHT}>
+        <div className={cn("mx-auto max-w-7xl px-6 lg:px-12", HEADING_GAP)}>
           <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("catalogo.detalle.productos_titulo", "Productos de esta línea")}
             </h2>
           </Reveal>
@@ -148,10 +147,10 @@ export default async function ServicePage({ params }: Props) {
       </section>
 
       {/* Related services: compact rows with thumbnail */}
-      <section className="bg-surface-raised/40 py-20 lg:py-28">
+      <section className={cn("bg-surface-raised/40", SECTION_BAND)}>
         <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="lg:col-span-4">
-            <h2 className="text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("catalogo.detalle.relacionados_titulo", "Otras líneas del laboratorio")}
             </h2>
           </Reveal>
@@ -161,7 +160,7 @@ export default async function ServicePage({ params }: Props) {
                 <Link
                   href={`/catalogo/${s.slug}`}
                   prefetch
-                  className="group flex items-center gap-5 py-4 transition-transform active:scale-[0.99]"
+                  className="group flex items-center gap-5 py-4 transition-transform motion-safe:active:scale-[0.99]"
                 >
                   <span className={cn("relative h-16 w-24 shrink-0 overflow-hidden ring-1 ring-border", RADIUS)}>
                     <Image
@@ -177,7 +176,7 @@ export default async function ServicePage({ params }: Props) {
                     <span className="block text-sm text-muted-foreground">{s.tagline}</span>
                   </span>
                   <ArrowRightIcon
-                    className="size-5 shrink-0 text-highlight transition-transform group-hover:translate-x-1"
+                    className="size-5 shrink-0 text-highlight transition-transform motion-safe:group-hover:translate-x-1"
                     aria-hidden
                   />
                 </Link>

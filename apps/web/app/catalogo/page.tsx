@@ -7,6 +7,7 @@ import { PriceDownloadButton } from "@/components/price-download-button";
 import { Reveal } from "@/components/reveal";
 import { fetchServices, resolveImage } from "@/lib/api-catalog";
 import { fetchContenido, texto } from "@/lib/content";
+import { RADIUS, SECTION_TIGHT, TINTED_SHADOW } from "@/lib/ui";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
 // The page body awaits the cached catalog before rendering anything, so the
@@ -23,9 +24,6 @@ export const metadata: Metadata = {
   ...pageSocial(`${CATALOG_TITLE} | ${BRAND_NAME}`, CATALOG_DESCRIPTION, "/catalogo"),
 };
 
-const RADIUS = "rounded-xl";
-const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
-
 // Column spans on a 12-col grid: one wide feature, then three equal tiles.
 const SPANS = [
   "lg:col-span-12",
@@ -41,9 +39,9 @@ export default async function CatalogPage() {
   const t = (clave: string, porDefecto: string) => texto(contenido, clave, porDefecto);
   return (
     <>
-      <section className="pt-16 pb-10 lg:pt-24">
+      <section className="pt-14 lg:pt-20">
         <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-6 lg:px-12">
-          <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">
+          <h1 className="max-w-3xl text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl">
             {t("catalogo.titulo", "Catálogo de")} <span className="text-highlight">{t("catalogo.titulo_destacado", "servicios")}</span>
           </h1>
           <p className="max-w-[60ch] text-lg text-body/80">
@@ -53,7 +51,7 @@ export default async function CatalogPage() {
         </Reveal>
       </section>
 
-      <section className="pb-20 lg:pb-28">
+      <section className={SECTION_TIGHT}>
         <ul className="mx-auto grid max-w-7xl gap-4 px-6 lg:grid-cols-12 lg:px-12">
           {services.map((service, i) => (
             <li key={service.slug} className={cn("h-full", SPANS[i])}>
@@ -62,7 +60,7 @@ export default async function CatalogPage() {
                   href={`/catalogo/${service.slug}`}
                   prefetch
                   className={cn(
-                    "group relative isolate flex h-full flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.99]",
+                    "group relative isolate flex h-full flex-col justify-end overflow-hidden bg-card p-6 ring-1 ring-border transition-transform duration-300 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99]",
                     i === 0 ? "min-h-80 lg:min-h-[26rem] lg:p-10" : "min-h-72 lg:min-h-80",
                     RADIUS,
                     TINTED_SHADOW,
@@ -73,7 +71,7 @@ export default async function CatalogPage() {
                     alt=""
                     fill
                     sizes={i === 0 ? "100vw" : "(min-width: 1024px) 33vw, 100vw"}
-                    className="-z-20 object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="-z-20 object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
                   />
                   <div
                     aria-hidden
@@ -88,7 +86,7 @@ export default async function CatalogPage() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
                     <span className="inline-flex items-center gap-2 text-sm font-semibold whitespace-nowrap text-highlight">
                       {t("catalogo.boton", "Ver servicio")}
-                      <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
+                      <ArrowRightIcon className="size-4 transition-transform motion-safe:group-hover:translate-x-1" aria-hidden />
                     </span>
                   </div>
                 </Link>

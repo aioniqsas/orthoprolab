@@ -6,6 +6,7 @@ import { AccountQr } from "@/components/account-qr";
 import { CopyButton } from "@/components/copy-button";
 import { Reveal } from "@/components/reveal";
 import { fetchContenido, texto } from "@/lib/content";
+import { HEADING_GAP, RADIUS, SECTION_BAND, SECTION_LEAD, TINTED_SHADOW } from "@/lib/ui";
 import { BANK_ACCOUNTS } from "@/lib/payments";
 import { BRAND_NAME, pageSocial } from "@/lib/site";
 
@@ -18,9 +19,6 @@ export const metadata: Metadata = {
   description: PAYMENTS_DESCRIPTION,
   ...pageSocial(`${PAYMENTS_TITLE} | ${BRAND_NAME}`, PAYMENTS_DESCRIPTION, "/pagos"),
 };
-
-const RADIUS = "rounded-xl";
-const TINTED_SHADOW = "shadow-[0_24px_48px_-24px_rgba(86,137,143,0.4)]";
 
 // The page body awaits the cached content before rendering anything, so the
 // navigation cannot produce an instant shell without that data.
@@ -38,16 +36,16 @@ export default async function PaymentsPage() {
 
   return (
     <>
-      <section className="py-16 lg:py-24">
+      <section className={SECTION_LEAD}>
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12 lg:gap-16 lg:px-12">
           <Reveal className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-span-5 lg:self-start">
-            <h1 className="text-4xl font-bold leading-[1.1] tracking-tighter text-body md:text-5xl">
+            <h1 className="text-4xl font-bold leading-[1.1] text-balance tracking-[-0.04em] text-body md:text-5xl">
               {t("pagos.hero.titulo", "Paga por")} <span className="text-highlight">{t("pagos.hero.titulo_destacado", "transferencia")}</span>
             </h1>
             <p className="max-w-[60ch] text-lg text-body/80">
               {t("pagos.hero.intro", "Recibimos pagos solo en la cuenta bancaria de esta página.")}
             </p>
-            <div className="flex gap-3 border-l-2 border-highlight/60 pl-4">
+            <div className="flex gap-3 border-l border-highlight/60 pl-4">
               <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-highlight" aria-hidden />
               <p className="text-sm text-body/80">
                 <strong className="font-semibold text-body">{t("pagos.hero.aviso_titulo", "Aviso de seguridad:")}</strong>{" "}
@@ -120,10 +118,10 @@ export default async function PaymentsPage() {
         </div>
       </section>
 
-      <section className="bg-surface-raised/40 py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl space-y-14 px-6 lg:px-12">
+      <section className={cn("bg-surface-raised/40", SECTION_BAND)}>
+        <div className={cn("mx-auto max-w-7xl px-6 lg:px-12", HEADING_GAP)}>
           <Reveal>
-            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-body lg:text-4xl">
+            <h2 className="max-w-2xl text-balance text-3xl font-semibold tracking-tight text-body lg:text-4xl">
               {t("pagos.pasos.titulo", "Cómo pagar y confirmar en tres pasos")}
             </h2>
           </Reveal>
