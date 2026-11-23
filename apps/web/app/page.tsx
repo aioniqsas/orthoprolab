@@ -125,7 +125,13 @@ export default async function Home() {
         />
         <div
           aria-hidden
-          className="absolute inset-0 -z-10 bg-gradient-to-b from-surface-alt/35 via-background/45 to-background"
+          className="absolute inset-0 -z-10 bg-gradient-to-b from-surface-alt/15 via-background/45 to-background"
+        />
+        {/* Side scrim: the copy sits over the light plaster models, so the left
+            side is darkened until the letters reach AA contrast. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-gradient-to-r from-background/90 via-background/60 to-transparent max-md:from-background/70 max-md:via-background/65 max-md:to-background/50"
         />
         <div className="mx-auto w-full max-w-7xl px-6 lg:px-12">
           <div className="flex max-w-4xl flex-col gap-6">
