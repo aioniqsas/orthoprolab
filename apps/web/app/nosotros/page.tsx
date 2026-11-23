@@ -183,14 +183,15 @@ export default async function AboutPage() {
               {t("nosotros.valores.titulo", "Cómo trabajamos")}
             </h2>
           </Reveal>
-          <ul className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {values.map((value, i) => (
-              <li key={value.title}>
+              <li key={value.title} className="h-full">
                 <Reveal
                   delay={i * 0.06}
-                  className="flex h-full flex-col gap-2 border border-border bg-surface-raised p-7"
+                  className={cn("flex h-full flex-col gap-2 border border-border bg-surface-raised p-7", RADIUS)}
                 >
-                  <h3 className="font-heading text-[22px] font-semibold text-body">{value.title}</h3>
+                  {/* Two title lines are reserved on wide screens so the texts start at the same height. */}
+                  <h3 className="font-heading text-[22px] leading-[1.25] font-semibold text-body lg:min-h-[2.5em]">{value.title}</h3>
                   <p className="text-surface-alt">{value.text}</p>
                 </Reveal>
               </li>
