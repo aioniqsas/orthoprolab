@@ -4,10 +4,12 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
+import sharp from 'sharp';
 import type { Redis } from 'ioredis';
 import type { EnvConfig } from '../config/env.validation.js';
 import { ServiciosService, type ServicioParaPdf } from './servicios.service.js';
 import { isCloudinaryUrl } from './image-storage.js';
+import { detectImageType } from './image-validation.js';
 import { PDF_REDIS, invalidatePdfCache } from './pdf-cache.js';
 
 export { PDF_REDIS } from './pdf-cache.js';
@@ -367,6 +369,9 @@ export class PdfService {
         });
         doc.restore();
       } catch {
+        // A failed embed skips the restore above: undo the clip here, or every
+        // later card and text on the page is clipped away.
+        doc.restore();
         this.logger.warn(`Failed to embed thumbnail for service ${service.id}`);
       }
       textY += IMG_H + 10;
@@ -473,6 +478,10 @@ export class PdfService {
       if (contentLength > IMAGE_MAX_BYTES) return null;
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length > IMAGE_MAX_BYTES) return null;
+      // pdfkit only embeds JPEG and PNG; uploads may also be WebP.
+      if (detectImageType(buf) === 'image/webp') {
+        return await sharp(buf).png().toBuffer();
+      }
       return buf;
     } catch {
       return null;
