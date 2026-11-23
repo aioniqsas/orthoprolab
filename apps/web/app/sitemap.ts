@@ -9,6 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/nosotros",
     "/catalogo",
     "/pagos",
+    "/laboratorio-dental-ortodoncia",
     ...services.map((s) => `/catalogo/${s.slug}`),
   ];
   return paths.map((path) => ({ url: `${SITE_URL}${path === "/" ? "" : path}` }));
