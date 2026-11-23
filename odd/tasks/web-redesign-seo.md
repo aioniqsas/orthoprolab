@@ -36,12 +36,12 @@ Prefer the existing mapping in `lib/catalog.ts` where it already assigns these.
 
 ## Tasks
 
-- [ ] T1 (S6, S9, S10, S11) shared base: `whatsappUrl` in `lib/site.ts`, `lib/faq.ts`, `FAQPage` helper in `components/json-ld.tsx`, header (home keeps the transparent-over-hero nav) and footer with the address, service links, "Política de privacidad".
-- [ ] T2 (S1, S2, S3, S4, S9) home.
-- [ ] T3 (S2, S4) `/catalogo` and `/catalogo/[servicio]`.
-- [ ] T4 (S5, S6) `/nosotros` and `/pagos`.
-- [ ] T5 (S7, S8, S10) `/privacidad`, `/laboratorio-dental-ortodoncia`, sitemap.
-- [ ] T6 (S13) verification and screenshots.
+- [x] T1 (S6, S9, S10, S11) shared base: `whatsappUrl` in `lib/site.ts`, `lib/faq.ts`, `FAQPage` helper in `components/json-ld.tsx`, header (home keeps the transparent-over-hero nav) and footer with the address, service links, "Política de privacidad". — `0829439`
+- [x] T2 (S1, S2, S3, S4, S9) home. — `2f9fda9`
+- [x] T3 (S2, S4) `/catalogo` and `/catalogo/[servicio]`. — `8dc9027`
+- [x] T4 (S5, S6) `/nosotros` and `/pagos`. — `00be4ab`
+- [x] T5 (S7, S8, S10) `/privacidad`, `/laboratorio-dental-ortodoncia`, sitemap. — `0e181ac`
+- [x] T6 (S13) verification and screenshots. — `2c8eac1` (with the two fixes verification found)
 
 Commit after each task and record the commit hash here when you close it. Report which `S#` each task covered, with evidence.
 
@@ -53,3 +53,5 @@ Commit after each task and record the commit hash here when you close it. Report
 - L4 (2026-11-23, user): "Mejor hagamos algo, no hagámoslo del seguimiento de leads así nos ahorramos esa parte legal y simplemente hacemos que la automatización del bot de WhatsApp en casos de preguntas muy concretas como por ejemplo qué valor tienes este servicio, qué servicios prestan pueda responder sin que haya una auténticación primeramente." (This task only covers the website; the bot is out of scope.)
 - L5 (2026-11-23, user): "Las preguntas frecuentes al home"
 - L6 (2026-11-23, parent): the design in `odd/artifacts/web-redesign-seo/design/` is the published canvas version `1795459385-b474` of the Artifact "OrthoPro Lab Redesign SEO". Known open points for the client, not for you to decide: WhatsApp number, privacy-policy placeholders (S7), the home FAQ answer about how impressions arrive, and whether the two off-topic FAQ questions (clinics in Colombia, consultation cost) stay.
+- L7 (implementation, agent): T1-T6 closed with one commit per task on `feat/web-redesign-seo-pi`. T6 evidence: `bun run lint` exit 0, `bun run build` exit 0 (19/19 static pages), `impeccable detect --json` over the 17 changed `apps/web` files returned `[]`; `next start` + Playwright at 1440px and 360px over the 7 routes gave HTTP 200, exactly one `<h1>` and horizontal overflow 0 on every page (14 screenshots under `odd/artifacts/web-redesign-seo/after/`, not committed). Service card images, titles and links share the same y at 1440px and at 1024px where three titles wrap, so S2 holds. Two defects were found and fixed in `2c8eac1`: the `/pagos` step column overflowed 360px by 41px, and the home `<h1>` reused the old design's content keys, so a saved CMS override would have restored the old headline. Open items for the client: the WhatsApp number (`NEXT_PUBLIC_WHATSAPP_NUMBER`, unset, so links fall back to `https://wa.me/?text=…`), the seven bracketed privacy placeholders, and the two privacy paragraphs that still describe a form and a consent checkbox that S6 removed.
+- L8 (implementation, agent): slice boundary. `2f9fda9` alone is ~470 authored lines and the six tasks total ~2800 authored lines, past the 400-line work-unit budget; that is inherent to a 7-page redesign tracked as six chained tasks. Delivery shape when publishing is the owner's call; this work stays unpushed on `feat/web-redesign-seo-pi`.
